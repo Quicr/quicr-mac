@@ -3,6 +3,7 @@
 
 import AVFAudio
 import CoreMedia
+import Synchronization
 import Testing
 @testable import QuicR
 
@@ -115,17 +116,66 @@ struct AudioHandlerTests {
 
     @Test("Playout buffer rejects a format with no bytes per frame")
     func playoutRejectsInvalidFormat() {
-        #expect(throws: CircularBufferError.initFailed) {
+        #expect(throws: CircularBufferError.invalidFormat) {
             _ = try CircularBuffer.makeSPSC(length: 16_384,
                                             format: AudioStreamBasicDescription())
         }
+    }
+
+    @Test("A delayed clear remains pending until the reader resumes")
+    func playoutClearRemainsPendingWhenReaderStalls() async throws {
+        let format = try self.makeFormat()
+        let endpoints = try self.makeEndpoints(format: format)
+        let input = try self.makeBuffer(format: format)
+        var timestamp = self.makeTimestamp()
+        try endpoints.writer.enqueue(buffer: &input.mutableAudioBufferList.pointee,
+                                     timestamp: &timestamp,
+                                     frames: nil)
+
+        // Crossing the diagnostic threshold must neither complete the wait nor impersonate the reader.
+        let clearGeneration = endpoints.writer.requestClear()
+        let completion = WaitState()
+        let warningObserved = Atomic(false)
+        let acknowledgement = Task {
+            await completion.start()
+            try await endpoints.writer.waitForClearAcknowledgement(
+                clearGeneration,
+                warningAfter: .milliseconds(10)) {
+                warningObserved.store(true, ordering: .releasing)
+            }
+            await completion.set()
+        }
+        while !(await completion.hasStarted()) {
+            await Task.yield()
+        }
+        try await Task.sleep(for: .milliseconds(30), clock: .continuous)
+        let warned = warningObserved.load(ordering: .acquiring)
+        #expect(warned)
+        #expect(!(await completion.get()))
+
+        // The writer remains blocked until the reader performs the clear.
+        #expect(endpoints.reader.peek().frames == 960)
+        #expect(throws: CircularBufferError.clearPending) {
+            try endpoints.writer.enqueue(buffer: &input.mutableAudioBufferList.pointee,
+                                         timestamp: &timestamp,
+                                         frames: nil)
+        }
+
+        #expect(endpoints.reader.processClearRequest())
+        try await acknowledgement.value
+        #expect(await completion.get())
+        #expect(endpoints.reader.peek().frames == 0)
+        try endpoints.writer.enqueue(buffer: &input.mutableAudioBufferList.pointee,
+                                     timestamp: &timestamp,
+                                     frames: nil)
+        #expect(endpoints.writer.depthFrames == 960)
     }
 
     @Test("Large gap clears playout via the reader and preserves buffered future packets")
     func largeGapRecoveryPreservesFuturePackets() async throws {
         let decoder = RecordingAudioDecoder(format: try self.makeFormat())
         let handler = try AudioHandler(identifier: "large-gap-test",
-                                       engine: DecimusAudioEngine(),
+                                       engine: StubPlayout(),
                                        decoder: decoder,
                                        measurement: nil,
                                        metricsSubmitter: nil,
@@ -156,26 +206,28 @@ struct AudioHandlerTests {
 
         let anchor: EncodedAudioItem = try #require(jitterBuffer.read(from: now))
         #expect(anchor.sequenceNumber == 100)
-        let acknowledgeClear = Task {
-            // Deliberately hold the reader acknowledgement so this test detects recovery
-            // returning early and allowing the producer to drop post-gap audio.
-            try await Task.sleep(for: .milliseconds(20), clock: .continuous)
-            return endpoints.reader.processClearRequest()
-        }
         let clearGeneration = try #require(handler.checkForDiscontinuity(anchor,
                                                                          window: .twentyMs,
                                                                          when: now,
                                                                          lastUsedSequence: 1,
                                                                          playoutBuffer: endpoints.writer))
-        let recovered = await endpoints.writer.waitForClearAcknowledgement(clearGeneration)
-        #expect(recovered)
         #expect(decoder.resetCount == 1)
 
-        // Recovery must not return until only the reader has performed the clear.
+        // Recovery is not complete, and no post-gap audio may be queued, until the reader has acted.
+        #expect(!endpoints.writer.isClearAcknowledged(clearGeneration))
+        #expect(endpoints.reader.peek().frames == 960)
+        #expect(throws: CircularBufferError.clearPending) {
+            try endpoints.writer.enqueue(buffer: &staleAudio.mutableAudioBufferList.pointee,
+                                         timestamp: &staleTimestamp,
+                                         frames: nil)
+        }
+
+        #expect(endpoints.reader.processClearRequest())
+        try await endpoints.writer.waitForClearAcknowledgement(clearGeneration,
+                                                               warningAfter: .seconds(1))
         try endpoints.writer.enqueue(buffer: &staleAudio.mutableAudioBufferList.pointee,
                                      timestamp: &staleTimestamp,
                                      frames: nil)
-        #expect(try await acknowledgeClear.value)
 
         // Packets buffered behind the gap survive it, in order, without further resets.
         var lastUsedSequence = anchor.sequenceNumber
@@ -222,6 +274,32 @@ struct AudioHandlerTests {
                                 handlers: handlers)
     }
     // swiftlint:enable force_cast
+
+    private final class StubPlayout: AudioPlayout {
+        func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {}
+        func removePlayer(identifier: SourceIDType) throws {}
+    }
+
+    private actor WaitState {
+        private var started = false
+        private var value = false
+
+        func start() {
+            self.started = true
+        }
+
+        func hasStarted() -> Bool {
+            self.started
+        }
+
+        func set() {
+            self.value = true
+        }
+
+        func get() -> Bool {
+            self.value
+        }
+    }
 
     private final class EncodedAudioItem: JitterBuffer.JitterItem {
         let data: Data

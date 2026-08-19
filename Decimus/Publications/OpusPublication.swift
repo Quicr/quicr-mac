@@ -288,6 +288,9 @@ final class OpusPublication: AudioPublication, PublicationInstance {
             #endif
         }
 
+        // Discard captured audio the engine has asked us to drop.
+        buffer.processClearRequest()
+
         // Are there enough frames available to fill an opus window?
         let available = buffer.peek()
         guard available.frames >= self.windowFrames else { return nil }
