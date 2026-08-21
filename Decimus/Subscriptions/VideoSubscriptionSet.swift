@@ -369,18 +369,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
 
     /// Make one simulreceive decision, or nil if this task no longer owns the render slot.
+    /// The decision runs outside the lock: receipt on the transport thread contends for it on
+    /// every object, and only one render task can own a token at a time.
     /// - Returns: How long to wait before the next decision.
     private func renderStep(token: UInt64, generation: UInt64) -> TimeInterval? {
-        self.renderTaskState.withLock { state in
-            guard state.token == token,
-                  !Task.isCancelled,
-                  !self.getHandlers().isEmpty else { return nil }
-            do {
-                return try self.makeSimulreceiveDecision(at: Ticks.now, generation: generation)
-            } catch {
-                self.logger.error("Simulreceive failure: \(error.localizedDescription)")
-                return nil
-            }
+        let owned = self.renderTaskState.withLock { $0.token == token }
+        guard owned,
+              !Task.isCancelled,
+              !self.getHandlers().isEmpty else { return nil }
+        do {
+            return try self.makeSimulreceiveDecision(at: Ticks.now, generation: generation)
+        } catch {
+            self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+            return nil
         }
     }
 
@@ -429,17 +430,24 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
+    private static func highestFps(_ handlers: [FullTrackName: VideoHandler]) -> UInt16 {
+        handlers.values.reduce(1) { max($0, $1.config.fps) }
+    }
+
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision(at: Ticks,
                                           generation: UInt64) throws -> TimeInterval {
-        // Gather up what frames we have to choose from.
+        // Gather up what frames we have to choose from. Handlers can be torn down underneath us,
+        // so resolve them once here and use this snapshot for the rest of the decision.
         var initialChoices: [SimulreceiveItem] = []
-        let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
-        for subscription in subscriptions {
-            guard let handler = subscription.value.handler.get() else {
+        var handlers: [FullTrackName: VideoHandler] = [:]
+        for subscription in self.getHandlers().values {
+            guard let subscription = subscription as? VideoSubscription,
+                  let handler = subscription.handler.get() else {
                 continue
             }
+            handlers[handler.fullTrackName] = handler
             handler.lastDecodedImage.withLock { lockedImage in
                 guard let available = lockedImage else { return }
                 if let lastTime = self.lastImage?.image.presentationTimeStamp,
@@ -461,24 +469,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             // Wait for next.
             let duration: TimeInterval
             if let lastNamespace = self.last,
-               let handler = subscriptions[lastNamespace]?.handler.get() {
+               let handler = handlers[lastNamespace] {
                 duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
             } else {
-                var highestFps: UInt16 = 1
-                for subscription in subscriptions {
-                    guard let handler = subscription.value.handler.get() else {
-                        continue
-                    }
-                    highestFps = max(highestFps, handler.config.fps)
-                }
-                duration = TimeInterval(1 / highestFps)
+                duration = 1 / TimeInterval(Self.highestFps(handlers))
             }
             return duration
         }
 
         // Consume all images from our shortlist.
         for choice in choices {
-            let handler = subscriptions[choice.fullTrackName]!.handler.get()!
+            guard let handler = handlers[choice.fullTrackName] else { continue }
             handler.lastDecodedImage.withLock { lockedImage in
                 let theirTime = lockedImage?.image.presentationTimeStamp
                 let ourTime = choice.image.image.presentationTimeStamp
@@ -559,11 +560,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             //            }
         }
 
-        guard let subscription = subscriptions[selected.fullTrackName] else {
-            throw "Missing expected subscription for namespace: \(selected.fullTrackName)"
-        }
-        guard let handler = subscription.handler.get() else {
-            throw "Missing video hanler for namespace: \(selected.fullTrackName)"
+        guard let handler = handlers[selected.fullTrackName] else {
+            throw "Missing video handler for namespace: \(selected.fullTrackName)"
         }
 
         let stepDown = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
@@ -621,14 +619,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             if selectedSample.duration.isValid {
                 return selectedSample.duration.seconds
             }
-            var highestFps: UInt16 = 1
-            for subscription in subscriptions {
-                guard let handler = subscription.value.handler.get() else {
-                    continue
-                }
-                highestFps = max(highestFps, handler.config.fps)
-            }
-            return 1 / TimeInterval(highestFps)
+            return 1 / TimeInterval(Self.highestFps(handlers))
         }
 
         // Proceed with rendering this frame.
@@ -725,14 +716,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         if selectedSample.duration.isValid {
             return selectedSample.duration.seconds
         }
-        var highestFps: UInt16 = 1
-        for subscription in subscriptions {
-            guard let handler = subscription.value.handler.get() else {
-                continue
-            }
-            highestFps = max(highestFps, handler.config.fps)
-        }
-        return 1 / TimeInterval(highestFps)
+        return 1 / TimeInterval(Self.highestFps(handlers))
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length

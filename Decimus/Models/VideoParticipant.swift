@@ -212,11 +212,19 @@ final class VideoParticipantRegistration {
     nonisolated let participant: VideoParticipant
 
     private nonisolated let active = Mutex(true)
-    private weak var participants: VideoParticipants?
+    private nonisolated(unsafe) weak var participants: VideoParticipants?
 
     fileprivate init(participant: VideoParticipant, participants: VideoParticipants) {
         self.participant = participant
         self.participants = participants
+    }
+
+    deinit {
+        guard let participants = self.participants else { return }
+        let id = self.participant.id
+        Task { @MainActor in
+            participants.removeReleased(id)
+        }
     }
 
     nonisolated var isActive: Bool {
@@ -346,5 +354,13 @@ class VideoParticipants {
         guard self.weakParticipants[participant.id]?.registration.value === registration else { return }
         self.weakParticipants.removeValue(forKey: participant.id)
         self.logger.debug("[\(participant.id)] Removed participant")
+    }
+
+    /// Remove a participant whose registration has been released, unless it has already been replaced.
+    fileprivate func removeReleased(_ identifier: SourceIDType) {
+        guard let entry = self.weakParticipants[identifier],
+              entry.registration.value == nil else { return }
+        self.weakParticipants.removeValue(forKey: identifier)
+        self.logger.debug("[\(identifier)] Removed released participant")
     }
 }

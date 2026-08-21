@@ -306,6 +306,29 @@ struct VideoSubscriptionSetTests {
     }
 
     @MainActor
+    @Test("Releasing a registration prunes its collection entry")
+    func testReleasedRegistrationPrunesEntry() async throws {
+        let participants = VideoParticipants()
+        do {
+            let participant = VideoParticipant(id: "participant",
+                                               startDate: .now,
+                                               subscribeDate: .now,
+                                               participantId: .init(1),
+                                               activeSpeakerStats: nil,
+                                               config: .init(calculateLatency: false,
+                                                             slidingWindowTime: 1))
+            let registration = try participants.register(participant)
+            #expect(participants.participants.count == 1)
+            _ = registration
+        }
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+
+        #expect(participants.participants.isEmpty)
+    }
+
+    @MainActor
     @Test("Invalidated registration cannot touch or remove its replacement")
     func testInvalidatedRegistrationCannotTouchOrRemoveReplacement() throws {
         let participants = VideoParticipants()

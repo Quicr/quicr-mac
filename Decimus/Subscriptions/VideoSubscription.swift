@@ -46,7 +46,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let switchContext = Mutex<SwitchContext?>(nil)
     private var handlerCreatedOnce = false  // Only accessed inside handler.withLock
 
-    private var cleanupTask: Task<(), Never>?
+    private let cleanupTask = Mutex<Task<(), Never>?>(nil)
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Atomic<Ticks>(.now)
     private let participantId: ParticipantId
@@ -269,7 +269,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     }
 
     deinit {
-        self.cleanupTask?.cancel()
+        self.cleanupTask.consume()?.cancel()
         self.logger.debug("Deinit")
     }
 
@@ -298,7 +298,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                                     desired: true,
                                                     ordering: .acquiringAndReleasing)
         guard exchange.exchanged else { return }
-        self.cleanupTask?.cancel()
+        self.cleanupTask.consume()?.cancel()
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
         self.stopHandler()
     }
@@ -511,8 +511,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
 
         // Start the cleanup task, if not already.
-        if self.cleanupTask == nil {
-            self.cleanupTask = .init(priority: .utility) { [weak self] in
+        self.cleanupTask.withLock { cleanupTask in
+            guard cleanupTask == nil else { return }
+            cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
                     let duration: TimeInterval
                     if let self = self {
