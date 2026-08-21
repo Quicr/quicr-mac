@@ -106,6 +106,15 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             }
         }
 
+        func completeFetchIfActive(_ shouldComplete: () -> Bool) -> Bool {
+            self.state.withLock { state in
+                guard shouldComplete(),
+                      case .fetching = state else { return false }
+                state = .running
+                return true
+            }
+        }
+
         func transition(to newState: State) throws {
             try self.state.withLock { state in
                 var valid: Bool {
@@ -290,6 +299,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                                     ordering: .acquiringAndReleasing)
         guard exchange.exchanged else { return }
         self.cleanupTask?.cancel()
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
         self.stopHandler()
     }
 
@@ -666,6 +676,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
         // TODO: Reduce duplication with objectReceived?
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
                 self.logger.info("Dropping fetched object in paused state")
@@ -679,7 +691,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
         // TODO: This should be getCreate? Unsure if this would ever happen.
         guard let handler = self.handler.get() else {
-            assert(false)
+            assert(self.stopped.load(ordering: .acquiring),
+                   "Missing video handler while subscription is active")
             return
         }
 
@@ -708,18 +721,16 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         if headers.groupId == currentGroup,
            headers.objectId == currentObject - 1 {
             self.logger.info("Video Fetch complete")
-            // Check paused again before transitioning state machine to prevent races with pause().
-            guard !self.paused.load(ordering: .acquiring) else {
+            // Complete only while this fetch still owns the subscription state.
+            let completed = self.stateMachine.completeFetchIfActive {
+                !self.stopped.load(ordering: .acquiring) &&
+                    !self.paused.load(ordering: .acquiring)
+            }
+            guard completed else {
                 if self.verbose {
-                    self.logger.info("Not completing fetch - paused")
+                    self.logger.info("Not completing inactive fetch")
                 }
                 return
-            }
-            do {
-                try self.stateMachine.transition(to: .running)
-            } catch {
-                assert(false)
-                self.logger.warning("Subscription in invalid state", alert: true)
             }
             self.lastSeenGroup = currentGroup
             self.switchContext.withLock { ctx in

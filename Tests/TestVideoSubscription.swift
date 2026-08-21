@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length type_body_length
+
+import Dispatch
 import Testing
 @testable import QuicR
 
@@ -153,6 +156,179 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: 0, objectId: 0)
 
         #expect(subscription.handler.get() == nil)
+    }
+
+    @Test("Stopping a handler waits out in-flight receive task creation")
+    @MainActor
+    func testHandlerStopPreventsInFlightDequeueTaskCreation() async throws {
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        var jitterBufferConfig = JitterBuffer.Config()
+        jitterBufferConfig.mode = .interval
+        jitterBufferConfig.minDepth = 0
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           jitterBufferConfig: jitterBufferConfig)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        let receiveEntered = DispatchSemaphore(value: 0)
+        let resumeReceive = DispatchSemaphore(value: 0)
+        _ = handler.registerCallback { _ in
+            receiveEntered.signal()
+            resumeReceive.wait()
+        }
+
+        let receiveTask = Task.detached {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(1))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            let priority: UInt8 = 0
+            let ttl: UInt16 = 0
+            withUnsafePointer(to: priority) { priorityPtr in
+                withUnsafePointer(to: ttl) { ttlPtr in
+                    handler.objectReceived(.init(groupId: 0,
+                                                 subgroupId: 0,
+                                                 objectId: 0,
+                                                 payloadLength: 1,
+                                                 status: .available,
+                                                 priority: priorityPtr,
+                                                 ttl: ttlPtr),
+                                           data: Data([0x01]),
+                                           extensions: extensions,
+                                           when: .now,
+                                           cached: false,
+                                           drop: false)
+                }
+            }
+        }
+        let entered = await Task.detached {
+            receiveEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            resumeReceive.signal()
+            await receiveTask.value
+            Issue.record("Receive callback did not reach the synchronization point")
+            return
+        }
+
+        handler.stop()
+        resumeReceive.signal()
+        await receiveTask.value
+
+        #expect(handler.jitterBuffer == nil)
+    }
+
+    @Test("Stopping a subscription cancels and rejects an active fetch")
+    @MainActor
+    func testStopCancelsActiveFetch() async throws {
+        var fetch: Fetch?
+        var fetchCancelled = false
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: {_ in fetchCancelled = true})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: self.fetchThreshold,
+                                                           ngThreshold: self.ngThreshold)
+        var extensions = HeaderExtensions()
+        try extensions.setHeader(.sequenceNumber(1))
+        try extensions.setHeader(.captureTimestamp(.now))
+        subscription.mockObject(groupId: 0,
+                                objectId: self.fetchThreshold - 1,
+                                immutableExtensions: extensions)
+        let activeFetch = try #require(fetch)
+        guard case .fetching = subscription.getCurrentState() else {
+            Issue.record("Expected an active fetch before stopping")
+            return
+        }
+
+        subscription.stop()
+
+        try #require(fetchCancelled)
+        #expect(subscription.handler.get() == nil)
+        activeFetch.objectReceived(.init(groupId: 0,
+                                         subgroupId: 0,
+                                         objectId: self.fetchThreshold - 2,
+                                         payloadLength: 1,
+                                         status: .available,
+                                         priority: nil,
+                                         ttl: nil),
+                                   data: Data([0x01]),
+                                   extensions: nil,
+                                   immutableExtensions: nil,
+                                   streamHeaderProperties: nil)
+        #expect(subscription.handler.get() == nil)
+        #expect(subscription.getCurrentState() == .startup)
+    }
+
+    @Test("In-flight fetch completion cannot undo subscription stop")
+    @MainActor
+    func testStopWinsRaceWithFetchCompletion() async throws {
+        var fetch: Fetch?
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: self.fetchThreshold,
+                                                           ngThreshold: self.ngThreshold)
+        var extensions = HeaderExtensions()
+        try extensions.setHeader(.sequenceNumber(1))
+        try extensions.setHeader(.captureTimestamp(.now))
+        subscription.mockObject(groupId: 0,
+                                objectId: self.fetchThreshold - 1,
+                                immutableExtensions: extensions)
+        let activeFetch = try #require(fetch)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        let receiveEntered = DispatchSemaphore(value: 0)
+        let resumeReceive = DispatchSemaphore(value: 0)
+        _ = handler.registerCallback { _ in
+            receiveEntered.signal()
+            resumeReceive.wait()
+        }
+
+        let fetchTask = Task.detached {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(2))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            activeFetch.objectReceived(.init(groupId: 0,
+                                             subgroupId: 0,
+                                             objectId: self.fetchThreshold - 2,
+                                             payloadLength: 1,
+                                             status: .available,
+                                             priority: nil,
+                                             ttl: nil),
+                                       data: Data([0x01]),
+                                       extensions: nil,
+                                       immutableExtensions: extensions,
+                                       streamHeaderProperties: nil)
+        }
+        let entered = await Task.detached {
+            receiveEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            resumeReceive.signal()
+            await fetchTask.value
+            Issue.record("Fetched object did not reach the synchronization point")
+            return
+        }
+
+        subscription.stop()
+        resumeReceive.signal()
+        await fetchTask.value
+
+        #expect(subscription.handler.get() == nil)
+        #expect(subscription.getCurrentState() == .startup)
     }
 
     @Test("Non-simulreceive receipt metrics preserve the first dropped sample")

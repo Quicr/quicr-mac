@@ -259,7 +259,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         guard exchange.exchanged else { return }
         self.participantTask?.cancel()
         self.decodeTask?.cancel()
-        self.dequeueTask?.cancel()
+        self._jitterBuffer.withLock { _ in
+            self.dequeueTask?.cancel()
+        }
         self.removeParticipant()
         if let spikeToken = self.spikeToken {
             self.detector!.removeNotifyCallback(token: spikeToken)
@@ -497,15 +499,19 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     /// Allows frames to be played from the buffer.
     func play(switchContext: SwitchContext? = nil) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
         if let switchContext {
             self.pendingSwitchContext.withLock { $0 = switchContext }
         }
         guard self.jitterBufferConfig.mode == .interval else { return }
-        guard let buffer = self.jitterBuffer else {
-            self.logger.error("Set play with no buffer")
-            return
+        self._jitterBuffer.withLock { buffer in
+            guard !self.stopped.load(ordering: .acquiring) else { return }
+            guard let buffer else {
+                self.logger.error("Set play with no buffer")
+                return
+            }
+            buffer.startPlaying()
         }
-        buffer.startPlaying()
     }
 
     // Pause playout.
@@ -520,7 +526,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     /// - Parameter details: Details about the received object.
     private func submitEncodedData(_ frame: DecimusVideoFrame, details: ObjectReceived) throws {
         // Do we need to create a jitter buffer?
-        try self._jitterBuffer.withLock { jitterBuffer in
+        let accepted = try self._jitterBuffer.withLock { jitterBuffer in
+            guard !self.stopped.load(ordering: .acquiring) else { return false }
             if jitterBuffer == nil,
                self.jitterBufferConfig.mode != .layer,
                self.jitterBufferConfig.mode != .none {
@@ -529,7 +536,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 assert(self.dequeueTask == nil)
                 createDequeueTask()
             }
+            return true
         }
+        guard accepted else { return }
 
         // Do we need to copy the frame data?
         let copy = self.jitterBuffer != nil || self.jitterBufferConfig.mode == .layer
