@@ -26,11 +26,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
+    /// Ownership of the simulreceive render task. A non-nil `token` means a task owns the slot;
+    /// only its owner may clear it, so a cancelled task cannot tear down its replacement.
     private struct RenderTaskState {
         var nextToken: UInt64 = 0
         var token: UInt64?
-        var generation: UInt64?
         var task: Task<Void, Never>?
+
+        mutating func clear() {
+            self.token = nil
+            self.task = nil
+        }
     }
     private let renderTaskState = Mutex(RenderTaskState())
     private let simulreceive: SimulreceiveMode
@@ -189,9 +195,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.cleanupTask?.cancel()
         self.renderTaskState.withLock { state in
             state.task?.cancel()
-            state.token = nil
-            state.generation = nil
-            state.task = nil
+            state.clear()
         }
         self.logger.debug("Deinit")
     }
@@ -200,9 +204,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.renderTaskState.withLock { state in
             self.generation.wrappingAdd(1, ordering: .acquiringAndReleasing)
             state.task?.cancel()
-            state.token = nil
-            state.generation = nil
-            state.task = nil
+            state.clear()
         }
         self.lastTimestampReceived.store(.zero, ordering: .releasing)
         self.removeParticipant()
@@ -329,54 +331,27 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
 
     private func startRenderTask(generation: UInt64) {
+        // `suspend()` bumps the generation and clears the slot under this lock, so an occupied slot
+        // always belongs to the current generation.
         let token = self.renderTaskState.withLock { state -> UInt64? in
-            guard self.generation.load(ordering: .acquiring) == generation else { return nil }
-            if state.generation == generation,
-               state.token != nil {
-                return nil
-            }
-            state.task?.cancel()
+            guard self.generation.load(ordering: .acquiring) == generation,
+                  state.token == nil else { return nil }
             state.nextToken &+= 1
             state.token = state.nextToken
-            state.generation = generation
-            state.task = nil
             return state.nextToken
         }
         guard let token else { return }
 
-        let gate = AsyncStream<Void>.makeStream()
         let task = Task(priority: .high) { [weak self] in
             defer {
                 self?.renderTaskState.withLock { state in
                     guard state.token == token else { return }
-                    state.token = nil
-                    state.generation = nil
-                    state.task = nil
+                    state.clear()
                 }
             }
-            for await _ in gate.stream {
-                break
-            }
-            guard !Task.isCancelled else { return }
-
             while !Task.isCancelled {
-                guard let self else { return }
-                let duration = self.renderTaskState.withLock { state -> TimeInterval? in
-                    guard state.token == token,
-                          state.generation == generation,
-                          state.task != nil,
-                          self.generation.load(ordering: .acquiring) == generation,
-                          !Task.isCancelled,
-                          !self.getHandlers().isEmpty else { return nil }
-                    do {
-                        return try self.makeSimulreceiveDecision(at: Ticks.now,
-                                                                 generation: generation)
-                    } catch {
-                        self.logger.error("Simulreceive failure: \(error.localizedDescription)")
-                        return nil
-                    }
-                }
-                guard let duration else { return }
+                guard let self,
+                      let duration = self.renderStep(token: token, generation: generation) else { return }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
                 }
@@ -384,18 +359,28 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
 
         let installed = self.renderTaskState.withLock { state in
-            guard state.token == token,
-                  state.generation == generation,
-                  self.generation.load(ordering: .acquiring) == generation else { return false }
+            guard state.token == token else { return false }
             state.task = task
             return true
         }
-        if installed {
-            gate.continuation.yield()
-            gate.continuation.finish()
-        } else {
+        if !installed {
             task.cancel()
-            gate.continuation.finish()
+        }
+    }
+
+    /// Make one simulreceive decision, or nil if this task no longer owns the render slot.
+    /// - Returns: How long to wait before the next decision.
+    private func renderStep(token: UInt64, generation: UInt64) -> TimeInterval? {
+        self.renderTaskState.withLock { state in
+            guard state.token == token,
+                  !Task.isCancelled,
+                  !self.getHandlers().isEmpty else { return nil }
+            do {
+                return try self.makeSimulreceiveDecision(at: Ticks.now, generation: generation)
+            } catch {
+                self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+                return nil
+            }
         }
     }
 
