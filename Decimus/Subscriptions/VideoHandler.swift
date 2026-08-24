@@ -98,7 +98,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private let participant = Mutex<VideoParticipant?>(nil)
+    private let participant = Mutex<VideoParticipantRegistration?>(nil)
     private let pendingSwitchContext = Mutex<SwitchContext?>(nil)
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
@@ -204,30 +204,31 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             self.predictable.store(true, ordering: .releasing)
         }
         if self.simulreceive != .enable {
-            Task {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 do {
-                    let participant = try await MainActor.run {
-                        let existing = self.participant.get()
-                        guard existing == nil else { return VideoParticipant?.none }
-                        return try VideoParticipant(id: "\(self.fullTrackName)",
-                                                    startDate: joinDate,
-                                                    subscribeDate: subscribeDate,
-                                                    videoParticipants: self.participants,
-                                                    participantId: self.participantId,
-                                                    activeSpeakerStats: self.activeSpeakerStats,
-                                                    config: .init(calculateLatency: self.handlerConfig.calculateLatency,
-                                                                  slidingWindowTime: self.jitterBufferConfig.window),
-                                                    switchLatencyMeasurement: self.switchLatencyMeasurement)
-
+                    guard self.participant.get() == nil else { return }
+                    let participant = VideoParticipant(id: "\(self.fullTrackName)",
+                                                       startDate: joinDate,
+                                                       subscribeDate: subscribeDate,
+                                                       participantId: self.participantId,
+                                                       activeSpeakerStats: self.activeSpeakerStats,
+                                                       config: .init(calculateLatency: self.handlerConfig.calculateLatency,
+                                                                     slidingWindowTime: self.jitterBufferConfig.window),
+                                                       switchLatencyMeasurement: self.switchLatencyMeasurement)
+                    let registration = try self.participants.register(participant)
+                    let accepted = self.participant.withLock { current in
+                        guard current == nil else { return false }
+                        current = registration
+                        return true
                     }
-                    guard let participant = participant else { return }
-                    self.participant.withLock { $0 = participant }
+                    if !accepted {
+                        registration.remove()
+                    }
                 } catch {
                     self.logger.error("Failed to create VideoParticipant: \(error)")
                 }
             }
-        } else {
-            self.participant.clear()
         }
     }
 
@@ -238,6 +239,16 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             self.detector!.removeNotifyCallback(token: spikeToken)
         }
         self.logger.debug("Deinit")
+    }
+
+    private func reportParticipantReceipt(_ details: ObjectReceived) {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let registration = self.participant.get() else { return }
+            registration.withParticipant { participant in
+                participant.received(details)
+            }
+        }
     }
 
     /// Register to receive notifications of an object being received.
@@ -305,10 +316,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 callback(details)
             }
             guard self.simulreceive != .enable else { return }
-            DispatchQueue.main.async {
-                guard let participant = self.participant.get() else { return }
-                participant.received(details)
-            }
+            self.reportParticipantReceipt(details)
             return
         }
 
@@ -515,15 +523,18 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                resolvedFps != self.lastFps || format.dimensions != self.lastDimensions {
                 self.lastFps = resolvedFps
                 self.lastDimensions = format.dimensions
-                DispatchQueue.main.async {
+                if self.simulreceive != .enable {
+                    self.reportParticipantReceipt(details)
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
                     self.description = self.labelFromSample(format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
-                    guard let participant = self.participant.get() else { return }
-                    if self.simulreceive != .enable {
-                        participant.received(details)
+                    guard let registration = self.participant.get() else { return }
+                    registration.withParticipant { participant in
+                        participant.label = .init(describing: self)
                     }
-                    participant.label = .init(describing: self)
                 }
             }
         }
@@ -807,7 +818,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                guard let participant = self.participant.get() else {
+                guard let registration = self.participant.get() else {
                     self.logger.warning("Missing expected participant")
                     return
                 }
@@ -815,7 +826,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                        orientation: sample.orientation,
                                        verticalMirror: sample.verticalMirror,
                                        from: from,
-                                       participant: participant,
+                                       registration: registration,
                                        endToEndLatency: nil)
             } else {
                 if let orientation = sample.orientation {
@@ -849,7 +860,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?,
                                from: Date,
-                               participant: VideoParticipant,
+                               registration: VideoParticipantRegistration,
                                endToEndLatency: TimeInterval?,
                                switchContext: SwitchContext? = nil) throws {
         if let measurement = self.measurement,
@@ -868,20 +879,26 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         // Enqueue the sample on the main thread.
-        Task { @MainActor in
+        Task { @MainActor [weak self, weak registration] in
+            guard let self,
+                  let registration else { return }
             do {
-                // Set the layer's start time to the first sample's timestamp minus the target depth.
-                if !self.startTimeSet {
-                    try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
-                    self.startTimeSet = true
+                let enqueued = try registration.withParticipant { participant in
+                    // Set the layer's start time to the first sample's timestamp minus the target depth.
+                    if !self.startTimeSet {
+                        try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
+                        self.startTimeSet = true
+                    }
+                    let renderTime = switchContext != nil ? Date.now : nil
+                    try participant.enqueue(sample,
+                                            transform: orientation?.toTransform(verticalMirror!),
+                                            when: from,
+                                            endToEndLatency: endToEndLatency,
+                                            switchContext: switchContext,
+                                            renderTime: renderTime)
+                    return true
                 }
-                let renderTime = switchContext != nil ? Date.now : nil
-                try participant.enqueue(sample,
-                                        transform: orientation?.toTransform(verticalMirror!),
-                                        when: from,
-                                        endToEndLatency: endToEndLatency,
-                                        switchContext: switchContext,
-                                        renderTime: renderTime)
+                guard enqueued == true else { return }
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
@@ -910,10 +927,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
 
     private func flushDisplayLayer() {
-        guard let participant = self.participant.get() else { return }
-        Task { @MainActor in
+        guard let registration = self.participant.get() else { return }
+        Task { @MainActor [weak self, weak registration] in
+            guard let self,
+                  let registration else { return }
             do {
-                try participant.view.flush()
+                try registration.withParticipant { participant in
+                    try participant.view.flush()
+                }
             } catch {
                 self.logger.error("Could not flush layer: \(error)")
             }
@@ -1058,14 +1079,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             return captured
         }
 
-        if let participant = self.participant.get() {
+        if let registration = self.participant.get() {
             // Enqueue for rendering.
             do {
                 try self.enqueueSample(sample: sample,
                                        orientation: self.orientation,
                                        verticalMirror: self.verticalMirror,
                                        from: now,
-                                       participant: participant,
+                                       registration: registration,
                                        endToEndLatency: endToEndLatency,
                                        switchContext: switchCtx)
             } catch {

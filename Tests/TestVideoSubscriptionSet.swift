@@ -150,6 +150,59 @@ struct VideoSubscriptionSetTests {
     static let futureTimestamp = Self.now.hostDate.addingTimeInterval(10).timeIntervalSince1970
 
     @MainActor
+    private func makeParticipant() -> VideoParticipant {
+        .init(id: "participant",
+              startDate: .now,
+              subscribeDate: .now,
+              participantId: .init(1),
+              activeSpeakerStats: nil,
+              config: .init(calculateLatency: false,
+                            slidingWindowTime: 1))
+    }
+
+    @MainActor
+    @Test("A released participant registration is pruned and can be replaced")
+    func testReleasedParticipantCanBeReplaced() async throws {
+        let participants = VideoParticipants()
+        var participant: VideoParticipant? = self.makeParticipant()
+        var registration: VideoParticipantRegistration? = try participants.register(participant!)
+
+        participant = nil
+        #expect(participants.participants.compactMap(\.value).count == 1)
+        registration = nil
+        for _ in 0..<20 where !participants.participants.isEmpty {
+            await Task.yield()
+        }
+
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+        let replacement = self.makeParticipant()
+        registration = try participants.register(replacement)
+        #expect(participants.participants.compactMap(\.value).first === replacement)
+        _ = registration
+    }
+
+    @MainActor
+    @Test("Invalidated registration cannot touch or remove its replacement")
+    func testInvalidatedRegistrationCannotTouchOrRemoveReplacement() throws {
+        let participants = VideoParticipants()
+        let participant = self.makeParticipant()
+        let registration = try participants.register(participant)
+        registration.invalidate()
+        var touched = false
+        registration.withParticipant { _ in
+            touched = true
+        }
+        let replacement = self.makeParticipant()
+        let replacementRegistration = try participants.register(replacement)
+
+        registration.remove()
+
+        #expect(!touched)
+        #expect(participants.participants.compactMap(\.value).first === replacement)
+        _ = replacementRegistration
+    }
+
+    @MainActor
     @Test("Test Timestamp Diff", arguments: [Self.now.hostDate.timeIntervalSince1970,
                                              Self.pastTimestamp,
                                              Self.futureTimestamp])
