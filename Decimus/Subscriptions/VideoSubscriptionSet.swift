@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Synchronization
+// swiftlint:disable file_length
+
 import CoreMedia
+import Dispatch
+import Synchronization
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
     case none
@@ -26,7 +29,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
-    private var renderTask: Task<(), Never>?
+    /// Ownership of the simulreceive render task. A non-nil `token` means a task owns the slot;
+    /// only its owner may clear it, so a cancelled task cannot tear down its replacement.
+    private struct RenderTaskState {
+        var nextToken: UInt64 = 0
+        var token: UInt64?
+        var task: Task<Void, Never>?
+    }
+    private let renderTaskState = Mutex(RenderTaskState())
+    private let renderDecisions = DispatchGroup()
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
@@ -49,6 +60,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     let decodedVariances: VarianceCalculator
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipantRegistration?>(nil)
+    private let generation = Atomic<UInt64>(0)
     private let membership = Mutex<Void>(())
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
@@ -162,9 +174,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                     let time: TimeInterval
                     if let self = self {
                         time = self.cleanupTimer
-                        let lastUpdate = self.lastUpdateTime.load(ordering: .acquiring)
-                        if Ticks.now.timeIntervalSince(lastUpdate) >= self.cleanupTimer {
-                            self.removeParticipant()
+                        self.membership.withLock { _ in
+                            let lastUpdate = self.lastUpdateTime.load(ordering: .acquiring)
+                            guard Ticks.now.timeIntervalSince(lastUpdate) >= self.cleanupTimer else { return }
+                            self.suspendRendering()
                         }
                     } else {
                         return
@@ -181,16 +194,37 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
     deinit {
         self.cleanupTask?.cancel()
-        self.removeParticipant()
+        self.renderTaskState.withLock { state in
+            state.task?.cancel()
+            state.token = nil
+            state.task = nil
+        }
         self.logger.debug("Deinit")
     }
 
+    private func drainRenderTask() {
+        self.renderTaskState.withLock { state in
+            self.generation.wrappingAdd(1, ordering: .acquiringAndReleasing)
+            state.task?.cancel()
+            state.token = nil
+            state.task = nil
+        }
+        self.renderDecisions.wait()
+        self.last = nil
+        self.lastImage = nil
+        self.lastHighlight = nil
+        self.qualityMisses = 0
+        self.qualityHits = 0
+        self.pauseMissCounts.removeAll()
+    }
+
     @MainActor
-    private func getOrCreateParticipant() throws -> VideoParticipantRegistration {
+    private func getOrCreateParticipant(generation: UInt64) throws -> VideoParticipantRegistration? {
+        guard self.generation.load(ordering: .acquiring) == generation,
+              !self.getHandlers().isEmpty else { return nil }
         if let registration = self.participant.get() {
             return registration
         }
-
         let participant = VideoParticipant(id: self.sourceId,
                                            startDate: self.joinDate,
                                            subscribeDate: self.subscribeDate,
@@ -198,14 +232,18 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                                            activeSpeakerStats: self.activeSpeakerStats,
                                            config: self.config.getVideoParticipantConfig(self))
         let registration = try self.participants.register(participant)
-        return self.participant.withLock { current in
-            if let current {
-                registration.remove()
-                return current
-            }
+        let accepted = self.participant.withLock { current in
+            guard self.generation.load(ordering: .acquiring) == generation,
+                  !self.getHandlers().isEmpty,
+                  current == nil else { return false }
             current = registration
-            return registration
+            return true
         }
+        guard accepted else {
+            registration.remove()
+            return nil
+        }
+        return registration
     }
 
     private func removeParticipant() {
@@ -222,6 +260,31 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
+    private func suspendRendering() {
+        self.drainRenderTask()
+        self.removeParticipant()
+        self.timeAligner?.reset()
+        self.lastTimestampReceived.store(.zero, ordering: .releasing)
+        self.mediaState.withLock { $0 = .subscribed }
+    }
+
+    private func reportParticipantReceipt(_ details: ObjectReceived, generation: UInt64) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try self.renderTaskState.withLock { _ in
+                    guard self.generation.load(ordering: .acquiring) == generation,
+                          let registration = try self.getOrCreateParticipant(generation: generation) else { return }
+                    registration.withParticipant { participant in
+                        participant.received(details)
+                    }
+                }
+            } catch {
+                self.logger.warning("Failed to create participant: \(error.localizedDescription)")
+            }
+        }
+    }
+
     override func addHandler(_ handler: Subscription) throws {
         try self.membership.withLock { _ in
             try super.addHandler(handler)
@@ -230,12 +293,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
     private func removeHandlerLocked(_ ftn: FullTrackName) -> Subscription? {
         guard let result = super.removeHandler(ftn) else { return nil }
-        if self.simulreceive == .enable,
-           self.getHandlers().isEmpty {
-            self.logger.debug("Destroying simulreceive render as no live subscriptions")
-            self.renderTask?.cancel()
-            self.renderTask = nil
-            self.removeParticipant()
+        if self.hasConcreteHandler() {
+            self.drainRenderTask()
+        } else {
+            if self.simulreceive == .enable {
+                self.logger.debug("Destroying simulreceive render as no live subscriptions")
+            }
+            self.suspendRendering()
         }
         return result
     }
@@ -278,15 +342,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.membership.withLock { _ in
             let ftn = FullTrackName(subscription.getFullTrackName())
             guard self.getHandlers()[ftn] === subscription else { return }
-            self.renderTask?.cancel()
-            self.renderTask = nil
-            if !self.hasConcreteHandler() {
-                self.removeParticipant()
+            if self.hasConcreteHandler() {
+                self.drainRenderTask()
+            } else {
+                self.suspendRendering()
             }
         }
     }
 
     private func receiveCurrentObject(_ details: ObjectReceived) {
+        let generation = self.generation.load(ordering: .acquiring)
+
         // Notify receipt for stats.
         if self.simulreceive == .enable {
             let report: Bool
@@ -303,18 +369,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 report = true
             }
 
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                do {
-                    let registration = try self.getOrCreateParticipant()
-                    if report {
-                        registration.withParticipant { participant in
-                            participant.received(details)
-                        }
-                    }
-                } catch {
-                    self.logger.warning("Failed to create participant: \(error.localizedDescription)")
-                }
+            if report {
+                self.reportParticipantReceipt(details, generation: generation)
             }
         }
 
@@ -330,10 +386,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {
-            // Start the render task.
-            if self.renderTask == nil || self.renderTask!.isCancelled {
-                self.startRenderTask()
-            }
+            self.startRenderTask(generation: generation)
         }
 
         // Record the last time this updated.
@@ -346,24 +399,31 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    private func startRenderTask() {
-        self.renderTask = .init(priority: .high) { [weak self] in
+    private func startRenderTask(generation: UInt64) {
+        // Draining bumps the generation and clears the slot under this lock, so an occupied slot
+        // always belongs to the current generation.
+        let token = self.renderTaskState.withLock { state -> UInt64? in
+            guard self.generation.load(ordering: .acquiring) == generation,
+                  state.token == nil else { return nil }
+            state.nextToken &+= 1
+            state.token = state.nextToken
+            return state.nextToken
+        }
+        guard let token else { return }
+
+        let task = Task(priority: .high) { [weak self] in
+            defer {
+                self?.renderTaskState.withLock { state in
+                    guard state.token == token else { return }
+                    state.token = nil
+                    state.task = nil
+                }
+            }
             while !Task.isCancelled {
                 let duration: TimeInterval
-                if let self = self {
-                    let now = Ticks.now
-                    if self.getHandlers().isEmpty {
-                        self.renderTask?.cancel()
-                        duration = TimeInterval.nan
-                    } else {
-                        do {
-                            duration = try self.makeSimulreceiveDecision(at: now)
-                        } catch {
-                            self.logger.error("Simulreceive failure: \(error.localizedDescription)")
-                            self.renderTask?.cancel()
-                            duration = TimeInterval.nan
-                        }
-                    }
+                if let self {
+                    guard let next = self.renderStep(token: token, generation: generation) else { return }
+                    duration = next
                 } else {
                     return
                 }
@@ -371,6 +431,38 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                     try? await Task.sleep(for: .seconds(duration))
                 }
             }
+        }
+
+        let installed = self.renderTaskState.withLock { state in
+            guard state.token == token else { return false }
+            state.task = task
+            return true
+        }
+        if !installed {
+            task.cancel()
+        }
+    }
+
+    /// Make one simulreceive decision, or nil if this task no longer owns the render slot.
+    /// The decision runs outside the lock: receipt on the transport thread contends for it on
+    /// every object, and only one render task can own a token at a time.
+    /// - Returns: How long to wait before the next decision.
+    private func renderStep(token: UInt64, generation: UInt64) -> TimeInterval? {
+        let owned = self.renderTaskState.withLock { state in
+            guard state.token == token,
+                  self.generation.load(ordering: .acquiring) == generation,
+                  !Task.isCancelled else { return false }
+            self.renderDecisions.enter()
+            return true
+        }
+        guard owned else { return nil }
+        defer { self.renderDecisions.leave() }
+        guard !self.getHandlers().isEmpty else { return nil }
+        do {
+            return try self.makeSimulreceiveDecision(at: Ticks.now, generation: generation)
+        } catch {
+            self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+            return nil
         }
     }
 
@@ -419,16 +511,24 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
+    private static func highestFps(_ handlers: [FullTrackName: VideoHandler]) -> UInt16 {
+        handlers.values.reduce(1) { max($0, $1.config.fps) }
+    }
+
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
-    private func makeSimulreceiveDecision(at: Ticks) throws -> TimeInterval {
-        // Gather up what frames we have to choose from.
+    private func makeSimulreceiveDecision(at: Ticks,
+                                          generation: UInt64) throws -> TimeInterval {
+        // Gather up what frames we have to choose from. Handlers can be torn down underneath us,
+        // so resolve them once here and use this snapshot for the rest of the decision.
         var initialChoices: [SimulreceiveItem] = []
-        let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
-        for subscription in subscriptions {
-            guard let handler = subscription.value.handler.get() else {
+        var handlers: [FullTrackName: VideoHandler] = [:]
+        for subscription in self.getHandlers().values {
+            guard let subscription = subscription as? VideoSubscription,
+                  let handler = subscription.handler.get() else {
                 continue
             }
+            handlers[handler.fullTrackName] = handler
             handler.lastDecodedImage.withLock { lockedImage in
                 guard let available = lockedImage else { return }
                 if let lastTime = self.lastImage?.image.presentationTimeStamp,
@@ -450,24 +550,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             // Wait for next.
             let duration: TimeInterval
             if let lastNamespace = self.last,
-               let handler = subscriptions[lastNamespace]?.handler.get() {
+               let handler = handlers[lastNamespace] {
                 duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
             } else {
-                var highestFps: UInt16 = 1
-                for subscription in subscriptions {
-                    guard let handler = subscription.value.handler.get() else {
-                        continue
-                    }
-                    highestFps = max(highestFps, handler.config.fps)
-                }
-                duration = TimeInterval(1 / highestFps)
+                duration = 1 / TimeInterval(Self.highestFps(handlers))
             }
             return duration
         }
 
         // Consume all images from our shortlist.
         for choice in choices {
-            let handler = subscriptions[choice.fullTrackName]!.handler.get()!
+            guard let handler = handlers[choice.fullTrackName] else { continue }
             handler.lastDecodedImage.withLock { lockedImage in
                 let theirTime = lockedImage?.image.presentationTimeStamp
                 let ourTime = choice.image.image.presentationTimeStamp
@@ -548,11 +641,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             //            }
         }
 
-        guard let subscription = subscriptions[selected.fullTrackName] else {
-            throw "Missing expected subscription for namespace: \(selected.fullTrackName)"
-        }
-        guard let handler = subscription.handler.get() else {
-            throw "Missing video hanler for namespace: \(selected.fullTrackName)"
+        guard let handler = handlers[selected.fullTrackName] else {
+            throw "Missing video handler for namespace: \(selected.fullTrackName)"
         }
 
         let stepDown = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
@@ -610,14 +700,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             if selectedSample.duration.isValid {
                 return selectedSample.duration.seconds
             }
-            var highestFps: UInt16 = 1
-            for subscription in subscriptions {
-                guard let handler = subscription.value.handler.get() else {
-                    continue
-                }
-                highestFps = max(highestFps, handler.config.fps)
-            }
-            return 1 / TimeInterval(highestFps)
+            return 1 / TimeInterval(Self.highestFps(handlers))
         }
 
         // Proceed with rendering this frame.
@@ -648,13 +731,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             let when = at.hostDate
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                let registration: VideoParticipantRegistration
-                do {
-                    registration = try self.getOrCreateParticipant()
-                } catch {
-                    self.logger.warning("Failed to create participant: \(error.localizedDescription)")
-                    return
-                }
 
                 do {
                     let e2eLatency: TimeInterval?
@@ -672,17 +748,25 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         e2eLatency = nil
                     }
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                    let enqueued = try registration.withParticipant { participant in
-                        if let dispatchLabel {
-                            participant.label = dispatchLabel
+                    let rendered = try self.renderTaskState.withLock { _ in
+                        guard self.generation.load(ordering: .acquiring) == generation,
+                              let registration = try self.getOrCreateParticipant(generation: generation) else {
+                            return false
                         }
-                        try participant.enqueue(selectedSample,
-                                                transform: transform,
-                                                when: when,
-                                                endToEndLatency: e2eLatency)
+                        let enqueued = try registration.withParticipant { participant in
+                            if let dispatchLabel {
+                                participant.label = dispatchLabel
+                            }
+                            try participant.enqueue(selectedSample,
+                                                    transform: transform,
+                                                    when: when,
+                                                    endToEndLatency: e2eLatency)
+                        }
+                        guard enqueued != nil else { return false }
                         self.mediaState.withLock { $0 = .rendered }
+                        return true
                     }
-                    guard enqueued != nil else { return }
+                    guard rendered else { return }
                     self.displayCallbacks.fire()
                 } catch {
                     self.logger.error("Could not enqueue sample: \(error)")
@@ -694,10 +778,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
                 Task { @MainActor [weak self] in
-                    guard let self = self else { return }
-                    for participant in self.participants.participants {
-                        guard let participant = participant.value else { continue }
-                        participant.highlight = participant.id == "\(fullTrackName)"
+                    guard let self else { return }
+                    self.renderTaskState.withLock { _ in
+                        guard self.generation.load(ordering: .acquiring) == generation else { return }
+                        self.participants.forEachParticipant { participant in
+                            participant.highlight = participant.id == "\(fullTrackName)"
+                        }
                     }
                 }
             }
@@ -710,14 +796,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         if selectedSample.duration.isValid {
             return selectedSample.duration.seconds
         }
-        var highestFps: UInt16 = 1
-        for subscription in subscriptions {
-            guard let handler = subscription.value.handler.get() else {
-                continue
-            }
-            highestFps = max(highestFps, handler.config.fps)
-        }
-        return 1 / TimeInterval(highestFps)
+        return 1 / TimeInterval(Self.highestFps(handlers))
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
