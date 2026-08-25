@@ -29,15 +29,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
-    /// Ownership of the simulreceive render task. A non-nil `token` means a task owns the slot;
-    /// only its owner may clear it, so a cancelled task cannot tear down its replacement.
-    private struct RenderTaskState {
-        var nextToken: UInt64 = 0
-        var token: UInt64?
-        var task: Task<Void, Never>?
-    }
-    private let renderTaskState = Mutex(RenderTaskState())
-    private let renderDecisions = DispatchGroup()
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
@@ -60,13 +51,29 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     let decodedVariances: VarianceCalculator
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipantRegistration?>(nil)
-    private let generation = Atomic<UInt64>(0)
     private let membership = Mutex<Void>(())
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
     private let lastTimestampReceived = Atomic(Int64.zero)
     private let config: Config
+
+    /// State for simulreceive rendering. Pass values of this type to helpers only from
+    /// `renderState.withLock` so the value also acts as a lock-scoped capability.
+    private struct RenderState {
+        /// Rendering can go away and come back over time, this tracks which lifetime we're on.
+        var epoch: UInt64 = 0
+        /// Render task identifier.
+        var nextToken: UInt64 = 0
+        /// If set, a caller currently owns the task.
+        var token: UInt64?
+        /// The current simulreceive rendering task.
+        var task: Task<Void, Never>?
+    }
+    /// Simulreceive render.
+    private let renderState = Mutex(RenderState())
+    /// In flight decisions that should be allowed to complete.
+    private let renderDecisions = DispatchGroup()
 
     /// Configuration for the video subscription set.
     struct Config {
@@ -194,7 +201,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
     deinit {
         self.cleanupTask?.cancel()
-        self.renderTaskState.withLock { state in
+        self.renderState.withLock { state in
             state.task?.cancel()
             state.token = nil
             state.task = nil
@@ -203,8 +210,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
 
     private func drainRenderTask() {
-        self.renderTaskState.withLock { state in
-            self.generation.wrappingAdd(1, ordering: .acquiringAndReleasing)
+        self.renderState.withLock { state in
+            state.epoch += 1
             state.task?.cancel()
             state.token = nil
             state.task = nil
@@ -218,32 +225,28 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.pauseMissCounts.removeAll()
     }
 
+    /// Get or create the participant for the locked render epoch.
+    /// - Parameter state: The locked render state.
+    /// - Parameter epoch: Which epoch we're calling from.
     @MainActor
-    private func getOrCreateParticipant(generation: UInt64) throws -> VideoParticipantRegistration? {
-        guard self.generation.load(ordering: .acquiring) == generation,
-              !self.getHandlers().isEmpty else { return nil }
-        if let registration = self.participant.get() {
+    private func getOrCreateParticipant(state: inout RenderState,
+                                        epoch: UInt64) throws -> VideoParticipantRegistration? {
+        guard state.epoch == epoch else { return nil }
+        return try self.participant.withLock { participant in
+            guard !self.getHandlers().isEmpty else { return nil }
+            if let participant {
+                return participant
+            }
+            let new = VideoParticipant(id: self.sourceId,
+                                       startDate: self.joinDate,
+                                       subscribeDate: self.subscribeDate,
+                                       participantId: self.participantId,
+                                       activeSpeakerStats: self.activeSpeakerStats,
+                                       config: self.config.getVideoParticipantConfig(self))
+            let registration = try self.participants.register(new)
+            participant = registration
             return registration
         }
-        let participant = VideoParticipant(id: self.sourceId,
-                                           startDate: self.joinDate,
-                                           subscribeDate: self.subscribeDate,
-                                           participantId: self.participantId,
-                                           activeSpeakerStats: self.activeSpeakerStats,
-                                           config: self.config.getVideoParticipantConfig(self))
-        let registration = try self.participants.register(participant)
-        let accepted = self.participant.withLock { current in
-            guard self.generation.load(ordering: .acquiring) == generation,
-                  !self.getHandlers().isEmpty,
-                  current == nil else { return false }
-            current = registration
-            return true
-        }
-        guard accepted else {
-            registration.remove()
-            return nil
-        }
-        return registration
     }
 
     private func removeParticipant() {
@@ -268,13 +271,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.mediaState.withLock { $0 = .subscribed }
     }
 
-    private func reportParticipantReceipt(_ details: ObjectReceived, generation: UInt64) {
+    private func reportParticipantReceipt(_ details: ObjectReceived, epoch: UInt64) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try self.renderTaskState.withLock { _ in
-                    guard self.generation.load(ordering: .acquiring) == generation,
-                          let registration = try self.getOrCreateParticipant(generation: generation) else { return }
+                try self.renderState.withLock { state in
+                    guard let registration = try self.getOrCreateParticipant(state: &state,
+                                                                             epoch: epoch) else {
+                        return
+                    }
                     registration.withParticipant { participant in
                         participant.received(details)
                     }
@@ -351,7 +356,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
 
     private func receiveCurrentObject(_ details: ObjectReceived) {
-        let generation = self.generation.load(ordering: .acquiring)
+        let epoch = self.renderState.withLock { $0.epoch }
 
         // Notify receipt for stats.
         if self.simulreceive == .enable {
@@ -370,7 +375,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             }
 
             if report {
-                self.reportParticipantReceipt(details, generation: generation)
+                self.reportParticipantReceipt(details, epoch: epoch)
             }
         }
 
@@ -386,7 +391,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {
-            self.startRenderTask(generation: generation)
+            self.startRenderTask(renderEpoch: epoch)
         }
 
         // Record the last time this updated.
@@ -399,11 +404,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    private func startRenderTask(generation: UInt64) {
-        // Draining bumps the generation and clears the slot under this lock, so an occupied slot
-        // always belongs to the current generation.
-        let token = self.renderTaskState.withLock { state -> UInt64? in
-            guard self.generation.load(ordering: .acquiring) == generation,
+    private func startRenderTask(renderEpoch: UInt64) {
+        // Draining bumps the render epoch and clears the slot under this lock, so an occupied slot
+        // always belongs to the current render epoch.
+        let token = self.renderState.withLock { state -> UInt64? in
+            guard state.epoch == renderEpoch,
                   state.token == nil else { return nil }
             state.nextToken &+= 1
             state.token = state.nextToken
@@ -413,7 +418,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
         let task = Task(priority: .high) { [weak self] in
             defer {
-                self?.renderTaskState.withLock { state in
+                self?.renderState.withLock { state in
                     guard state.token == token else { return }
                     state.token = nil
                     state.task = nil
@@ -422,7 +427,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             while !Task.isCancelled {
                 let duration: TimeInterval
                 if let self {
-                    guard let next = self.renderStep(token: token, generation: generation) else { return }
+                    guard let next = self.renderStep(token: token, renderEpoch: renderEpoch) else { return }
                     duration = next
                 } else {
                     return
@@ -433,7 +438,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             }
         }
 
-        let installed = self.renderTaskState.withLock { state in
+        let installed = self.renderState.withLock { state in
             guard state.token == token else { return false }
             state.task = task
             return true
@@ -447,10 +452,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     /// The decision runs outside the lock: receipt on the transport thread contends for it on
     /// every object, and only one render task can own a token at a time.
     /// - Returns: How long to wait before the next decision.
-    private func renderStep(token: UInt64, generation: UInt64) -> TimeInterval? {
-        let owned = self.renderTaskState.withLock { state in
+    private func renderStep(token: UInt64, renderEpoch: UInt64) -> TimeInterval? {
+        let owned = self.renderState.withLock { state in
             guard state.token == token,
-                  self.generation.load(ordering: .acquiring) == generation,
+                  state.epoch == renderEpoch,
                   !Task.isCancelled else { return false }
             self.renderDecisions.enter()
             return true
@@ -459,7 +464,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         defer { self.renderDecisions.leave() }
         guard !self.getHandlers().isEmpty else { return nil }
         do {
-            return try self.makeSimulreceiveDecision(at: Ticks.now, generation: generation)
+            return try self.makeSimulreceiveDecision(at: Ticks.now, epoch: renderEpoch)
         } catch {
             self.logger.error("Simulreceive failure: \(error.localizedDescription)")
             return nil
@@ -518,7 +523,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision(at: Ticks,
-                                          generation: UInt64) throws -> TimeInterval {
+                                          epoch: UInt64) throws -> TimeInterval {
         // Gather up what frames we have to choose from. Handlers can be torn down underneath us,
         // so resolve them once here and use this snapshot for the rest of the decision.
         var initialChoices: [SimulreceiveItem] = []
@@ -748,9 +753,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         e2eLatency = nil
                     }
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                    let rendered = try self.renderTaskState.withLock { _ in
-                        guard self.generation.load(ordering: .acquiring) == generation,
-                              let registration = try self.getOrCreateParticipant(generation: generation) else {
+                    let rendered = try self.renderState.withLock { state in
+                        guard let registration = try self.getOrCreateParticipant(state: &state,
+                                                                                 epoch: epoch) else {
                             return false
                         }
                         let enqueued = try registration.withParticipant { participant in
@@ -761,8 +766,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                                                     transform: transform,
                                                     when: when,
                                                     endToEndLatency: e2eLatency)
+                            return true
                         }
-                        guard enqueued != nil else { return false }
+                        guard enqueued == true else { return false }
                         self.mediaState.withLock { $0 = .rendered }
                         return true
                     }
@@ -779,8 +785,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 self.lastHighlight = fullTrackName
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.renderTaskState.withLock { _ in
-                        guard self.generation.load(ordering: .acquiring) == generation else { return }
+                    self.renderState.withLock { state in
+                        guard state.epoch == epoch else { return }
                         self.participants.forEachParticipant { participant in
                             participant.highlight = participant.id == "\(fullTrackName)"
                         }
