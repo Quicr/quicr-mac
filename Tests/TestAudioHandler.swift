@@ -135,22 +135,19 @@ struct AudioHandlerTests {
         // Crossing the diagnostic threshold must neither complete the wait nor impersonate the reader.
         let clearGeneration = endpoints.writer.requestClear()
         let completion = WaitState()
-        let warningObserved = Atomic(false)
-        let acknowledgement = Task {
-            await completion.start()
-            try await endpoints.writer.waitForClearAcknowledgement(
-                clearGeneration,
-                warningAfter: .milliseconds(10)) {
-                warningObserved.store(true, ordering: .releasing)
+        await confirmation { warningObserved in
+            await withCheckedContinuation { delayObserved in
+                Task {
+                    try await endpoints.writer.waitForClearAcknowledgement(
+                        clearGeneration,
+                        warningAfter: .milliseconds(10)) {
+                        warningObserved()
+                        delayObserved.resume()
+                    }
+                    await completion.set()
+                }
             }
-            await completion.set()
         }
-        while !(await completion.hasStarted()) {
-            await Task.yield()
-        }
-        try await Task.sleep(for: .milliseconds(30), clock: .continuous)
-        let warned = warningObserved.load(ordering: .acquiring)
-        #expect(warned)
         #expect(!(await completion.get()))
 
         // The writer remains blocked until the reader performs the clear.
@@ -162,7 +159,7 @@ struct AudioHandlerTests {
         }
 
         #expect(endpoints.reader.processClearRequest())
-        try await acknowledgement.value
+        await completion.wait()
         #expect(await completion.get())
         #expect(endpoints.reader.peek().frames == 0)
         try endpoints.writer.enqueue(buffer: &input.mutableAudioBufferList.pointee,
@@ -281,23 +278,24 @@ struct AudioHandlerTests {
     }
 
     private actor WaitState {
-        private var started = false
         private var value = false
-
-        func start() {
-            self.started = true
-        }
-
-        func hasStarted() -> Bool {
-            self.started
-        }
+        private var waiter: CheckedContinuation<Void, Never>?
 
         func set() {
             self.value = true
+            self.waiter?.resume()
+            self.waiter = nil
         }
 
         func get() -> Bool {
             self.value
+        }
+
+        func wait() async {
+            guard !self.value else { return }
+            await withCheckedContinuation { continuation in
+                self.waiter = continuation
+            }
         }
     }
 

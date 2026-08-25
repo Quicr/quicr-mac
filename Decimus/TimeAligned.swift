@@ -84,19 +84,8 @@ final class TimeAligner {
         self.getAlignables = alignables
     }
 
-    private func doWindowMaintenance(when: Ticks) -> HostTimeOffset? {
-        // Look at all the times in our window.
-        // The smallest diff between sender and receiver time is our best
-        // estimate of the correct offset, as live media cannot arrive early.
-        self.hostTimeWindow.withLock { entries in
-            entries.removeAll { when.timeIntervalSince($0.receiverHostTime) > self.windowLength }
-            guard !entries.isEmpty else { return nil }
-            return entries.min { lhs, rhs in
-                let lhsDiff = lhs.receiverHostTime.seconds - lhs.senderTimestamp
-                let rhsDiff = rhs.receiverHostTime.seconds - rhs.senderTimestamp
-                return lhsDiff < rhsDiff
-            }
-        }
+    func reset() {
+        self.hostTimeWindow.withLock { $0.removeAll(keepingCapacity: true) }
     }
 
     func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Ticks, force: Bool = false) {
@@ -123,10 +112,19 @@ final class TimeAligner {
     }
 
     private func set(_ date: Ticks) {
-        guard let hostEntry = self.doWindowMaintenance(when: date) else { return }
+        self.hostTimeWindow.withLock { entries in
+            // The smallest diff between sender and receiver time is our best
+            // estimate of the correct offset, as live media cannot arrive early.
+            entries.removeAll { date.timeIntervalSince($0.receiverHostTime) > self.windowLength }
+            guard let hostEntry = entries.min(by: { lhs, rhs in
+                let lhsDiff = lhs.receiverHostTime.seconds - lhs.senderTimestamp
+                let rhsDiff = rhs.receiverHostTime.seconds - rhs.senderTimestamp
+                return lhsDiff < rhsDiff
+            }) else { return }
 
-        for alignable in self.getAlignables() {
-            alignable.timeDiff.setTimeDiff(diff: hostEntry)
+            for alignable in self.getAlignables() {
+                alignable.timeDiff.setTimeDiff(diff: hostEntry)
+            }
         }
     }
 }

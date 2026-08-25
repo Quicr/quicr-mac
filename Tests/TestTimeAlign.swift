@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import CoreMedia
+import Dispatch
 import Testing
 import Numerics
 @testable import QuicR
@@ -124,5 +125,51 @@ struct TestTimeAlignable {
         #expect(waitTimeLate != nil)
         #expect(waitTimeLate!.isApproximatelyEqual(to: minDepth.advanced(by: -0.05),
                                                    absoluteTolerance: 1/1000))
+    }
+
+    @Test("Reset waits for an in-flight alignment update")
+    func resetWaitsForAlignmentUpdate() async {
+        let alignable = TimeAlignableImpl()
+        let alignmentEntered = DispatchSemaphore(value: 0)
+        let releaseAlignment = DispatchSemaphore(value: 0)
+        let resetStarted = DispatchSemaphore(value: 0)
+        let resetFinished = DispatchSemaphore(value: 0)
+        let aligner = TimeAligner(windowLength: 5,
+                                  capacity: 5) { [alignable] in
+            alignmentEntered.signal()
+            releaseAlignment.wait()
+            return [alignable]
+        }
+        let alignmentTask = Task.detached {
+            aligner.doTimestampTimeDiff(10, when: .now, force: true)
+        }
+        let entered = await Task.detached {
+            alignmentEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            releaseAlignment.signal()
+            await alignmentTask.value
+            Issue.record("Alignment update did not start")
+            return
+        }
+
+        let resetTask = Task.detached {
+            resetStarted.signal()
+            aligner.reset()
+            resetFinished.signal()
+        }
+        _ = await Task.detached {
+            resetStarted.wait()
+        }.value
+
+        // Alignment is deliberately blocked, so reset must still be waiting for it.
+        let resetReturnedEarly = await Task.detached {
+            resetFinished.wait(timeout: .now() + 0.2) == .success
+        }.value
+        #expect(!resetReturnedEarly)
+
+        releaseAlignment.signal()
+        await alignmentTask.value
+        await resetTask.value
     }
 }
