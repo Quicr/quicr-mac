@@ -75,7 +75,7 @@ class VideoParticipant: Identifiable {
         }
     }
     let latencies: Latencies?
-    private nonisolated(unsafe) var averagingTask: Task<(), Never>?
+    private nonisolated let averagingTask: Task<(), Never>?
 
     /// Configuration for the participant view.
     struct Config {
@@ -111,18 +111,17 @@ class VideoParticipant: Identifiable {
         self.activeSpeakerStats = activeSpeakerStats
         self.switchLatencyMeasurement = switchLatencyMeasurement
         if config.calculateLatency {
-            self.latencies = .init(config.slidingWindowTime)
-            self.averagingTask = Task(priority: .utility) { [weak self] in
+            let latencies = Latencies(config.slidingWindowTime)
+            self.latencies = latencies
+            self.averagingTask = Task(priority: .utility) {
                 while !Task.isCancelled {
-                    if let self = self,
-                       let latencies = self.latencies {
-                        latencies.calc(from: .now)
-                    }
+                    latencies.calc(from: .now)
                     try? await Task.sleep(for: .seconds(config.slidingWindowTime))
                 }
             }
         } else {
             self.latencies = nil
+            self.averagingTask = nil
         }
     }
 
@@ -209,10 +208,10 @@ class VideoParticipant: Identifiable {
 /// Owns one participant's registration in the visible participant collection.
 @MainActor
 final class VideoParticipantRegistration {
-    nonisolated let participant: VideoParticipant
+    let participant: VideoParticipant
 
-    private nonisolated let active = Mutex(true)
-    private nonisolated(unsafe) weak var participants: VideoParticipants?
+    private let active = Mutex(true)
+    private weak var participants: VideoParticipants?
 
     fileprivate init(participant: VideoParticipant, participants: VideoParticipants) {
         self.participant = participant
@@ -227,7 +226,7 @@ final class VideoParticipantRegistration {
         }
     }
 
-    nonisolated var isActive: Bool {
+    var isActive: Bool {
         self.active.get()
     }
 
