@@ -3,8 +3,14 @@
 
 /// A ``Fetch`` operation that calls back received objects and statuses.
 class CallbackFetch: Fetch {
+    typealias FetchCallback = @Sendable (_ fetch: Fetch,
+                                         _ headers: QObjectHeaders,
+                                         _ data: Data,
+                                         _ extensions: HeaderExtensions?,
+                                         _ immutableExtensions: HeaderExtensions?) -> Void
+
     private let statusChanged: Subscription.StatusCallback?
-    private let objectReceived: CallbackSubscription.SubscriptionCallback?
+    private let objectReceived: FetchCallback?
 
     /// Create a new fetch handler for callbacks.
     /// - Parameters:
@@ -29,7 +35,7 @@ class CallbackFetch: Fetch {
          endpointId: String,
          relayId: String,
          statusChanged: Subscription.StatusCallback?,
-         objectReceived: CallbackSubscription.SubscriptionCallback?) {
+         objectReceived: FetchCallback?) {
         self.statusChanged = statusChanged
         self.objectReceived = objectReceived
         super.init(ftn,
@@ -58,6 +64,6 @@ class CallbackFetch: Fetch {
                              extensions: extensions,
                              immutableExtensions: immutableExtensions,
                              streamHeaderProperties: streamHeaderProperties)
-        self.objectReceived?(objectHeaders, data, extensions, immutableExtensions)
+        self.objectReceived?(self, objectHeaders, data, extensions, immutableExtensions)
     }
 }

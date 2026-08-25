@@ -49,6 +49,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     let decodedVariances: VarianceCalculator
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipantRegistration?>(nil)
+    private let membership = Mutex<Void>(())
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
@@ -215,24 +216,77 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
-        let result = super.removeHandler(ftn)
+    private func hasConcreteHandler() -> Bool {
+        self.getHandlers().values.contains { subscription in
+            (subscription as? VideoSubscription)?.handler.get() != nil
+        }
+    }
+
+    override func addHandler(_ handler: Subscription) throws {
+        try self.membership.withLock { _ in
+            try super.addHandler(handler)
+        }
+    }
+
+    private func removeHandlerLocked(_ ftn: FullTrackName) -> Subscription? {
+        guard let result = super.removeHandler(ftn) else { return nil }
         if self.simulreceive == .enable,
            self.getHandlers().isEmpty {
             self.logger.debug("Destroying simulreceive render as no live subscriptions")
             self.renderTask?.cancel()
+            self.renderTask = nil
             self.removeParticipant()
         }
         return result
     }
 
+    override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
+        let result = self.membership.withLock { _ in
+            self.removeHandlerLocked(ftn)
+        }
+        (result as? VideoSubscription)?.stop()
+        return result
+    }
+
+    /// Remove a subscription only if it is still the registered instance for its track name.
+    func removeHandler(_ subscription: VideoSubscription) -> Subscription? {
+        let ftn = FullTrackName(subscription.getFullTrackName())
+        let result: Subscription? = self.membership.withLock { _ in
+            guard self.getHandlers()[ftn] === subscription else { return nil }
+            return self.removeHandlerLocked(ftn)
+        }
+        (result as? VideoSubscription)?.stop()
+        return result
+    }
+
     /// Inform the set that a video frame from a managed subscription arrived.
-    /// - Parameter ftn: The full track name of the subscription this object came from.
+    /// - Parameter subscription: The subscription this object came from.
     /// - Parameter timestamp: Media timestamp of the arrived frame, if usable.
     /// - Parameter when: The local datetime this happened.
     /// - Parameter cached: True if this object is cached.
     /// - Parameter usable: True if this object should be used.
-    public func receivedObject(_ ftn: FullTrackName, details: ObjectReceived) {
+    func receivedObject(_ subscription: VideoSubscription, details: ObjectReceived) {
+        self.membership.withLock { _ in
+            let ftn = FullTrackName(subscription.getFullTrackName())
+            guard self.getHandlers()[ftn] === subscription else { return }
+            self.receiveCurrentObject(details)
+        }
+    }
+
+    func handlerStopped(_ subscription: VideoSubscription) {
+        guard self.simulreceive != .none else { return }
+        self.membership.withLock { _ in
+            let ftn = FullTrackName(subscription.getFullTrackName())
+            guard self.getHandlers()[ftn] === subscription else { return }
+            self.renderTask?.cancel()
+            self.renderTask = nil
+            if !self.hasConcreteHandler() {
+                self.removeParticipant()
+            }
+        }
+    }
+
+    private func receiveCurrentObject(_ details: ObjectReceived) {
         // Notify receipt for stats.
         if self.simulreceive == .enable {
             let report: Bool

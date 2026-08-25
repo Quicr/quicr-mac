@@ -351,7 +351,6 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             guard let set = set as? VideoSubscriptionSet else {
                 throw "VideoConfig expects a VideoSubscriptionSet"
             }
-            let ftn = try profile.getFullTrackName()
             let subConfig = self.subscriptionConfig
             let fetch = subConfig.joinConfig.fetchUpperThreshold * TimeInterval(videoConfig.fps)
             let newGroup = subConfig.joinConfig.newGroupUpperThreshold * TimeInterval(videoConfig.fps)
@@ -382,11 +381,16 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          wifiScanDetector: self.wifiScanDetector,
                                          switchLatencyMeasurement: self.switchLatencyMeasurement,
                                          publisherInitiated: publisherInitiated,
-                                         callback: { [weak set] details in
-                                            guard let set = set else { return }
-                                            set.receivedObject(ftn, details: details)
+                                         callback: { [weak set] subscription, details in
+                                            set?.receivedObject(subscription, details: details)
                                          },
-                                         statusChanged: unregister)
+                                         statusChanged: { [weak set] subscription, status in
+                                            guard status == .notSubscribed else { return }
+                                            _ = set?.removeHandler(subscription)
+                                         },
+                                         handlerStopped: { [weak set] subscription in
+                                            set?.handlerStopped(subscription)
+                                         })
         } else if config is AudioCodecConfig {
             guard set is ObservableSubscriptionSet else {
                 throw "AudioCodecConfig expects ObservableSubscriptionSet"

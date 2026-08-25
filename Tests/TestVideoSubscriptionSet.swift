@@ -4,6 +4,7 @@
 @testable import QuicR
 import XCTest
 import CoreMedia
+import Synchronization
 import Testing
 
 final class TestVideoSubscriptionSet: XCTestCase {
@@ -149,6 +150,21 @@ struct VideoSubscriptionSetTests {
     static let pastTimestamp = Self.now.hostDate.addingTimeInterval(-10).timeIntervalSince1970
     static let futureTimestamp = Self.now.hostDate.addingTimeInterval(10).timeIntervalSince1970
 
+    private func makeObjectReceived(timestamp: TimeInterval?) -> ObjectReceived {
+        .init(timestamp: timestamp,
+              when: .now,
+              cached: false,
+              headers: .init(groupId: 0,
+                             subgroupId: 0,
+                             objectId: 0,
+                             payloadLength: 0,
+                             status: .available,
+                             priority: nil,
+                             ttl: nil),
+              usable: true,
+              publishTimestamp: nil)
+    }
+
     @MainActor
     private func makeParticipant() -> VideoParticipant {
         .init(id: "participant",
@@ -158,6 +174,88 @@ struct VideoSubscriptionSetTests {
               activeSpeakerStats: nil,
               config: .init(calculateLatency: false,
                             slidingWindowTime: 1))
+    }
+
+    @MainActor
+    private func makeSimulreceiveSet(participants: VideoParticipants) throws -> VideoSubscriptionSet {
+        try VideoSubscriptionSet(subscription: .init(mediaType: "",
+                                                     sourceName: "",
+                                                     sourceID: "participant",
+                                                     label: "",
+                                                     participantId: .init(1),
+                                                     profileSet: .init(type: "",
+                                                                       profiles: [.init(qualityProfile: "",
+                                                                                        expiry: nil,
+                                                                                        priorities: nil,
+                                                                                        namespace: ["participant"])])),
+                                 participants: participants,
+                                 metricsSubmitter: nil,
+                                 videoBehaviour: .freeze,
+                                 granularMetrics: true,
+                                 jitterBufferConfig: .init(),
+                                 simulreceive: .enable,
+                                 qualityMissThreshold: 1,
+                                 pauseMissThreshold: 1,
+                                 pauseResume: false,
+                                 endpointId: "",
+                                 relayId: "",
+                                 codecFactory: MockCodecFactory(),
+                                 joinDate: .now,
+                                 activeSpeakerStats: nil,
+                                 cleanupTime: 10,
+                                 slidingWindowTime: 10,
+                                 config: .init(calculateLatency: false,
+                                               qualityHitThreshold: 1))
+    }
+
+    @MainActor
+    private func makeVideoSubscription(participants: VideoParticipants,
+                                       namespace: [String] = ["0"],
+                                       statusChanged: VideoSubscription.VideoStatusCallback? = nil,
+                                       callback: VideoSubscription.Callback? = nil) async throws -> VideoSubscription {
+        try await TestVideoSubscription().makeSubscription(.video(),
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           namespace: namespace,
+                                                           callback: callback,
+                                                           participants: participants,
+                                                           simulreceive: .enable,
+                                                           statusChanged: statusChanged)
+    }
+
+    @MainActor
+    @Test("Removed subscription callbacks cannot affect a same-name replacement")
+    func testRemovedSubscriptionCallbacksCannotAffectReplacement() async throws {
+        let participants = VideoParticipants()
+        let set = try self.makeSimulreceiveSet(participants: participants)
+        let deferred = Mutex<(VideoSubscription, ObjectReceived)?>(nil)
+        let subscription = try await self.makeVideoSubscription(
+            participants: participants,
+            statusChanged: { source, status in
+                guard status == .notSubscribed else { return }
+                _ = set.removeHandler(source)
+            },
+            callback: { source, details in
+                deferred.withLock { $0 = (source, details) }
+            })
+        let resolvedFullTrackName = FullTrackName(subscription.getFullTrackName())
+        try set.addHandler(subscription)
+
+        subscription.mockObject(groupId: 0,
+                                objectId: 0,
+                                immutableExtensions: .video(sequenceNumber: 1))
+        let captured = deferred.withLock { $0 }
+        let callback = try #require(captured)
+        _ = set.removeHandler(resolvedFullTrackName)
+
+        let replacement = try await self.makeVideoSubscription(participants: participants)
+        try set.addHandler(replacement)
+        set.receivedObject(callback.0, details: callback.1)
+        subscription.statusChanged(.notSubscribed)
+
+        #expect(set.getHandlers()[resolvedFullTrackName] === replacement)
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+        #expect(set.getMediaState() == .subscribed)
     }
 
     @MainActor
@@ -206,7 +304,8 @@ struct VideoSubscriptionSetTests {
     @Test("Test Timestamp Diff", arguments: [Self.now.hostDate.timeIntervalSince1970,
                                              Self.pastTimestamp,
                                              Self.futureTimestamp])
-    func testTimestampDiff(timestamp: TimeInterval) throws {
+    func testTimestampDiff(timestamp: TimeInterval) async throws {
+        let participants = VideoParticipants()
         let set = try VideoSubscriptionSet(subscription: .init(mediaType: "",
                                                                sourceName: "",
                                                                sourceID: "",
@@ -217,7 +316,7 @@ struct VideoSubscriptionSetTests {
                                                                                                   expiry: nil,
                                                                                                   priorities: nil,
                                                                                                   namespace: [])])),
-                                           participants: .init(),
+                                           participants: participants,
                                            metricsSubmitter: nil,
                                            videoBehaviour: .freeze,
                                            granularMetrics: true,
@@ -235,6 +334,8 @@ struct VideoSubscriptionSetTests {
                                            slidingWindowTime: 10,
                                            config: .init(calculateLatency: false,
                                                          qualityHitThreshold: 1))
+        let subscription = try await self.makeVideoSubscription(participants: participants)
+        try set.addHandler(subscription)
         let details = ObjectReceived(timestamp: timestamp,
                                      when: Self.now,
                                      cached: false,
@@ -248,8 +349,8 @@ struct VideoSubscriptionSetTests {
                                      usable: true,
                                      publishTimestamp: nil)
 
-        try set.receivedObject(.init(namespace: [], name: ""),
-                               details: details)
+        set.receivedObject(subscription,
+                           details: details)
     }
 }
 
