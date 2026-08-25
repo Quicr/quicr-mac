@@ -627,8 +627,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                                                 when: when,
                                                 endToEndLatency: e2eLatency)
                         self.mediaState.withLock { $0 = .rendered }
+                        return true
                     }
-                    guard enqueued != nil else { return }
+                    guard enqueued == true else { return }
                     self.displayCallbacks.fire()
                 } catch {
                     self.logger.error("Could not enqueue sample: \(error)")
