@@ -74,6 +74,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private var paused = false
     private var stopped = false
+    // TODO: Refactor so we don't need recursion / use Mutex<T>
     private let lifecycleLock = NSRecursiveLock()
     private var lastSeenGroup: UInt64?
     private var maxGroupSeen: UInt64?
