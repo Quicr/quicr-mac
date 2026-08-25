@@ -48,7 +48,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
     private let subscribeDate: Date
-    private let participant = Mutex<VideoParticipant?>(nil)
+    private let participant = Mutex<VideoParticipantRegistration?>(nil)
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
@@ -163,7 +163,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         time = self.cleanupTimer
                         let lastUpdate = self.lastUpdateTime.load(ordering: .acquiring)
                         if Ticks.now.timeIntervalSince(lastUpdate) >= self.cleanupTimer {
-                            self.participant.clear()
+                            self.removeParticipant()
                         }
                     } else {
                         return
@@ -180,7 +180,39 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
     deinit {
         self.cleanupTask?.cancel()
+        self.removeParticipant()
         self.logger.debug("Deinit")
+    }
+
+    @MainActor
+    private func getOrCreateParticipant() throws -> VideoParticipantRegistration {
+        if let registration = self.participant.get() {
+            return registration
+        }
+
+        let participant = VideoParticipant(id: self.sourceId,
+                                           startDate: self.joinDate,
+                                           subscribeDate: self.subscribeDate,
+                                           participantId: self.participantId,
+                                           activeSpeakerStats: self.activeSpeakerStats,
+                                           config: self.config.getVideoParticipantConfig(self))
+        let registration = try self.participants.register(participant)
+        return self.participant.withLock { current in
+            if let current {
+                registration.remove()
+                return current
+            }
+            current = registration
+            return registration
+        }
+    }
+
+    private func removeParticipant() {
+        guard let registration = self.participant.consume() else { return }
+        registration.invalidate()
+        Task { @MainActor in
+            registration.remove()
+        }
     }
 
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
@@ -189,7 +221,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
            self.getHandlers().isEmpty {
             self.logger.debug("Destroying simulreceive render as no live subscriptions")
             self.renderTask?.cancel()
-            self.participant.clear()
+            self.removeParticipant()
         }
         return result
     }
@@ -217,25 +249,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 report = true
             }
 
-            Task {
-                try await MainActor.run {
-                    let participant = try self.participant.withLock { locked in
-                        guard let existing = locked else {
-                            let created = try VideoParticipant(id: self.sourceId,
-                                                               startDate: self.joinDate,
-                                                               subscribeDate: self.subscribeDate,
-                                                               videoParticipants: self.participants,
-                                                               participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats,
-                                                               config: self.config.getVideoParticipantConfig(self))
-                            locked = created
-                            return created
-                        }
-                        return existing
-                    }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let registration = try self.getOrCreateParticipant()
                     if report {
-                        participant.received(details)
+                        registration.withParticipant { participant in
+                            participant.received(details)
+                        }
                     }
+                } catch {
+                    self.logger.warning("Failed to create participant: \(error.localizedDescription)")
                 }
             }
         }
@@ -569,31 +593,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             // If we don't yet have a participant, make one.
             let when = at.hostDate
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                let participant: VideoParticipant
+                guard let self else { return }
+                let registration: VideoParticipantRegistration
                 do {
-                    participant = try self.participant.withLock { lockedParticipant in
-                        if let existing = lockedParticipant {
-                            return existing
-                        }
-                        let created = try VideoParticipant(id: self.sourceId,
-                                                           startDate: self.joinDate,
-                                                           subscribeDate: self.subscribeDate,
-                                                           videoParticipants: self.participants,
-                                                           participantId: self.participantId,
-                                                           activeSpeakerStats: self.activeSpeakerStats,
-                                                           config: self.config.getVideoParticipantConfig(self))
-                        lockedParticipant = created
-                        return created
-                    }
+                    registration = try self.getOrCreateParticipant()
                 } catch {
                     self.logger.warning("Failed to create participant: \(error.localizedDescription)")
                     return
                 }
 
-                if let dispatchLabel = dispatchLabel {
-                    participant.label = dispatchLabel
-                }
                 do {
                     let e2eLatency: TimeInterval?
                     if self.config.calculateLatency {
@@ -610,13 +618,18 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         e2eLatency = nil
                     }
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                    try participant.enqueue(selectedSample,
-                                            transform: transform,
-                                            when: when,
-                                            endToEndLatency: e2eLatency)
-                    self.mediaState.withLock { existing in
-                        existing = .rendered
+                    let enqueued = try registration.withParticipant { participant in
+                        if let dispatchLabel {
+                            participant.label = dispatchLabel
+                        }
+                        try participant.enqueue(selectedSample,
+                                                transform: transform,
+                                                when: when,
+                                                endToEndLatency: e2eLatency)
+                        self.mediaState.withLock { $0 = .rendered }
+                        return true
                     }
+                    guard enqueued == true else { return }
                     self.displayCallbacks.fire()
                 } catch {
                     self.logger.error("Could not enqueue sample: \(error)")
