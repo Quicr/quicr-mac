@@ -405,8 +405,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
 
     private func startRenderTask(renderEpoch: UInt64) {
-        // Draining bumps the render epoch and clears the slot under this lock, so an occupied slot
-        // always belongs to the current render epoch.
+        // If we should be starting, start.
         let token = self.renderState.withLock { state -> UInt64? in
             guard state.epoch == renderEpoch,
                   state.token == nil else { return nil }
