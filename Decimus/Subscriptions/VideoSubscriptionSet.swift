@@ -391,7 +391,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {
-            self.startRenderTask(renderEpoch: epoch)
+            self.startRenderTask(epoch: epoch)
         }
 
         // Record the last time this updated.
@@ -404,10 +404,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    private func startRenderTask(renderEpoch: UInt64) {
-        // If we should be starting, start.
+    private func startRenderTask(epoch: UInt64) {
+        // Check we're valid to start.
         let token = self.renderState.withLock { state -> UInt64? in
-            guard state.epoch == renderEpoch,
+            guard state.epoch == epoch,
                   state.token == nil else { return nil }
             state.nextToken &+= 1
             state.token = state.nextToken
@@ -415,6 +415,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
         guard let token else { return }
 
+        // Start the simulreceive render.
         let task = Task(priority: .high) { [weak self] in
             defer {
                 self?.renderState.withLock { state in
@@ -426,7 +427,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             while !Task.isCancelled {
                 let duration: TimeInterval
                 if let self {
-                    guard let next = self.renderStep(token: token, renderEpoch: renderEpoch) else { return }
+                    guard let next = self.renderStep(token: token, epoch: epoch) else { return }
                     duration = next
                 } else {
                     return
@@ -447,14 +448,14 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    /// Make one simulreceive decision, or nil if this task no longer owns the render slot.
-    /// The decision runs outside the lock: receipt on the transport thread contends for it on
-    /// every object, and only one render task can own a token at a time.
+    /// Make one simulreceive decision.
+    /// - Parameter token: Which render task this is for.
+    /// - Parameter epoch: Which lifetime epoch this is for.
     /// - Returns: How long to wait before the next decision.
-    private func renderStep(token: UInt64, renderEpoch: UInt64) -> TimeInterval? {
+    private func renderStep(token: UInt64, epoch: UInt64) -> TimeInterval? {
         let owned = self.renderState.withLock { state in
             guard state.token == token,
-                  state.epoch == renderEpoch,
+                  state.epoch == epoch,
                   !Task.isCancelled else { return false }
             self.renderDecisions.enter()
             return true
@@ -463,7 +464,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         defer { self.renderDecisions.leave() }
         guard !self.getHandlers().isEmpty else { return nil }
         do {
-            return try self.makeSimulreceiveDecision(at: Ticks.now, epoch: renderEpoch)
+            return try self.makeSimulreceiveDecision(at: Ticks.now, epoch: epoch)
         } catch {
             self.logger.error("Simulreceive failure: \(error.localizedDescription)")
             return nil
