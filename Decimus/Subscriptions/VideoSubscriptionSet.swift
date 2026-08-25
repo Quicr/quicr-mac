@@ -58,8 +58,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let lastTimestampReceived = Atomic(Int64.zero)
     private let config: Config
 
-    /// State for simulreceive rendering. Pass values of this type to helpers only from
-    /// `renderState.withLock` so the value also acts as a lock-scoped capability.
+    /// State for simulreceive rendering.
     private struct RenderState {
         /// Rendering can go away and come back over time, this tracks which lifetime we're on.
         var epoch: UInt64 = 0
@@ -524,8 +523,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision(at: Ticks,
                                           epoch: UInt64) throws -> TimeInterval {
-        // Gather up what frames we have to choose from. Handlers can be torn down underneath us,
-        // so resolve them once here and use this snapshot for the rest of the decision.
+        // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
         var handlers: [FullTrackName: VideoHandler] = [:]
         for subscription in self.getHandlers().values {
