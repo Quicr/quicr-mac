@@ -81,8 +81,6 @@ struct SubscriptionConfig: Codable {
     var chunkSize: UInt32
     /// Control encoder bitrate budgets.
     var bitrateType: BitrateType
-    /// True to enable "reset & wait" functionality.
-    var useResetWaitCC: Bool
     /// True to use BBR congestion control.
     var useBBR: Bool
     /// True to emit a qlog at the end of the call into Downloads or Documents.
@@ -130,7 +128,6 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 500
         chunkSize = 3000
         bitrateType = .average
-        useResetWaitCC = false
         useBBR = true
         enableQlog = false
         pauseResume = false

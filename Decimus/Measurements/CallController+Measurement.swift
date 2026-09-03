@@ -53,7 +53,6 @@ extension MoqCallController {
             self.record(field: "tx_dgram_cb", value: metrics.quic.tx_dgram_cb as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_ack", value: metrics.quic.tx_dgram_ack as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_spurious", value: metrics.quic.tx_dgram_spurious as AnyObject, timestamp: time)
-            self.record(field: "tx_dgram_drops", value: metrics.quic.tx_dgram_drops as AnyObject, timestamp: time)
         }
     }
 }

@@ -7,7 +7,6 @@ struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var timeQueueTTL: Int
     @Binding var chunkSize: UInt32
-    @Binding var useResetWaitCC: Bool
     @Binding var useBBR: Bool
     @Binding var quicrLogs: Bool
     @Binding var enableQlog: Bool
@@ -33,8 +32,6 @@ struct TransportConfigSettings: View {
             }
         }
         #endif
-        LabeledToggle("Use Reset and Wait",
-                      isOn: self.$useResetWaitCC)
         LabeledToggle("Use BBR",
                       isOn: self.$useBBR)
         LabeledContent("Time Queue RX Size") {

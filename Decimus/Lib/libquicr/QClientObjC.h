@@ -68,7 +68,8 @@ NS_SWIFT_SENDABLE
 #ifdef __cplusplus
     quicr::ClientConfig qClientConfig;
     quicr::SessionManager qSessionMgr;
-    std::shared_ptr<QClient> qClientPtr;
+    std::shared_ptr<quicr::Session> qClientPtr;
+    std::shared_ptr<QClient> qClientCallbacks;
 #endif
 }
 

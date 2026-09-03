@@ -6,34 +6,42 @@
 
 #import "QClientCallbacks.h"
 
-#include "quicr/session.h"
+#include "quicr/session_callbacks.h"
 #include "quicr/config.h"
 
-class QClient : public quicr::Session
+#include <future>
+#include <mutex>
+#include <unordered_map>
+
+class QClient final : public quicr::Session::ClientCallbacks
 {
 public:
-    static std::shared_ptr<QClient> Create(quicr::ClientConfig config,
-                                           std::shared_ptr<quicr::Transport> transport,
-                                           std::shared_ptr<quicr::Connection> connection,
-                                           std::shared_ptr<timeq::tick_service> tick_service);
-    virtual ~QClient();
-
-    void StatusChanged(Status status) override;
-    void ServerSetupReceived(const quicr::ServerSetupAttributes& serverSetupAttributes) override;
-    void MetricsSampled(const quicr::ConnectionMetrics& metrics) override;
-    void PublishReceived(unsigned long long,
-                         const quicr::PublishAttributes&,
-                         std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override;
+    void StatusChanged(const std::shared_ptr<quicr::Session>& session, quicr::Session::Status status) override;
+    quicr::Reply<void, int> ServerSetupReceived(const std::shared_ptr<quicr::Session>& session,
+                                                 const quicr::ServerSetupAttributes& serverSetupAttributes) override;
+    void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
+                        const quicr::ConnectionMetrics& metrics) override;
+    quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
+        const std::shared_ptr<quicr::Session>& session,
+        unsigned long long request_id,
+        const quicr::PublishAttributes& attributes,
+        std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override;
 
 
     void SetCallbacks(id<QClientCallbacks> callbacks);
     id<QClientCallbacks> GetCallbacks() const { return _callbacks; }
+    void ResolvePublish(uint64_t request_id,
+                        const quicr::PublishOkAttributes& attributes,
+                        std::shared_ptr<quicr::SubscribeTrackHandler> handler,
+                        bool accepted);
+    void CancelPendingPublishes();
+
 private:
-    QClient(quicr::ClientConfig config,
-            std::shared_ptr<quicr::Transport> transport,
-            std::shared_ptr<quicr::Connection> connection,
-            std::shared_ptr<timeq::tick_service> tick_service);
+    using PublishReply = quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>>;
+
     __weak id<QClientCallbacks> _callbacks;
+    std::mutex pending_publishes_mutex_;
+    std::unordered_map<uint64_t, std::shared_ptr<std::promise<PublishReply>>> pending_publishes_;
 };
 
 
