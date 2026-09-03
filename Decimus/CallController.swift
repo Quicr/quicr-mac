@@ -102,7 +102,6 @@ final class MoqCallController: QClientCallbacks, Sendable {
         }
         self.overrideNamespace = overrideNamespace
         self.publishReceivedCallback = publishReceived
-        self.client.setCallbacks(self)
     }
 
     deinit {
@@ -114,7 +113,10 @@ final class MoqCallController: QClientCallbacks, Sendable {
     func connect() async throws {
         try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
             self.state.withLock { $0.connectionContinuation = continuation }
+
+            self.client.setCallbacks(self)
             let status = self.client.connect()
+
             self.logger.debug("[MoqCallController] Connect => \(status)")
             switch status {
             case .clientConnecting:

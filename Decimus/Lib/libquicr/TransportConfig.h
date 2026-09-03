@@ -31,8 +31,6 @@ struct TransportConfig
     const uint32_t quic_wifi_shadow_rtt_us;
     /// QUIC idle timeout for connection(s) in milliseconds
     const uint64_t idle_timeout_ms;
-    /// Use Reset and wait strategy for congestion control
-    const bool use_reset_wait_strategy;
     /// Use BBR if true, NewReno if false
     const bool use_bbr;
     /// QUIC LOG file location path, null terminated cstring

@@ -77,10 +77,6 @@ class MockClient: MoqClient {
         self.fetchCancel(handler as! Fetch)
     }
 
-    func getPublishNamespaceStatus(_ trackNamespace: Data) -> QPublishNamespaceStatus {
-        .OK
-    }
-
     func subscribeNamespace(withHandler handler: QSubscribeNamespaceHandlerObjC) {
         self.subscribeNamespace(handler)
     }

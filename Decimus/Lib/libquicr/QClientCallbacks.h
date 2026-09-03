@@ -53,7 +53,6 @@ typedef struct QQuicConnectionMetrics {
     uint64_t tx_dgram_ack;
     uint64_t tx_dgram_lost;
     uint64_t tx_dgram_spurious;
-    uint64_t tx_dgram_drops;
 } QQuicConnectionMetrics;
 
 typedef struct QConnectionMetrics {
