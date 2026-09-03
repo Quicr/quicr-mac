@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
+import Dispatch
 import Testing
 @testable import QuicR
 
@@ -29,14 +32,61 @@ extension VideoSubscription {
     }
 }
 
+extension Fetch {
+    func mockObject(groupId: UInt64,
+                    objectId: UInt64,
+                    immutableExtensions: HeaderExtensions? = nil) {
+        self.objectReceived(.init(groupId: groupId,
+                                  subgroupId: 0,
+                                  objectId: objectId,
+                                  payloadLength: 1,
+                                  status: .available,
+                                  priority: nil,
+                                  ttl: nil),
+                            data: Data([0x01]),
+                            extensions: nil,
+                            immutableExtensions: immutableExtensions,
+                            streamHeaderProperties: nil)
+    }
+}
+
+extension MockClient {
+    static func video(fetch: @escaping FetchTrackCallback = { _ in },
+                      fetchCancel: @escaping FetchTrackCallback = { _ in }) -> MockClient {
+        .init(publish: { _ in },
+              unpublish: { _ in },
+              subscribe: { _ in },
+              unsubscribe: { _ in },
+              fetch: fetch,
+              fetchCancel: fetchCancel)
+    }
+}
+
+extension HeaderExtensions {
+    static func video(sequenceNumber: UInt64) -> HeaderExtensions {
+        var extensions = HeaderExtensions()
+        try? extensions.setHeader(.sequenceNumber(sequenceNumber))
+        try? extensions.setHeader(.captureTimestamp(.now))
+        return extensions
+    }
+}
+
+// swiftlint:disable:next type_body_length
 struct TestVideoSubscription {
     @MainActor
-    private func makeSubscription(_ mockClient: MockClient,
-                                  fetchThreshold: UInt64,
-                                  ngThreshold: UInt64,
-                                  callback: ObjectReceivedCallback? = nil,
-                                  jitterBufferConfig: JitterBuffer.Config = .init(),
-                                  cleanupTime: TimeInterval = 1.5) async throws -> VideoSubscription {
+    func makeSubscription(_ mockClient: MockClient,
+                          fetchThreshold: UInt64,
+                          ngThreshold: UInt64,
+                          namespace: [String] = ["0"],
+                          callback: VideoSubscription.Callback? = nil,
+                          jitterBufferConfig: JitterBuffer.Config = .init(),
+                          cleanupTime: TimeInterval = 1.5,
+                          participants: VideoParticipants? = nil,
+                          activeSpeakerStats: ActiveSpeakerStats? = nil,
+                          simulreceive: SimulreceiveMode = .none,
+                          statusChanged: VideoSubscription.VideoStatusCallback? = nil,
+                          handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil) async throws -> VideoSubscription {
+        let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -45,25 +95,25 @@ struct TestVideoSubscription {
         let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
                                                                 expiry: [1],
                                                                 priorities: [1],
-                                                                namespace: ["0"]),
+                                                                namespace: namespace),
                                                  config: .init(codec: .mock,
                                                                bitrate: 2000,
                                                                fps: 30,
                                                                width: 1920,
                                                                height: 1080,
                                                                bitrateType: .average),
-                                                 participants: .init(),
+                                                 participants: participants,
                                                  metricsSubmitter: nil,
                                                  videoBehaviour: .freeze,
                                                  granularMetrics: true,
                                                  jitterBufferConfig: jitterBufferConfig,
-                                                 simulreceive: .none,
+                                                 simulreceive: simulreceive,
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
                                                  relayId: "",
                                                  participantId: .init(1),
                                                  joinDate: .now,
-                                                 activeSpeakerStats: nil,
+                                                 activeSpeakerStats: activeSpeakerStats,
                                                  controller: controller,
                                                  verbose: true,
                                                  cleanupTime: cleanupTime,
@@ -75,10 +125,61 @@ struct TestVideoSubscription {
                                                  sframeContext: nil,
                                                  wifiScanDetector: nil,
                                                  publisherInitiated: false,
-                                                 callback: { callback?($0) },
-                                                 statusChanged: ({_ in }))
+                                                 callback: { subscription, details in
+                                                    callback?(subscription, details)
+                                                 },
+                                                 statusChanged: { subscription, status in
+                                                    statusChanged?(subscription, status)
+                                                 },
+                                                 handlerStopped: { subscription in
+                                                    handlerStopped?(subscription)
+                                                 })
         // Simulate the subscribe OK that would set this in production.
         subscription.supportNewGroupRequest(true)
+        return subscription
+    }
+
+    @MainActor
+    private func assertTransitionDrainsReceive(
+        _ transition: @escaping @Sendable (VideoSubscription) -> Void
+    ) async throws -> VideoSubscription {
+        let receiveEntered = DispatchSemaphore(value: 0)
+        let resumeReceive = DispatchSemaphore(value: 0)
+        let transitionFinished = DispatchSemaphore(value: 0)
+        let subscription = try await self.makeSubscription(.video(),
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           callback: { _, _ in
+                                                            receiveEntered.signal()
+                                                            resumeReceive.wait()
+                                                           })
+        let receiveTask = Task.detached {
+            subscription.mockObject(groupId: 0,
+                                    objectId: 0,
+                                    immutableExtensions: .video(sequenceNumber: 1))
+        }
+        let entered = await Task.detached {
+            receiveEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            resumeReceive.signal()
+            await receiveTask.value
+            throw "Live receive did not reach the synchronization point"
+        }
+
+        let transitionTask = Task.detached {
+            transition(subscription)
+            transitionFinished.signal()
+        }
+        let finishedBeforeReceiveReturned = await Task.detached {
+            transitionFinished.wait(timeout: .now() + 0.2) == .success
+        }.value
+        #expect(!finishedBeforeReceiveReturned)
+
+        resumeReceive.signal()
+        await receiveTask.value
+        await transitionTask.value
+        #expect(subscription.getCurrentState() == .startup)
         return subscription
     }
 
@@ -93,6 +194,171 @@ struct TestVideoSubscription {
                                     fetchCancel: {_ in})
         let subscription = try await self.makeSubscription(mockClient, fetchThreshold: 0, ngThreshold: 0)
         subscription.metricsSampled(.init())
+    }
+
+    @Test("Cleanup removes the retained handler's participant")
+    @MainActor
+    func testCleanupRemovesRetainedHandlerParticipant() async throws {
+        let participants = VideoParticipants()
+        let subscription = try await self.makeSubscription(.video(),
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           cleanupTime: 0.05,
+                                                           participants: participants)
+        let handler = subscription.handler.get()
+        let retainedHandler = try #require(handler)
+        for _ in 0..<100 where participants.participants.compactMap(\.value).isEmpty {
+            await Task.yield()
+        }
+        try #require(!participants.participants.compactMap(\.value).isEmpty)
+
+        subscription.mockObject(groupId: 0, objectId: 0)
+        for _ in 0..<100 where subscription.handler.get() != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(subscription.handler.get() == nil)
+        for _ in 0..<100 where !participants.participants.compactMap(\.value).isEmpty {
+            await Task.yield()
+        }
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+        _ = retainedHandler
+    }
+
+    @Test("Stopping a subscription drains an in-flight live receive")
+    @MainActor
+    func testSubscriptionStopDrainsInFlightLiveReceive() async throws {
+        let subscription = try await self.assertTransitionDrainsReceive {
+            $0.stop()
+        }
+        #expect(subscription.handler.get() == nil)
+        subscription.mockObject(groupId: 0, objectId: 0)
+        #expect(subscription.handler.get() == nil)
+    }
+
+    @Test("Pausing a subscription drains an in-flight live receive")
+    @MainActor
+    func testSubscriptionPauseDrainsInFlightLiveReceive() async throws {
+        _ = try await self.assertTransitionDrainsReceive {
+            $0.pause()
+        }
+    }
+
+    @Test("Stopping a handler waits out in-flight receive task creation")
+    @MainActor
+    func testHandlerStopPreventsInFlightDequeueTaskCreation() async throws {
+        var jitterBufferConfig = JitterBuffer.Config()
+        jitterBufferConfig.mode = .interval
+        jitterBufferConfig.minDepth = 0
+        let subscription = try await self.makeSubscription(.video(),
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           jitterBufferConfig: jitterBufferConfig)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        let receiveEntered = DispatchSemaphore(value: 0)
+        let resumeReceive = DispatchSemaphore(value: 0)
+        _ = handler.registerCallback { _ in
+            receiveEntered.signal()
+            resumeReceive.wait()
+        }
+
+        let receiveTask = Task.detached {
+            let extensions = HeaderExtensions.video(sequenceNumber: 1)
+            let priority: UInt8 = 0
+            let ttl: UInt16 = 0
+            withUnsafePointer(to: priority) { priorityPtr in
+                withUnsafePointer(to: ttl) { ttlPtr in
+                    handler.objectReceived(.init(groupId: 0,
+                                                 subgroupId: 0,
+                                                 objectId: 0,
+                                                 payloadLength: 1,
+                                                 status: .available,
+                                                 priority: priorityPtr,
+                                                 ttl: ttlPtr),
+                                           data: Data([0x01]),
+                                           extensions: extensions,
+                                           when: .now,
+                                           cached: false,
+                                           drop: false)
+                }
+            }
+        }
+        let entered = await Task.detached {
+            receiveEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            resumeReceive.signal()
+            await receiveTask.value
+            Issue.record("Receive callback did not reach the synchronization point")
+            return
+        }
+
+        handler.stop()
+        resumeReceive.signal()
+        await receiveTask.value
+
+        #expect(handler.jitterBuffer == nil)
+    }
+
+    @Test("Stop drains and cancels an active fetch, then rejects its late completion")
+    @MainActor
+    func testStopWinsRaceWithFetchCompletion() async throws {
+        var fetch: Fetch?
+        var fetchCancelled = false
+        let mockClient = MockClient.video(fetch: { fetch = $0 },
+                                          fetchCancel: { _ in fetchCancelled = true })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: self.fetchThreshold,
+                                                           ngThreshold: self.ngThreshold)
+        subscription.mockObject(groupId: 0,
+                                objectId: self.fetchThreshold - 1,
+                                immutableExtensions: .video(sequenceNumber: 1))
+        let activeFetch = try #require(fetch)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        let receiveEntered = DispatchSemaphore(value: 0)
+        let resumeReceive = DispatchSemaphore(value: 0)
+        _ = handler.registerCallback { _ in
+            receiveEntered.signal()
+            resumeReceive.wait()
+        }
+
+        let fetchTask = Task.detached {
+            activeFetch.mockObject(groupId: 0,
+                                   objectId: self.fetchThreshold - 3,
+                                   immutableExtensions: .video(sequenceNumber: 2))
+        }
+        let entered = await Task.detached {
+            receiveEntered.wait(timeout: .now() + 2) == .success
+        }.value
+        guard entered else {
+            resumeReceive.signal()
+            await fetchTask.value
+            Issue.record("Fetched object did not reach the synchronization point")
+            return
+        }
+
+        let stopFinished = DispatchSemaphore(value: 0)
+        let stopTask = Task.detached {
+            subscription.stop()
+            stopFinished.signal()
+        }
+        let stoppedBeforeFetchReturned = await Task.detached {
+            stopFinished.wait(timeout: .now() + 0.2) == .success
+        }.value
+        #expect(!stoppedBeforeFetchReturned)
+
+        resumeReceive.signal()
+        await fetchTask.value
+        await stopTask.value
+
+        #expect(fetchCancelled)
+        #expect(subscription.handler.get() == nil)
+        activeFetch.mockObject(groupId: 0,
+                               objectId: self.fetchThreshold - 2,
+                               immutableExtensions: .video(sequenceNumber: 3))
+        #expect(subscription.getCurrentState() == .startup)
     }
 
     let fetchThreshold: UInt64 = 10
@@ -153,15 +419,16 @@ struct TestVideoSubscription {
         #expect(fetch != nil)
     }
 
-    @Test("Cleanup fetch waits for a decodable GOP")
+    @Test("Cleanup reactivation fetches the same-group GOP")
     @MainActor
     func testCleanupFetchWaitsForGOP() async throws {
+        var fetch: Fetch?
         var fetchCancelled = false
         let mockClient = MockClient(publish: { _ in },
                                     unpublish: { _ in },
                                     subscribe: { _ in },
                                     unsubscribe: { _ in },
-                                    fetch: { _ in },
+                                    fetch: { fetch = $0 },
                                     fetchCancel: { _ in fetchCancelled = true })
         var jitterBufferConfig = JitterBuffer.Config()
         jitterBufferConfig.mode = .interval
@@ -181,14 +448,16 @@ struct TestVideoSubscription {
             return extensions
         }
 
+        let currentHandler = subscription.handler.get()
+        let initialHandler = try #require(currentHandler)
         subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
         for _ in 0..<100 where subscription.handler.get() != nil {
             try await Task.sleep(for: .milliseconds(10))
         }
         try #require(subscription.handler.get() == nil)
 
-        // Cleanup recreated the handler. An early P-frame starts FETCH but must not release playout.
-        subscription.mockObject(groupId: 1, objectId: 1, immutableExtensions: loc())
+        // Returning within the same group recreates the handler and fetches its missing IDR.
+        subscription.mockObject(groupId: 0, objectId: 1, immutableExtensions: loc())
         try await Task.sleep(for: .milliseconds(75))
         guard case .fetching = subscription.getCurrentState() else {
             Issue.record("Expected fetching state, got \(subscription.getCurrentState())")
@@ -196,15 +465,20 @@ struct TestVideoSubscription {
         }
         let recreatedHandler = subscription.handler.get()
         let fetchingHandler = try #require(recreatedHandler)
+        #expect(fetchingHandler !== initialHandler)
         let queuedPFrame: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
         #expect(queuedPFrame?.frame.objectId == 1)
         #expect(!fetchCancelled)
 
-        // A newer live GOP is also a valid release: cancel FETCH and play through any decodable prefix.
-        subscription.mockObject(groupId: 2, objectId: 0, immutableExtensions: loc())
+        let activeFetch = try #require(fetch)
+        activeFetch.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
         #expect(subscription.getCurrentState() == .running)
-        #expect(fetchCancelled)
-        try await Task.sleep(for: .milliseconds(75))
+        #expect(!fetchCancelled)
+        for _ in 0..<100 {
+            let queued: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
+            guard queued != nil else { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
         let queuedAfterRelease: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
         #expect(queuedAfterRelease == nil)
     }
@@ -269,7 +543,7 @@ struct TestVideoSubscription {
         var gotGroupId: UInt64?
         var gotObjectId: UInt64?
         var shouldDrop: Bool?
-        let callback: ObjectReceivedCallback = { details in
+        let callback: VideoSubscription.Callback = { _, details in
             shouldDrop = !details.usable
             gotGroupId = details.headers.groupId
             gotObjectId = details.headers.objectId
@@ -418,7 +692,7 @@ struct TestVideoSubscription {
     @MainActor
     func testObjectsDroppedWhilePaused() async throws {
         var callbackCount = 0
-        let callback: ObjectReceivedCallback = { _ in
+        let callback: VideoSubscription.Callback = { _, _ in
             callbackCount += 1
         }
 
@@ -462,7 +736,7 @@ struct TestVideoSubscription {
     @MainActor
     func testResumeAfterPause() async throws {
         var callbackCount = 0
-        let callback: ObjectReceivedCallback = { _ in
+        let callback: VideoSubscription.Callback = { _, _ in
             callbackCount += 1
         }
 
@@ -603,6 +877,50 @@ struct TestVideoSubscription {
         #expect(subscription.getCurrentState() == .startup)
     }
 
+    @Test("Late callbacks from a cancelled fetch cannot complete its replacement")
+    @MainActor
+    func testStaleFetchCannotCompleteReplacement() async throws {
+        var fetches: [Fetch] = []
+        let mockClient = MockClient.video(fetch: { fetches.append($0) })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: self.fetchThreshold,
+                                                           ngThreshold: self.ngThreshold)
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            return .video(sequenceNumber: sequence)
+        }
+
+        subscription.mockObject(groupId: 0,
+                                objectId: self.fetchThreshold - 1,
+                                immutableExtensions: loc())
+        let firstFetch = try #require(fetches.first)
+
+        subscription.mockObject(groupId: 1,
+                                objectId: 0,
+                                immutableExtensions: loc())
+        subscription.mockObject(groupId: 2,
+                                objectId: self.fetchThreshold - 1,
+                                immutableExtensions: loc())
+        #expect(fetches.count == 2)
+        let secondFetch = try #require(fetches.last)
+        guard case .fetching(let activeFetch) = subscription.getCurrentState() else {
+            Issue.record("Expected the replacement fetch to be active")
+            return
+        }
+        #expect(activeFetch === secondFetch)
+
+        firstFetch.mockObject(groupId: 0,
+                              objectId: self.fetchThreshold - 2,
+                              immutableExtensions: loc())
+
+        guard case .fetching(let stillActiveFetch) = subscription.getCurrentState() else {
+            Issue.record("Stale fetch completed the replacement fetch")
+            return
+        }
+        #expect(stillActiveFetch === secondFetch)
+    }
+
     /// Helper to get a subscription into running state.
     @MainActor
     private func makeRunningSubscription(_ mockClient: MockClient) async throws -> VideoSubscription {
@@ -694,6 +1012,99 @@ struct TestVideoSubscription {
             #expect(Bool(false), "Expected waitingForNewGroup state, got \(subscription.getCurrentState())")
         }
         #expect(fetch == nil)
+    }
+
+    @Test("Handler requests new group after a same-group discontinuity")
+    @MainActor
+    func testHandlerDiscontinuityRequestsNewGroup() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           cleanupTime: 60)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        subscription.mockObject(groupId: 0, objectId: 2, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .waitingForNewGroup(true))
+
+        // Further P-frames remain dropped without starting another recovery.
+        subscription.mockObject(groupId: 0, objectId: 3, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .waitingForNewGroup(true))
+
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Old handler can't start recovery on new handler")
+    @MainActor
+    func testCleanedUpHandlerCannotStartRecovery() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           cleanupTime: 0.2)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        let originalHandler = subscription.handler.get()
+        let cleanedUpHandler = try #require(originalHandler)
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        for _ in 0..<100 where subscription.handler.get() != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let handlerAfterCleanup = subscription.handler.get()
+        #expect(handlerAfterCleanup == nil)
+
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        let priority: UInt8 = 0
+        let ttl: UInt16 = 0
+        withUnsafePointer(to: priority) { priorityPtr in
+            withUnsafePointer(to: ttl) { ttlPtr in
+                cleanedUpHandler.objectReceived(.init(groupId: 0,
+                                                      subgroupId: 0,
+                                                      objectId: 2,
+                                                      payloadLength: 0,
+                                                      status: .available,
+                                                      priority: priorityPtr,
+                                                      ttl: ttlPtr),
+                                                data: Data([0x01]),
+                                                extensions: loc(),
+                                                when: .now,
+                                                cached: false,
+                                                drop: false)
+            }
+        }
+        #expect(subscription.getCurrentState() == .running)
     }
 
     @Test("Same group objects while running do not trigger missed IDR")
@@ -789,6 +1200,36 @@ struct TestVideoSubscription {
 
         // Group 1 continues normally.
         subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Late prior-group IDR does not regress current group")
+    @MainActor
+    func testLatePriorGroupIDRDoesNotRegressCurrentGroup() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 1, objectId: 1, immutableExtensions: loc())
+
         #expect(subscription.getCurrentState() == .running)
     }
 }

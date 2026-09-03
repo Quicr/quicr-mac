@@ -38,6 +38,9 @@ struct ObjectReceived {
 /// - Parameter details: The details of the object received.
 typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
+/// A discontinuity occurred.
+typealias DiscontinuityCallback = @Sendable (_ groupId: UInt64, _ objectId: UInt64) -> Void
+
 /// Handles decoding, jitter, and rendering of a video stream.
 final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // swiftlint:disable:this type_body_length
     /// The current configuration in use.
@@ -67,6 +70,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let atomicOrientation = Atomic<UInt8>(0)
     private let atomicMirror = Atomic<Bool>(false)
     private let currentFormats = Mutex<[UInt64: CMFormatDescription]>([:])
+    private let discontinuityCallback = Mutex<DiscontinuityCallback?>(nil)
     @MainActor private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
@@ -94,7 +98,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private let participant = Mutex<VideoParticipant?>(nil)
+    private let participant = Mutex<VideoParticipantRegistration?>(nil)
+    private let stopped = Atomic(false)
     private let pendingSwitchContext = Mutex<SwitchContext?>(nil)
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
@@ -200,30 +205,33 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             self.predictable.store(true, ordering: .releasing)
         }
         if self.simulreceive != .enable {
-            Task {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 do {
-                    let participant = try await MainActor.run {
-                        let existing = self.participant.get()
-                        guard existing == nil else { return VideoParticipant?.none }
-                        return try VideoParticipant(id: "\(self.fullTrackName)",
-                                                    startDate: joinDate,
-                                                    subscribeDate: subscribeDate,
-                                                    videoParticipants: self.participants,
-                                                    participantId: self.participantId,
-                                                    activeSpeakerStats: self.activeSpeakerStats,
-                                                    config: .init(calculateLatency: self.handlerConfig.calculateLatency,
-                                                                  slidingWindowTime: self.jitterBufferConfig.window),
-                                                    switchLatencyMeasurement: self.switchLatencyMeasurement)
-
+                    guard !self.stopped.load(ordering: .acquiring),
+                          self.participant.get() == nil else { return }
+                    let participant = VideoParticipant(id: "\(self.fullTrackName)",
+                                                       startDate: joinDate,
+                                                       subscribeDate: subscribeDate,
+                                                       participantId: self.participantId,
+                                                       activeSpeakerStats: self.activeSpeakerStats,
+                                                       config: .init(calculateLatency: self.handlerConfig.calculateLatency,
+                                                                     slidingWindowTime: self.jitterBufferConfig.window),
+                                                       switchLatencyMeasurement: self.switchLatencyMeasurement)
+                    let registration = try self.participants.register(participant)
+                    let accepted = self.participant.withLock { current in
+                        guard !self.stopped.load(ordering: .acquiring),
+                              current == nil else { return false }
+                        current = registration
+                        return true
                     }
-                    guard let participant = participant else { return }
-                    self.participant.withLock { $0 = participant }
+                    if !accepted {
+                        registration.remove()
+                    }
                 } catch {
                     self.logger.error("Failed to create VideoParticipant: \(error)")
                 }
             }
-        } else {
-            self.participant.clear()
         }
     }
 
@@ -234,6 +242,46 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             self.detector!.removeNotifyCallback(token: spikeToken)
         }
         self.logger.debug("Deinit")
+    }
+
+    /// Stop accepting work and release resources owned by this handler.
+    func stop() {
+        let exchange = self.stopped.compareExchange(expected: false,
+                                                    desired: true,
+                                                    ordering: .acquiringAndReleasing)
+        guard exchange.exchanged else { return }
+        self.decodeTask?.cancel()
+        self._jitterBuffer.withLock { _ in
+            self.dequeueTask?.cancel()
+        }
+        self.lastDecodedImage.withLock { $0 = nil }
+        self.pendingSwitchContext.withLock { $0 = nil }
+        self.removeParticipant()
+        if let spikeToken = self.spikeToken {
+            self.detector!.removeNotifyCallback(token: spikeToken)
+            self.spikeToken = nil
+        }
+    }
+
+    private func removeParticipant() {
+        guard let registration = self.participant.consume() else { return }
+        registration.invalidate()
+        Task { @MainActor in
+            registration.remove()
+        }
+    }
+
+    private func reportParticipantReceipt(_ details: ObjectReceived) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
+        Task { @MainActor [weak self] in
+            guard let self,
+                  !self.stopped.load(ordering: .acquiring),
+                  let registration = self.participant.get() else { return }
+            registration.withParticipant { participant in
+                participant.received(details)
+            }
+        }
     }
 
     /// Register to receive notifications of an object being received.
@@ -253,6 +301,10 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         _ = self.callbacks.withLock { $0.callbacks.removeValue(forKey: token) }
     }
 
+    func setDiscontinuityCallback(_ callback: @escaping DiscontinuityCallback) {
+        self.discontinuityCallback.withLock { $0 = callback }
+    }
+
     // MARK: Callbacks.
 
     /// Pass an encoded video frame to this handler.
@@ -268,6 +320,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                         when: Ticks,
                         cached: Bool,
                         drop: Bool) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         if let lastReceived = self.lastReceived {
             let interval = when.timeIntervalSince(lastReceived)
             if let detector = self.detector {
@@ -297,10 +351,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 callback(details)
             }
             guard self.simulreceive != .enable else { return }
-            DispatchQueue.main.async {
-                guard let participant = self.participant.get() else { return }
-                participant.received(details)
-            }
+            self.reportParticipantReceipt(details)
             return
         }
 
@@ -442,15 +493,19 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     /// Allows frames to be played from the buffer.
     func play(switchContext: SwitchContext? = nil) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
         if let switchContext {
             self.pendingSwitchContext.withLock { $0 = switchContext }
         }
         guard self.jitterBufferConfig.mode == .interval else { return }
-        guard let buffer = self.jitterBuffer else {
-            self.logger.error("Set play with no buffer")
-            return
+        self._jitterBuffer.withLock { buffer in
+            guard !self.stopped.load(ordering: .acquiring) else { return }
+            guard let buffer else {
+                self.logger.error("Set play with no buffer")
+                return
+            }
+            buffer.startPlaying()
         }
-        buffer.startPlaying()
     }
 
     // Pause playout.
@@ -465,7 +520,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     /// - Parameter details: Details about the received object.
     private func submitEncodedData(_ frame: DecimusVideoFrame, details: ObjectReceived) throws {
         // Do we need to create a jitter buffer?
-        try self._jitterBuffer.withLock { jitterBuffer in
+        let accepted = try self._jitterBuffer.withLock { jitterBuffer in
+            guard !self.stopped.load(ordering: .acquiring) else { return false }
             if jitterBuffer == nil,
                self.jitterBufferConfig.mode != .layer,
                self.jitterBufferConfig.mode != .none {
@@ -474,7 +530,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 assert(self.dequeueTask == nil)
                 createDequeueTask()
             }
+            return true
         }
+        guard accepted else { return }
 
         // Do we need to copy the frame data?
         let copy = self.jitterBuffer != nil || self.jitterBufferConfig.mode == .layer
@@ -507,15 +565,19 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                resolvedFps != self.lastFps || format.dimensions != self.lastDimensions {
                 self.lastFps = resolvedFps
                 self.lastDimensions = format.dimensions
-                DispatchQueue.main.async {
+                if self.simulreceive != .enable {
+                    self.reportParticipantReceipt(details)
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          !self.stopped.load(ordering: .acquiring) else { return }
                     self.description = self.labelFromSample(format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
-                    guard let participant = self.participant.get() else { return }
-                    if self.simulreceive != .enable {
-                        participant.received(details)
+                    guard let registration = self.participant.get() else { return }
+                    registration.withParticipant { participant in
+                        participant.label = .init(describing: self)
                     }
-                    participant.label = .init(describing: self)
                 }
             }
         }
@@ -768,6 +830,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
         let groupId = sample.groupId
@@ -777,8 +841,11 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
         guard gateResult || self.videoBehaviour != .freeze else {
-            // If there's a discontinuity and we want to freeze, we're done.
+            // If there's a discontinuity and we want to freeze, notify, done.
             self.logger.warning("Discontinuity. Got: (\(groupId), \(objectId)), had: (\(String(describing: self.lastGroup)), \(String(describing: self.lastObject)))")
+            if self.isForwardDiscontinuity(groupId: groupId, objectId: objectId) {
+                self.discontinuityCallback.get()?(groupId, objectId)
+            }
             return
         }
 
@@ -796,7 +863,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                guard let participant = self.participant.get() else {
+                guard let registration = self.participant.get() else {
                     self.logger.warning("Missing expected participant")
                     return
                 }
@@ -804,7 +871,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                        orientation: sample.orientation,
                                        verticalMirror: sample.verticalMirror,
                                        from: from,
-                                       participant: participant,
+                                       registration: registration,
                                        endToEndLatency: nil)
             } else {
                 if let orientation = sample.orientation {
@@ -826,13 +893,23 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
     }
 
+    private func isForwardDiscontinuity(groupId: UInt64, objectId: UInt64) -> Bool {
+        guard let lastGroup = self.lastGroup else { return objectId != 0 }
+        guard groupId == lastGroup else { return groupId > lastGroup }
+        guard let lastObject = self.lastObject,
+              objectId > lastObject else { return false }
+        return (objectId - lastObject) > 1
+    }
+
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?,
                                from: Date,
-                               participant: VideoParticipant,
+                               registration: VideoParticipantRegistration,
                                endToEndLatency: TimeInterval?,
                                switchContext: SwitchContext? = nil) throws {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? from : nil
@@ -849,20 +926,28 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         // Enqueue the sample on the main thread.
-        Task { @MainActor in
+        Task { @MainActor [weak self, weak registration] in
+            guard let self,
+                  let registration,
+                  !self.stopped.load(ordering: .acquiring) else { return }
             do {
-                // Set the layer's start time to the first sample's timestamp minus the target depth.
-                if !self.startTimeSet {
-                    try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
-                    self.startTimeSet = true
+                let enqueued = try registration.withParticipant { participant in
+                    guard !self.stopped.load(ordering: .acquiring) else { return false }
+                    // Set the layer's start time to the first sample's timestamp minus the target depth.
+                    if !self.startTimeSet {
+                        try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
+                        self.startTimeSet = true
+                    }
+                    let renderTime = switchContext != nil ? Date.now : nil
+                    try participant.enqueue(sample,
+                                            transform: orientation?.toTransform(verticalMirror!),
+                                            when: from,
+                                            endToEndLatency: endToEndLatency,
+                                            switchContext: switchContext,
+                                            renderTime: renderTime)
+                    return true
                 }
-                let renderTime = switchContext != nil ? Date.now : nil
-                try participant.enqueue(sample,
-                                        transform: orientation?.toTransform(verticalMirror!),
-                                        when: from,
-                                        endToEndLatency: endToEndLatency,
-                                        switchContext: switchContext,
-                                        renderTime: renderTime)
+                guard enqueued == true else { return }
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
@@ -891,10 +976,15 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
 
     private func flushDisplayLayer() {
-        guard let participant = self.participant.get() else { return }
-        Task { @MainActor in
+        guard let registration = self.participant.get() else { return }
+        Task { @MainActor [weak self, weak registration] in
+            guard let self,
+                  let registration,
+                  !self.stopped.load(ordering: .acquiring) else { return }
             do {
-                try participant.view.flush()
+                try registration.withParticipant { participant in
+                    try participant.view.flush()
+                }
             } catch {
                 self.logger.error("Could not flush layer: \(error)")
             }
@@ -1007,6 +1097,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
 
     private func handleDecodedSample(_ sample: CMSampleBuffer) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         // Calculate / report E2E latency.
         let endToEndLatency: TimeInterval?
         let now = Date.now
@@ -1026,9 +1118,12 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         if self.simulreceive != .none {
             _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                     now: now)
-            self.lastDecodedImage.withLock { $0 = .init(image: sample,
-                                                        fps: UInt(self.config.fps),
-                                                        discontinous: sample.discontinous) }
+            self.lastDecodedImage.withLock { image in
+                guard !self.stopped.load(ordering: .acquiring) else { return }
+                image = .init(image: sample,
+                              fps: UInt(self.config.fps),
+                              discontinous: sample.discontinous)
+            }
         }
 
         // Consume pending switch context and record decode time.
@@ -1039,14 +1134,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             return captured
         }
 
-        if let participant = self.participant.get() {
+        if let registration = self.participant.get() {
             // Enqueue for rendering.
             do {
                 try self.enqueueSample(sample: sample,
                                        orientation: self.orientation,
                                        verticalMirror: self.verticalMirror,
                                        from: now,
-                                       participant: participant,
+                                       registration: registration,
                                        endToEndLatency: endToEndLatency,
                                        switchContext: switchCtx)
             } catch {

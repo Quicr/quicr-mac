@@ -4,8 +4,14 @@
 import AVFAudio
 import Synchronization
 
+/// Registration of audio playout sources, as required by playing subscriptions.
+protocol AudioPlayout: AnyObject {
+    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws
+    func removePlayer(identifier: SourceIDType) throws
+}
+
 /// Wrapper for app specific `AVAudioEngine` functionality.
-class DecimusAudioEngine {
+class DecimusAudioEngine: AudioPlayout {
     /// The audio format the application should use.
     static let format: AVAudioFormat = .init(commonFormat: .pcmFormatFloat32,
                                              sampleRate: .opus48khz,
@@ -14,8 +20,9 @@ class DecimusAudioEngine {
 
     private let logger: DecimusLogger = .init(DecimusAudioEngine.self)
 
-    /// Microphone data in enqueued into this buffer.
-    let microphoneBuffer: CircularBuffer?
+    /// Microphone data is enqueued into this buffer. Only the engine writes to it.
+    let microphoneBuffer: CircularBuffer.Reader?
+    private let microphoneWriter: CircularBuffer.Writer?
 
     // The AVAudioEngine instance this AudioEngine wraps.
     private let engine: AVAudioEngine
@@ -168,17 +175,22 @@ class DecimusAudioEngine {
             // Capture microphone audio.
             let inputFormat = Self.format.streamDescription.pointee
 
-            self.microphoneBuffer = try .init(length: 1, format: inputFormat)
+            let microphone = try CircularBuffer.makeSPSC(length: 1, format: inputFormat)
+            self.microphoneBuffer = microphone.reader
+            self.microphoneWriter = microphone.writer
             let sink = AVAudioSinkNode { [weak self] timestamp, frames, data in
                 guard let self = self,
-                      let microphoneBuffer = self.microphoneBuffer,
+                      let microphoneWriter = self.microphoneWriter,
                       self.captureAudio.load(ordering: .acquiring) else { return 1 }
                 let example = UnsafeMutablePointer(mutating: data)
                 let timestamp = UnsafeMutablePointer(mutating: timestamp)
                 do {
-                    try microphoneBuffer.enqueue(buffer: &example.pointee,
+                    try microphoneWriter.enqueue(buffer: &example.pointee,
                                                  timestamp: &timestamp.pointee,
                                                  frames: frames)
+                    return .zero
+                } catch CircularBufferError.clearPending {
+                    // Stale capture is being discarded, this audio predates the unmute.
                     return .zero
                 } catch {
                     self.logger.warning("Couldn't enqueue microphone data: \(error.localizedDescription)")
@@ -190,6 +202,7 @@ class DecimusAudioEngine {
         } else {
             self.sink = nil
             self.microphoneBuffer = nil
+            self.microphoneWriter = nil
         }
 
         // Reconfigure first time.
@@ -225,8 +238,9 @@ class DecimusAudioEngine {
     }
 
     func setMicrophoneCapture(_ enabled: Bool) {
-        if enabled {
-            self.microphoneBuffer?.clear()
+        if enabled, let microphoneWriter = self.microphoneWriter {
+            // Discard whatever was captured before this unmute. The encoder performs the clear.
+            _ = microphoneWriter.requestClear()
         }
         self.captureAudio.store(enabled, ordering: .releasing)
     }

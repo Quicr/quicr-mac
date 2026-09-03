@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
+import Foundation
 import SFrame
 import Synchronization
 
@@ -9,6 +12,12 @@ import Synchronization
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
 class VideoSubscription: Subscription, @unchecked Sendable {
+    typealias Callback = @Sendable (_ subscription: VideoSubscription,
+                                    _ details: ObjectReceived) -> Void
+    typealias VideoStatusCallback = @Sendable (_ subscription: VideoSubscription,
+                                               _ status: QSubscribeTrackHandlerStatus) -> Void
+    typealias HandlerStoppedCallback = @Sendable (_ subscription: VideoSubscription) -> Void
+
     struct JoinConfig<T: Codable>: Codable {
         var fetchUpperThreshold: T
         var newGroupUpperThreshold: T
@@ -35,7 +44,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
-    private let callback: ObjectReceivedCallback
+    private let callback: Callback
+    private let videoStatusChanged: VideoStatusCallback
+    private let onHandlerStopped: HandlerStoppedCallback
     private var token: Int = 0
     private let logger: DecimusLogger
     private let verbose: Bool
@@ -61,7 +72,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
-    private let paused = Atomic(false)
+    private var paused = false
+    private var stopped = false
+    // TODO: Refactor so we don't need recursion / use Mutex<T>
+    private let lifecycleLock = NSRecursiveLock()
     private var lastSeenGroup: UInt64?
     private var maxGroupSeen: UInt64?
 
@@ -95,6 +109,23 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         /// Get current state.
         func get() -> State {
             self.state.get()
+        }
+
+        func waitForNewGroupIfRunning(_ requested: Bool) -> Bool {
+            self.state.withLock { state in
+                guard state == .running else { return false }
+                state = .waitingForNewGroup(requested)
+                return true
+            }
+        }
+
+        func completeFetchIfActive(_ fetch: Fetch) -> Bool {
+            self.state.withLock { state in
+                guard case .fetching(let activeFetch) = state,
+                      activeFetch === fetch else { return false }
+                state = .running
+                return true
+            }
         }
 
         func transition(to newState: State) throws {
@@ -185,8 +216,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          wifiScanDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          publisherInitiated: Bool,
-         callback: @escaping ObjectReceivedCallback,
-         statusChanged: @escaping StatusCallback) throws {
+         callback: @escaping Callback,
+         statusChanged: @escaping VideoStatusCallback,
+         handlerStopped: @escaping HandlerStoppedCallback = { _ in }) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config
         self.participants = participants
@@ -197,6 +229,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
+        self.videoStatusChanged = statusChanged
+        self.onHandlerStopped = handlerStopped
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
@@ -229,7 +263,6 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        handlerConfig: handlerConfig,
                                        wifiDetector: self.wifiScanDetector,
                                        switchLatencyMeasurement: self.switchLatencyMeasurement)
-        self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
@@ -243,16 +276,42 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                        filterType: .latestObject,
                        publisherInitiated: publisherInitiated,
                        deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
-                       statusCallback: statusChanged)
+                       statusCallback: nil)
+        self.token = self.registerObjectCallback(for: handler)
+        handler.setDiscontinuityCallback { [weak self, weak handler] groupId, objectId in
+            guard let handler else { return }
+            self?.handleDiscontinuity(from: handler, groupId: groupId, objectId: objectId)
+        }
+    }
+
+    override func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
+        super.statusChanged(status)
+        self.videoStatusChanged(self, status)
+    }
+
+    private func registerObjectCallback(for handler: VideoHandler) -> Int {
+        handler.registerCallback { [weak self, weak handler] details in
+            guard let self,
+                  let handler else { return }
+            self.lifecycleLock.lock()
+            defer { self.lifecycleLock.unlock() }
+            guard self.handler.get() === handler else { return }
+            self.callback(self, details)
+        }
     }
 
     deinit {
+        self.cleanupTask?.cancel()
         self.logger.debug("Deinit")
     }
 
     override func pause() {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        guard !self.stopped else { return }
+
         // Stop objects being delivered.
-        self.paused.store(true, ordering: .releasing)
+        self.paused = true
 
         // When we pause, reset the state machine.
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
@@ -261,22 +320,65 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     }
 
     override func resume() {
-        let exchange = self.paused.compareExchange(expected: true,
-                                                   desired: false,
-                                                   ordering: .acquiringAndReleasing)
-        assert(exchange.exchanged, "Resume called when not paused")
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        guard !self.stopped else { return }
+        assert(self.paused, "Resume called when not paused")
+        self.paused = false
         super.resume()
         self.logger.info("Resumed")
     }
 
-    private func cleanup() {
-        self.handler.withLock { lockedHandler in
-            guard let handler = lockedHandler else { return }
+    /// Stop the renderer owned by this subscription.
+    func stop() {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        guard !self.stopped else { return }
+        self.stopped = true
+        self.cleanupTask?.cancel()
+        self.cleanupTask = nil
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
+        self.stopHandler()
+    }
+
+    private func stopHandler() {
+        let stopped = self.handler.withLock { lockedHandler in
+            guard let handler = lockedHandler else { return false }
+            handler.stop()
             lockedHandler = nil
             handler.unregisterCallback(self.token)
             self.token = 0
+            return true
         }
+        if stopped {
+            self.onHandlerStopped(self)
+        }
+    }
+
+    private func cleanup() {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        let inactiveFor = Ticks.now.timeIntervalSince(self.lastUpdateTime.load(ordering: .acquiring))
+        guard !self.stopped,
+              inactiveFor >= self.cleanupTimer else { return }
+        self.stopHandler()
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
+    }
+
+    private func handleDiscontinuity(from: VideoHandler, groupId: UInt64, objectId: UInt64) {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        guard !self.stopped,
+              !self.paused else { return }
+        let requested = self.isNewGroupRequestSupported()
+        let accepted = self.handler.withLock { currentHandler in
+            guard currentHandler === from else { return false }
+            return self.stateMachine.waitForNewGroupIfRunning(requested)
+        }
+        guard accepted else { return }
+        if requested {
+            self.requestNewGroup()
+        }
     }
 
     /// What should happen to a video object based on state.
@@ -368,7 +470,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         case .running:
             if objectHeaders.objectId == 0 {
                 // IDR received, track the group.
-                self.lastSeenGroup = objectHeaders.groupId
+                if self.lastSeenGroup.map({ objectHeaders.groupId >= $0 }) ?? true {
+                    self.lastSeenGroup = objectHeaders.groupId
+                }
                 return .normal(false)
             }
             if objectHeaders.groupId > (self.lastSeenGroup ?? 0) {
@@ -438,8 +542,12 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?,
                                  streamHeaderProperties: QStreamHeaderProperties?) {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
+        guard !self.stopped else { return }
+
         // If we're paused, drop this.
-        guard !self.paused.load(ordering: .acquiring) else {
+        guard !self.paused else {
             if self.verbose {
                 self.logger.debug("Dropping object while in app paused state: \(objectHeaders.groupId) \(objectHeaders.objectId)")
             }
@@ -478,7 +586,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         let handler: VideoHandler
         let activation: ActivationType
         do {
-            (handler, activation) = try self.getCreateHandler()
+            guard let created = try self.getCreateHandler() else { return }
+            (handler, activation) = created
         } catch {
             self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
             return
@@ -515,7 +624,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                    drop: drop)
         }
         // TODO: Maybe this should be a locked mutex, but it's a big lock.
-        guard !self.paused.load(ordering: .acquiring) else {
+        guard !self.paused else {
             if self.verbose {
                 self.logger.info("Dropping object - paused before state determination")
             }
@@ -539,8 +648,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
     }
 
-    private func getCreateHandler() throws -> (handler: VideoHandler, activation: ActivationType) {
+    private func getCreateHandler() throws -> (handler: VideoHandler, activation: ActivationType)? {
         try self.handler.withLock { lockedHandler in
+            guard !self.stopped else { return nil }
             if let existing = lockedHandler {
                 return (existing, .existing)
             }
@@ -563,7 +673,11 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               handlerConfig: config,
                                               wifiDetector: self.wifiScanDetector,
                                               switchLatencyMeasurement: self.switchLatencyMeasurement)
-            self.token = newHandler.registerCallback(self.callback)
+            newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
+                guard let newHandler else { return }
+                self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)
+            }
+            self.token = self.registerObjectCallback(for: newHandler)
             let activation: ActivationType = self.handlerCreatedOnce ? .reactivation : .newSubscription
             self.handlerCreatedOnce = true
             lockedHandler = newHandler
@@ -595,29 +709,44 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                         self.logger.warning(message)
                                     }
                                   },
-                                  objectReceived: {[weak self] headers, data, extensions, immutableExtensions in
+                                  objectReceived: { [weak self] fetch, headers, data, extensions, immutableExtensions in
                                     guard let self = self else { return }
-                                    self.onFetchedObject(headers: headers,
+                                    self.onFetchedObject(fetch: fetch,
+                                                         headers: headers,
                                                          data: data,
                                                          extensions: extensions,
                                                          immutableExtensions: immutableExtensions,
                                                          currentGroup: currentGroup,
                                                          currentObject: currentObject)
                                   })
-        try controller.fetch(fetch)
+        try self.controller.fetch(fetch)
         return fetch
     }
 
-    private func onFetchedObject(headers: QObjectHeaders,
+    // swiftlint:disable:next cyclomatic_complexity
+    private func onFetchedObject(fetch: Fetch,
+                                 headers: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
+        self.lifecycleLock.lock()
+        defer { self.lifecycleLock.unlock() }
         // TODO: Reduce duplication with objectReceived?
-        guard !self.paused.load(ordering: .acquiring) else {
+        guard !self.stopped else { return }
+
+        guard !self.paused else {
             if self.verbose {
                 self.logger.info("Dropping fetched object in paused state")
+            }
+            return
+        }
+
+        guard case .fetching(let activeFetch) = self.stateMachine.get(),
+              activeFetch === fetch else {
+            if self.verbose {
+                self.logger.info("Dropping object from inactive fetch")
             }
             return
         }
@@ -628,7 +757,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
         // TODO: This should be getCreate? Unsure if this would ever happen.
         guard let handler = self.handler.get() else {
-            assert(false)
+            assert(self.stopped,
+                   "Missing video handler while subscription is active")
             return
         }
 
@@ -657,18 +787,13 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         if headers.groupId == currentGroup,
            headers.objectId == currentObject - 1 {
             self.logger.info("Video Fetch complete")
-            // Check paused again before transitioning state machine to prevent races with pause().
-            guard !self.paused.load(ordering: .acquiring) else {
+            // Complete only while this fetch still owns the subscription state.
+            let completed = self.stateMachine.completeFetchIfActive(fetch)
+            guard completed else {
                 if self.verbose {
-                    self.logger.info("Not completing fetch - paused")
+                    self.logger.info("Not completing inactive fetch")
                 }
                 return
-            }
-            do {
-                try self.stateMachine.transition(to: .running)
-            } catch {
-                assert(false)
-                self.logger.warning("Subscription in invalid state", alert: true)
             }
             self.lastSeenGroup = currentGroup
             self.switchContext.withLock { ctx in
