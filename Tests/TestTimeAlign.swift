@@ -81,9 +81,11 @@ struct TestTimeAlignable {
 
     class JitterItemImpl: JitterBuffer.JitterItem {
         let sequenceNumber: UInt64
+        let location: QLocationImpl
         let timestamp: CMTime
         init(sequenceNumber: UInt64, timestamp: Ticks) {
             self.sequenceNumber = sequenceNumber
+            self.location = .init(group: sequenceNumber, object: 0)
             let value = timestamp.seconds * microsecondsPerSecond
             self.timestamp = .init(value: CMTimeValue(value), timescale: CMTimeScale(microsecondsPerSecond))
         }

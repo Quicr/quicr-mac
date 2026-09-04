@@ -11,8 +11,6 @@ class DecimusVideoFrame {
     let groupId: UInt64
     /// The MoQ object ID for this frame.
     let objectId: UInt64
-    /// The sequence number for this frame.
-    let sequenceNumber: UInt64?
     /// If present, the expected FPS (1/duration) of this frame's stream.
     let fps: UInt8?
     /// If present, the orientation of this video frame.
@@ -24,14 +22,12 @@ class DecimusVideoFrame {
     init(samples: [CMSampleBuffer],
          groupId: UInt64,
          objectId: UInt64,
-         sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
          verticalMirror: Bool?) {
         self.samples = samples
         self.groupId = groupId
         self.objectId = objectId
-        self.sequenceNumber = sequenceNumber
         self.fps = fps
         self.orientation = orientation
         self.verticalMirror = verticalMirror
@@ -63,7 +59,6 @@ class DecimusVideoFrame {
         self.samples = samples
         self.groupId = copy.groupId
         self.objectId = copy.objectId
-        self.sequenceNumber = copy.sequenceNumber
         self.fps = copy.fps
         self.orientation = copy.orientation
         self.verticalMirror = copy.verticalMirror
