@@ -10,7 +10,6 @@ extension DecimusVideoFrame: @retroactive Equatable {
         lhs.samples == rhs.samples &&
             lhs.groupId == rhs.groupId &&
             lhs.objectId == rhs.objectId &&
-            lhs.sequenceNumber == rhs.sequenceNumber &&
             lhs.fps == rhs.fps &&
             lhs.orientation == rhs.orientation &&
             lhs.verticalMirror == rhs.verticalMirror
@@ -26,13 +25,13 @@ private func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
             }
             let first = $0 as! DecimusVideoFrameJitterItem
             let second = $1 as! DecimusVideoFrameJitterItem
-            let seq1 = first.sequenceNumber
-            let seq2 = second.sequenceNumber
-            if seq1 < seq2 {
+            let firstLocation = first.location
+            let secondLocation = second.location
+            if firstLocation < secondLocation {
                 return .compareLessThan
-            } else if seq1 > seq2 {
+            } else if firstLocation > secondLocation {
                 return .compareGreaterThan
-            } else if seq1 == seq2 {
+            } else if firstLocation == secondLocation {
                 return .compareEqualTo
             }
             assert(false)
@@ -60,7 +59,6 @@ private func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
 
 private func exampleSample(groupId: UInt64,
                            objectId: UInt64,
-                           sequenceNumber: UInt64,
                            fps: UInt8) throws -> DecimusVideoFrame {
     let sample = try CMSampleBuffer(dataBuffer: nil,
                                     formatDescription: nil,
@@ -72,13 +70,22 @@ private func exampleSample(groupId: UInt64,
     return .init(samples: [sample],
                  groupId: groupId,
                  objectId: objectId,
-                 sequenceNumber: sequenceNumber,
                  fps: fps,
                  orientation: nil,
                  verticalMirror: nil)
 }
 
 final class TestVideoJitterBuffer: XCTestCase {
+
+    func testLocationHasValueSemantics() {
+        let location = QLocationImpl(group: 10, object: 20)
+        let sameLocation = QLocationImpl(group: 10, object: 20)
+        let differentLocation = QLocationImpl(group: 10, object: 21)
+
+        XCTAssertEqual(location, sameLocation)
+        XCTAssertEqual(location.hash, sameLocation.hash)
+        XCTAssertNotEqual(location, differentLocation)
+    }
 
     /// Nothing should be returned until the min depth has been exceeded.
     func doTestPlayout() throws {
@@ -96,7 +103,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write 1, no play.
         let frame1 = try exampleSample(groupId: 0,
                                        objectId: 0,
-                                       sequenceNumber: 0,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
@@ -106,7 +112,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write 2, no play.
         let frame2 = try exampleSample(groupId: 0,
                                        objectId: 1,
-                                       sequenceNumber: 1,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
         let read2: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
@@ -115,7 +120,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write 3, play, get 1.
         let frame3 = try exampleSample(groupId: 0,
                                        objectId: 2,
-                                       sequenceNumber: 2,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame3), from: Date.now)
         let read3: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
@@ -124,7 +128,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write 4, get 2.
         let frame4 = try exampleSample(groupId: 0,
                                        objectId: 3,
-                                       sequenceNumber: 3,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame4), from: Date.now)
         let read4: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
@@ -150,14 +153,12 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
                                        objectId: 1,
-                                       sequenceNumber: 1,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
 
         // Write older.
         let frame1 = try exampleSample(groupId: 0,
                                        objectId: 0,
-                                       sequenceNumber: 0,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
 
@@ -186,7 +187,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
                                        objectId: 1,
-                                       sequenceNumber: 1,
                                        fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
 
@@ -197,7 +197,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write older should fail.
         let frame1 = try exampleSample(groupId: 0,
                                        objectId: 0,
-                                       sequenceNumber: 0,
                                        fps: 30)
         XCTAssertThrowsError(try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)) {
             guard let error = $0 as? JitterBufferError else {
@@ -206,6 +205,50 @@ final class TestVideoJitterBuffer: XCTestCase {
             }
             XCTAssertEqual(error, .old)
         }
+    }
+
+    func testNewerGroupAcceptedAfterObjectRestart() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: true))
+
+        let previous = try exampleSample(groupId: 10,
+                                         objectId: 20,
+                                         fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(previous), from: .now)
+        let readPrevious: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        XCTAssertEqual(readPrevious?.frame, previous)
+
+        let restarted = try exampleSample(groupId: 11,
+                                          objectId: 0,
+                                          fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(restarted), from: .now)
+        let readRestarted: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        XCTAssertEqual(readRestarted?.frame, restarted)
+    }
+
+    func testOrdersFramesByGroupThenObject() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: true))
+
+        let newerGroup = try exampleSample(groupId: 11,
+                                           objectId: 0,
+                                           fps: 30)
+        let olderGroup = try exampleSample(groupId: 10,
+                                           objectId: 20,
+                                           fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(newerGroup), from: .now)
+        try buffer.write(item: DecimusVideoFrameJitterItem(olderGroup), from: .now)
+
+        let first: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        let second: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        XCTAssertEqual(first?.frame, olderGroup)
+        XCTAssertEqual(second?.frame, newerGroup)
     }
 
     func testWaitTimeNoDate() throws {
@@ -255,7 +298,6 @@ final class TestVideoJitterBuffer: XCTestCase {
         let frame = DecimusVideoFrame(samples: [sample],
                                       groupId: 1,
                                       objectId: 1,
-                                      sequenceNumber: 1,
                                       fps: 1,
                                       orientation: nil,
                                       verticalMirror: nil)
@@ -297,7 +339,6 @@ final class TestVideoJitterBuffer: XCTestCase {
             let frame = DecimusVideoFrame(samples: [sample],
                                           groupId: 1,
                                           objectId: 1,
-                                          sequenceNumber: 1,
                                           fps: 1,
                                           orientation: nil,
                                           verticalMirror: nil)
@@ -377,7 +418,6 @@ final class TestVideoJitterBuffer: XCTestCase {
             let frame = DecimusVideoFrame(samples: [sample],
                                           groupId: UInt64(index),
                                           objectId: 0,
-                                          sequenceNumber: UInt64(index),
                                           fps: UInt8(fps),
                                           orientation: .portrait,
                                           verticalMirror: false)
@@ -409,7 +449,7 @@ final class TestVideoJitterBuffer: XCTestCase {
             }
 
             // Sanity.
-            XCTAssertEqual(frame.sequenceNumber, UInt64(index))
+            XCTAssertEqual(frame.frame.groupId, UInt64(index))
         }
     }
 
@@ -425,12 +465,12 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertEqual(buffer.getDepth(), 0)
 
         // Enqueue one.
-        let frame1 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: fps)
+        let frame1 = try exampleSample(groupId: 0, objectId: 1, fps: fps)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
         XCTAssertEqual(buffer.getDepth(), 1 / TimeInterval(fps))
 
         // Enqueue two.
-        let frame2 = try exampleSample(groupId: 0, objectId: 2, sequenceNumber: 2, fps: fps)
+        let frame2 = try exampleSample(groupId: 0, objectId: 2, fps: fps)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
         XCTAssertEqual(buffer.getDepth(), (1 / (TimeInterval(fps)) * 2))
     }
@@ -447,7 +487,7 @@ struct JitterBufferTests {
                                       capacity: 2,
                                       handlers: getHandler(sort: false),
                                       playingFromStart: false)
-        let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
+        let sample = try exampleSample(groupId: 0, objectId: 1, fps: 30)
         let item = try DecimusVideoFrameJitterItem(sample)
         try buffer.write(item: item, from: .now)
         var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
@@ -465,7 +505,7 @@ struct JitterBufferTests {
                                       capacity: 2,
                                       handlers: getHandler(sort: false),
                                       playingFromStart: true)
-        let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
+        let sample = try exampleSample(groupId: 0, objectId: 1, fps: 30)
         let item = try DecimusVideoFrameJitterItem(sample)
         try buffer.write(item: item, from: .now)
         var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
@@ -513,12 +553,12 @@ struct JitterBufferTests {
                                       playingFromStart: false)
 
         // Write a frame.
-        let sample = try exampleSample(groupId: 0, objectId: 0, sequenceNumber: 0, fps: 30)
+        let sample = try exampleSample(groupId: 0, objectId: 0, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(sample), from: .now)
 
         // Start playing, read should work.
         buffer.startPlaying()
-        let sample2 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: 30)
+        let sample2 = try exampleSample(groupId: 0, objectId: 1, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(sample2), from: .now)
         var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
         #expect(read != nil)
@@ -534,28 +574,28 @@ struct JitterBufferTests {
         #expect(read != nil)
     }
 
-    @Test("Reset sequence tracking allows older frames after read")
-    func testResetSequenceTracking() throws {
+    @Test("Reset read order allows older frames after read")
+    func testResetReadOrder() throws {
         let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 4,
                                       handlers: getHandler(sort: true))
 
-        // Write and read a frame with sequence 10.
-        let sample10 = try exampleSample(groupId: 0, objectId: 10, sequenceNumber: 10, fps: 30)
+        // Write and read object 10.
+        let sample10 = try exampleSample(groupId: 0, objectId: 10, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(sample10), from: .now)
         let read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
         #expect(read != nil)
 
-        // Writing older frame (seq 5) should fail.
-        let sample5 = try exampleSample(groupId: 0, objectId: 5, sequenceNumber: 5, fps: 30)
+        // Writing older object 5 should fail.
+        let sample5 = try exampleSample(groupId: 0, objectId: 5, fps: 30)
         #expect(throws: JitterBufferError.self) {
             try buffer.write(item: DecimusVideoFrameJitterItem(sample5), from: .now)
         }
 
-        // Reset sequence tracking.
-        buffer.resetSequenceTracking()
+        // Reset read ordering.
+        buffer.resetReadOrder()
 
         // Now older frame should be accepted.
         try buffer.write(item: DecimusVideoFrameJitterItem(sample5), from: .now)
@@ -563,7 +603,7 @@ struct JitterBufferTests {
         #expect(readAfterReset?.frame == sample5)
     }
 
-    @Test("Pause and reset sequence tracking together simulates fetch preparation")
+    @Test("Pause and reset read order together simulates fetch preparation")
     func testPauseAndResetForFetch() throws {
         let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
@@ -572,9 +612,9 @@ struct JitterBufferTests {
                                       handlers: getHandler(sort: true),
                                       playingFromStart: false)
 
-        // Simulate normal playback: write and read some frames (seq 100-105).
-        for seq in 100..<106 {
-            let sample = try exampleSample(groupId: 0, objectId: UInt64(seq), sequenceNumber: UInt64(seq), fps: 30)
+        // Simulate normal playback: write and read objects 100-105.
+        for objectId in 100..<106 {
+            let sample = try exampleSample(groupId: 0, objectId: UInt64(objectId), fps: 30)
             try buffer.write(item: DecimusVideoFrameJitterItem(sample), from: .now)
         }
         buffer.startPlaying()
@@ -584,10 +624,10 @@ struct JitterBufferTests {
             let read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
             #expect(read != nil)
         }
-        // Last read was seq 105.
+        // Last read was object 105 in group 0.
 
         // Writing older frame should fail (without reset).
-        let oldSample = try exampleSample(groupId: 1, objectId: 0, sequenceNumber: 50, fps: 30)
+        let oldSample = try exampleSample(groupId: 0, objectId: 50, fps: 30)
         #expect(throws: JitterBufferError.self) {
             try buffer.write(item: DecimusVideoFrameJitterItem(oldSample), from: .now)
         }
@@ -597,39 +637,39 @@ struct JitterBufferTests {
         var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
         #expect(read == nil)
 
-        // Reset sequence tracking allows older frames.
-        buffer.resetSequenceTracking()
+        // Reset read ordering allows older frames.
+        buffer.resetReadOrder()
 
-        // First live frame arrives (seq 60) - this triggers the fetch for 50-59.
-        let live60 = try exampleSample(groupId: 1, objectId: 10, sequenceNumber: 60, fps: 30)
+        // First live frame arrives - this triggers a fetch for earlier objects.
+        let live60 = try exampleSample(groupId: 1, objectId: 10, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(live60), from: .now)
 
         // More live frames arrive during fetch.
-        let live61 = try exampleSample(groupId: 1, objectId: 11, sequenceNumber: 61, fps: 30)
-        let live62 = try exampleSample(groupId: 1, objectId: 12, sequenceNumber: 62, fps: 30)
+        let live61 = try exampleSample(groupId: 1, objectId: 11, fps: 30)
+        let live62 = try exampleSample(groupId: 1, objectId: 12, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(live61), from: .now)
         try buffer.write(item: DecimusVideoFrameJitterItem(live62), from: .now)
 
-        // Fetched frames arrive (older sequence numbers, out of order with live).
-        let fetched50 = try exampleSample(groupId: 1, objectId: 0, sequenceNumber: 50, fps: 30)
-        let fetched51 = try exampleSample(groupId: 1, objectId: 1, sequenceNumber: 51, fps: 30)
-        let fetched52 = try exampleSample(groupId: 1, objectId: 2, sequenceNumber: 52, fps: 30)
+        // Fetched frames arrive with older object IDs, out of order with live.
+        let fetched50 = try exampleSample(groupId: 1, objectId: 0, fps: 30)
+        let fetched51 = try exampleSample(groupId: 1, objectId: 1, fps: 30)
+        let fetched52 = try exampleSample(groupId: 1, objectId: 2, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(fetched50), from: .now)
         try buffer.write(item: DecimusVideoFrameJitterItem(fetched51), from: .now)
         try buffer.write(item: DecimusVideoFrameJitterItem(fetched52), from: .now)
 
         // Even more live frames continue arriving.
-        let live63 = try exampleSample(groupId: 1, objectId: 13, sequenceNumber: 63, fps: 30)
+        let live63 = try exampleSample(groupId: 1, objectId: 13, fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(live63), from: .now)
 
         // Resume playout.
         buffer.startPlaying()
 
-        // Should read in sorted order: fetched first (50, 51, 52), then live (60, 61, 62, 63).
-        let expectedOrder: [UInt64] = [50, 51, 52, 60, 61, 62, 63]
+        // Should read in group/object order: fetched first, then live.
+        let expectedOrder: [UInt64] = [0, 1, 2, 10, 11, 12, 13]
         for expected in expectedOrder {
             read = buffer.read(from: .now)
-            #expect(read?.sequenceNumber == expected)
+            #expect(read?.frame.objectId == expected)
         }
 
         // Buffer should be empty now.

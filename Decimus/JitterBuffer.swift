@@ -57,8 +57,7 @@ final class JitterBuffer: Sendable {
     private let measurement: JitterBufferMeasurement?
     private let playingFromStart: Bool
     private let play: Atomic<Bool>
-    private let lastSequenceRead = Atomic<UInt64>(0)
-    private let lastSequenceSet = Atomic<Bool>(false)
+    private let lastReadLocation = Mutex<QLocationImpl?>(nil)
 
     // Observables.
     @MainActor
@@ -69,7 +68,7 @@ final class JitterBuffer: Sendable {
     private(set) var currentAdjustmentDepth: TimeInterval?
 
     protocol JitterItem: AnyObject {
-        var sequenceNumber: UInt64 { get }
+        var location: QLocationImpl { get }
         var timestamp: CMTime { get }
     }
 
@@ -150,9 +149,9 @@ final class JitterBuffer: Sendable {
         self.play.store(false, ordering: .releasing)
     }
 
-    /// Reset last sequence number tracking.
-    func resetSequenceTracking() {
-        self.lastSequenceSet.store(false, ordering: .releasing)
+    /// Reset last-read ordering.
+    func resetReadOrder() {
+        self.lastReadLocation.withLock { $0 = nil }
     }
 
     /// Write a video frame into the jitter buffer.
@@ -161,8 +160,8 @@ final class JitterBuffer: Sendable {
     /// - Throws: Buffer is full, or video frame is older than last read.
     func write<T: JitterItem>(item: T, from: Date) throws {
         // Check expiry.
-        if self.lastSequenceSet.load(ordering: .acquiring) {
-            guard item.sequenceNumber > self.lastSequenceRead.load(ordering: .acquiring) else {
+        if let lastReadLocation = self.lastReadLocation.withLock({ $0 }) {
+            guard item.location > lastReadLocation else {
                 throw JitterBufferError.old
             }
         }
@@ -200,8 +199,7 @@ final class JitterBuffer: Sendable {
             self.doReadMetrics(depth, underrun: false, when: from)
         }
         let item = oldest as! T
-        self.lastSequenceRead.store(item.sequenceNumber, ordering: .releasing)
-        self.lastSequenceSet.store(true, ordering: .releasing)
+        self.lastReadLocation.withLock { $0 = item.location }
         return item
     }
 
@@ -211,7 +209,7 @@ final class JitterBuffer: Sendable {
     }
 
     func updateLastSequenceRead(_ seq: UInt64) {
-        self.lastSequenceRead.store(seq, ordering: .releasing)
+        self.lastReadLocation.withLock { $0 = .init(group: seq, object: 0) }
     }
 
     /// Get the CMBuffer at the front of the buffer without removing it.

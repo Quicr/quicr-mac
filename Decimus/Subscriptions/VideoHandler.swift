@@ -371,7 +371,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
         let encoded: Data
         let presentationTimestamp: CMTime
-        let sequence: UInt64
         do {
             if self.handlerConfig.mediaInterop {
                 let metadata = switch try extensions.getHeader(.videoH264AVCCMetadata) {
@@ -382,7 +381,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 }
                 presentationTimestamp = .init(value: CMTimeValue(metadata.ptsTimestamp.value),
                                               timescale: CMTimeScale(metadata.timebase.value))
-                sequence = metadata.seqId.value
 
                 let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
                 case .videoH264AVCCExtradata(let data):
@@ -404,14 +402,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 // Data.
                 encoded = data
 
-                // Sequence number.
-                guard let sequenceData = try? extensions.getHeader(.sequenceNumber),
-                      case .sequenceNumber(let seq) = sequenceData else {
-                    self.logger.error("Video needs LOC sequence number set")
-                    return
-                }
-                sequence = seq
-
                 // Timestamp.
                 guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
                       case .captureTimestamp(let timestamp) = presentationTimestampData else {
@@ -426,7 +416,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                    data: encoded,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
-                                                   sequenceNumber: sequence,
                                                    presentation: presentationTimestamp) else {
                 self.logger.error("Failed to depacketize video frame")
                 return
@@ -512,7 +501,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     func pause() {
         guard let buffer = self.jitterBuffer else { return }
         buffer.pause()
-        buffer.resetSequenceTracking()
+        buffer.resetReadOrder()
     }
 
     /// Pass an encoded video frame to this video handler.
@@ -699,13 +688,13 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             builder.compare {
                 let first = $0 as! DecimusVideoFrameJitterItem
                 let second = $1 as! DecimusVideoFrameJitterItem
-                let seq1 = first.sequenceNumber
-                let seq2 = second.sequenceNumber
-                if seq1 < seq2 {
+                let firstLocation = first.location
+                let secondLocation = second.location
+                if firstLocation < secondLocation {
                     return .compareLessThan
-                } else if seq1 > seq2 {
+                } else if firstLocation > secondLocation {
                     return .compareGreaterThan
-                } else if seq1 == seq2 {
+                } else if firstLocation == secondLocation {
                     return .compareEqualTo
                 }
                 assert(false)
@@ -823,7 +812,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         return .init(samples: samples,
                      groupId: frame.groupId,
                      objectId: frame.objectId,
-                     sequenceNumber: frame.sequenceNumber,
                      fps: frame.fps,
                      orientation: frame.orientation,
                      verticalMirror: frame.verticalMirror)
@@ -1002,7 +990,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                              data: Data,
                              groupId: UInt64,
                              objectId: UInt64,
-                             sequenceNumber: UInt64,
                              presentation: CMTime) throws -> DecimusVideoFrame? {
         #if DEBUG
         guard self.config.codec != .mock else {
@@ -1090,7 +1077,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
-                     sequenceNumber: sequenceNumber,
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror)
@@ -1169,7 +1155,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         return DecimusVideoFrame(samples: [sample],
                                  groupId: groupId,
                                  objectId: objectId,
-                                 sequenceNumber: 0,
                                  fps: 30,
                                  orientation: nil,
                                  verticalMirror: nil)
@@ -1214,16 +1199,15 @@ extension CoreMedia.CMVideoDimensions: Swift.Equatable {
 
 class DecimusVideoFrameJitterItem: JitterBuffer.JitterItem {
     let frame: DecimusVideoFrame
-    let sequenceNumber: UInt64
+    let location: QLocationImpl
     let timestamp: CMTime
 
     init(_ frame: DecimusVideoFrame) throws {
-        guard let seq = frame.sequenceNumber,
-              let time = frame.samples.first?.presentationTimeStamp else {
+        guard let time = frame.samples.first?.presentationTimeStamp else {
             throw "Missing non optional fields"
         }
         self.frame = frame
-        self.sequenceNumber = seq
+        self.location = .init(group: frame.groupId, object: frame.objectId)
         self.timestamp = time
     }
 }
