@@ -57,6 +57,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private var timeAligner: TimeAligner?
     private let lastTimestampReceived = Atomic(Int64.zero)
     private let config: Config
+    private let videoPipelineEvent: VideoPipelineEventCallback?
 
     /// State for simulreceive rendering.
     private struct RenderState {
@@ -104,7 +105,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
          activeSpeakerStats: ActiveSpeakerStats?,
          cleanupTime: TimeInterval,
          slidingWindowTime: TimeInterval,
-         config: Config) throws {
+         config: Config,
+         videoPipelineEvent: VideoPipelineEventCallback? = nil) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -142,6 +144,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.activeSpeakerStats = activeSpeakerStats
         self.cleanupTimer = cleanupTime
         self.config = config
+        self.videoPipelineEvent = videoPipelineEvent
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
@@ -196,6 +199,22 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
 
         self.logger.info("Subscribed to video stream")
+    }
+
+    private func emit(_ kind: VideoPipelineEvent.Kind,
+                      fullTrackName: FullTrackName,
+                      handlerGeneration: UInt64?,
+                      epoch: UInt64,
+                      groupId: UInt64? = nil,
+                      objectId: UInt64? = nil) {
+        self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    fullTrackName: fullTrackName,
+                                                    handlerGeneration: handlerGeneration,
+                                                    renderEpoch: epoch,
+                                                    groupId: groupId,
+                                                    subgroupId: nil,
+                                                    objectId: objectId,
+                                                    kind: kind))
     }
 
     deinit {
@@ -543,6 +562,14 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 initialChoices.append(.init(fullTrackName: handler.fullTrackName, image: available))
             }
         }
+        for choice in initialChoices {
+            self.emit(.simulreceiveCandidate(
+                        presentationSeconds: choice.image.image.presentationTimeStamp.seconds),
+                      fullTrackName: choice.fullTrackName,
+                      handlerGeneration: handlers[choice.fullTrackName]?.generation,
+                      epoch: epoch,
+                      objectId: nil)
+        }
 
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
@@ -696,6 +723,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
 
         if qualitySkip {
+            self.emit(.simulreceiveSelected(
+                        displayed: false,
+                        presentationSeconds: selectedSample.presentationTimeStamp.seconds),
+                      fullTrackName: selected.fullTrackName,
+                      handlerGeneration: handler.generation,
+                      epoch: epoch)
             // We only want to change in quality if we've missed a few hits.
             if let duration = handler.calculateWaitTime(from: at) {
                 return duration
@@ -714,6 +747,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.lastImage = selected.image
 
         if self.simulreceive == .enable {
+            self.emit(.simulreceiveSelected(
+                        displayed: true,
+                        presentationSeconds: selectedSample.presentationTimeStamp.seconds),
+                      fullTrackName: selected.fullTrackName,
+                      handlerGeneration: handler.generation,
+                      epoch: epoch,
+                      objectId: nil)
             // Set to display immediately.
             if selectedSample.sampleAttachments.count > 0 {
                 selectedSample.sampleAttachments[0][.displayImmediately] = true
@@ -771,9 +811,18 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         return true
                     }
                     guard rendered else { return }
+                    self.emit(.displayEnqueued(
+                                presentationSeconds: selectedSample.presentationTimeStamp.seconds),
+                              fullTrackName: selected.fullTrackName,
+                              handlerGeneration: handler.generation,
+                              epoch: epoch)
                     self.displayCallbacks.fire()
                 } catch {
                     self.logger.error("Could not enqueue sample: \(error)")
+                    self.emit(.displayError(error.localizedDescription),
+                              fullTrackName: selected.fullTrackName,
+                              handlerGeneration: handler.generation,
+                              epoch: epoch)
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
