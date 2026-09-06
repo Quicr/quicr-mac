@@ -72,12 +72,17 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
+    private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let videoObjectIngressInterceptor: VideoObjectIngressInterceptor?
     private var paused = false
     private var stopped = false
     // TODO: Refactor so we don't need recursion / use Mutex<T>
     private let lifecycleLock = NSRecursiveLock()
     private var lastSeenGroup: UInt64?
     private var maxGroupSeen: UInt64?
+    private var handlerGeneration: UInt64 = 1
+    private var delayedLiveTasks: [UUID: Task<Void, Never>] = [:]
+    private var delayedFetchTasks: [UUID: Task<Void, Never>] = [:]
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -215,6 +220,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          sframeContext: SFrameContext?,
          wifiScanDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
+         videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         videoObjectIngressInterceptor: VideoObjectIngressInterceptor? = nil,
          publisherInitiated: Bool,
          callback: @escaping Callback,
          statusChanged: @escaping VideoStatusCallback,
@@ -243,6 +250,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
+        self.videoPipelineEvent = videoPipelineEvent
+        self.videoObjectIngressInterceptor = videoObjectIngressInterceptor
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop,
@@ -262,7 +271,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        activeSpeakerStats: self.activeSpeakerStats,
                                        handlerConfig: handlerConfig,
                                        wifiDetector: self.wifiScanDetector,
-                                       switchLatencyMeasurement: self.switchLatencyMeasurement)
+                                       switchLatencyMeasurement: self.switchLatencyMeasurement,
+                                       generation: self.handlerGeneration,
+                                       videoPipelineEvent: self.videoPipelineEvent)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
@@ -278,6 +289,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                        deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                        statusCallback: nil)
         self.token = self.registerObjectCallback(for: handler)
+        self.emit(.handlerCreated(.newSubscription), handlerGeneration: self.handlerGeneration)
+        self.handlerCreatedOnce = true
         handler.setDiscontinuityCallback { [weak self, weak handler] groupId, objectId in
             guard let handler else { return }
             self?.handleDiscontinuity(from: handler, groupId: groupId, objectId: objectId)
@@ -286,7 +299,24 @@ class VideoSubscription: Subscription, @unchecked Sendable {
 
     override func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         super.statusChanged(status)
+        self.emit(.subscriptionStatus(String(describing: status)))
         self.videoStatusChanged(self, status)
+    }
+
+    private func emit(_ kind: VideoPipelineEvent.Kind,
+                      handlerGeneration: UInt64? = nil,
+                      renderEpoch: UInt64? = nil,
+                      groupId: UInt64? = nil,
+                      subgroupId: UInt64? = nil,
+                      objectId: UInt64? = nil) {
+        self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    fullTrackName: self.fullTrackName,
+                                                    handlerGeneration: handlerGeneration ?? self.handlerGeneration,
+                                                    renderEpoch: renderEpoch,
+                                                    groupId: groupId,
+                                                    subgroupId: subgroupId,
+                                                    objectId: objectId,
+                                                    kind: kind))
     }
 
     private func registerObjectCallback(for handler: VideoHandler) -> Int {
@@ -302,6 +332,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
 
     deinit {
         self.cleanupTask?.cancel()
+        self.delayedLiveTasks.values.forEach { $0.cancel() }
+        self.delayedFetchTasks.values.forEach { $0.cancel() }
         self.logger.debug("Deinit")
     }
 
@@ -337,20 +369,22 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.stopped = true
         self.cleanupTask?.cancel()
         self.cleanupTask = nil
+        self.cancelDelayedTasks()
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
-        self.stopHandler()
+        self.stopHandler(reason: .subscriptionStopped)
     }
 
-    private func stopHandler() {
-        let stopped = self.handler.withLock { lockedHandler in
-            guard let handler = lockedHandler else { return false }
+    private func stopHandler(reason: VideoHandlerStopReason) {
+        let stoppedGeneration: UInt64? = self.handler.withLock { lockedHandler in
+            guard let handler = lockedHandler else { return nil }
             handler.stop()
             lockedHandler = nil
             handler.unregisterCallback(self.token)
             self.token = 0
-            return true
+            return handler.generation
         }
-        if stopped {
+        if let stoppedGeneration {
+            self.emit(.handlerStopped(reason), handlerGeneration: stoppedGeneration)
             self.onHandlerStopped(self)
         }
     }
@@ -361,8 +395,15 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         let inactiveFor = Ticks.now.timeIntervalSince(self.lastUpdateTime.load(ordering: .acquiring))
         guard !self.stopped,
               inactiveFor >= self.cleanupTimer else { return }
-        self.stopHandler()
+        self.stopHandler(reason: .inactiveCleanup)
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
+    }
+
+    private func cancelDelayedTasks() {
+        self.delayedLiveTasks.values.forEach { $0.cancel() }
+        self.delayedFetchTasks.values.forEach { $0.cancel() }
+        self.delayedLiveTasks.removeAll()
+        self.delayedFetchTasks.removeAll()
     }
 
     private func handleDiscontinuity(from: VideoHandler, groupId: UInt64, objectId: UInt64) {
@@ -377,6 +418,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
         guard accepted else { return }
         if requested {
+            self.emit(.joinDecision(.newGroup), handlerGeneration: from.generation,
+                      groupId: groupId, objectId: objectId)
+            self.emit(.newGroupRequested, handlerGeneration: from.generation,
+                      groupId: groupId, objectId: objectId)
             self.requestNewGroup()
         }
     }
@@ -409,6 +454,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 ctx?.joinStrategy = .wait
                 ctx?.joinDecisionTime = .now
             }
+            self.emit(.joinDecision(.wait), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
             return .drop
         }
 
@@ -417,10 +464,17 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             guard self.isNewGroupRequestSupported() else {
                 self.logger.warning("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - No dynamic groups",
                                     alert: true)
+                self.emit(.objectRejected(.joinState, "dynamic groups unsupported"),
+                          groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
+                          objectId: objectHeaders.objectId)
                 return .drop
             }
             // Not close enough to the start, new group and wait.
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
+            self.emit(.joinDecision(.newGroup), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
+            self.emit(.newGroupRequested, groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
             self.requestNewGroup()
             try! self.stateMachine.transition(to: .waitingForNewGroup(true))
             self.switchContext.withLock { ctx in
@@ -443,6 +497,11 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 ctx?.joinStrategy = .fetch
                 ctx?.joinDecisionTime = .now
             }
+            self.emit(.joinDecision(.fetch), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
+            self.emit(.fetchRequested(startObject: 0, endObject: objectHeaders.objectId - 1),
+                      groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
+                      objectId: objectHeaders.objectId)
             // Process, don't play.
             return .normal(false)
         } catch {
@@ -453,6 +512,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 ctx?.joinStrategy = .wait
                 ctx?.joinDecisionTime = .now
             }
+            self.emit(.joinDecision(.wait), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
             return .drop
         }
     }
@@ -507,6 +568,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 ctx.joinStrategy = .idr
                 ctx.joinDecisionTime = when
                 ctx.joinCompleteTime = when
+                self.emit(.joinDecision(.idr), groupId: objectHeaders.groupId,
+                          subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
                 return .normal(true, switchContext: ctx)
             }
             return self.handleMissedIDR(objectHeaders: objectHeaders, switchContext: makeSwitchContext())
@@ -529,6 +592,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 ctx = nil
                 return captured
             }
+            self.emit(.joinDecision(.idr), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
             return .normal(true, switchContext: ctx)
         }
         }
@@ -536,21 +601,67 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         return getAction
     }
 
-    // swiftlint:disable:next function_body_length cyclomatic_complexity
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?,
                                  streamHeaderProperties: QStreamHeaderProperties?) {
+        let effectiveExtensions = immutableExtensions ?? extensions
+        let ingress = VideoObjectIngress(fullTrackName: self.fullTrackName,
+                                         groupId: objectHeaders.groupId,
+                                         subgroupId: objectHeaders.subgroupId,
+                                         objectId: objectHeaders.objectId,
+                                         payloadLength: objectHeaders.payloadLength,
+                                         status: objectHeaders.status,
+                                         activity: Self.audioActivity(in: effectiveExtensions),
+                                         cached: false)
+        self.emit(.objectReceived(cached: false, activity: ingress.activity),
+                  groupId: ingress.groupId,
+                  subgroupId: ingress.subgroupId,
+                  objectId: ingress.objectId)
+        switch self.videoObjectIngressInterceptor?(ingress) ?? .deliver {
+        case .deliver:
+            self.processLiveObject(ingress, objectHeaders: objectHeaders, data: data, extensions: effectiveExtensions)
+        case .drop(let reason):
+            self.emit(.objectRejected(.intercepted, reason),
+                      groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId,
+                      objectId: ingress.objectId)
+        case .delay(let seconds, _):
+            guard seconds.isFinite, seconds > 0 else {
+                self.emit(.objectRejected(.intercepted, "invalid delay: \(seconds)"),
+                          groupId: ingress.groupId,
+                          subgroupId: ingress.subgroupId,
+                          objectId: ingress.objectId)
+                return
+            }
+            self.scheduleDelayedLiveObject(ingress,
+                                           objectHeaders: objectHeaders,
+                                           data: data,
+                                           extensions: effectiveExtensions,
+                                           seconds: seconds)
+        }
+    }
+
+    private func processLiveObject(_ ingress: VideoObjectIngress,
+                                   objectHeaders: QObjectHeaders,
+                                   data: Data,
+                                   extensions: HeaderExtensions?) {
         self.lifecycleLock.lock()
         defer { self.lifecycleLock.unlock() }
-        guard !self.stopped else { return }
+        guard !self.stopped else {
+            self.emit(.objectRejected(.stopped, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+            return
+        }
 
         // If we're paused, drop this.
         guard !self.paused else {
             if self.verbose {
                 self.logger.debug("Dropping object while in app paused state: \(objectHeaders.groupId) \(objectHeaders.objectId)")
             }
+            self.emit(.objectRejected(.paused, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
 
@@ -586,10 +697,16 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         let handler: VideoHandler
         let activation: ActivationType
         do {
-            guard let created = try self.getCreateHandler() else { return }
+            guard let created = try self.getCreateHandler() else {
+                self.emit(.objectRejected(.handlerUnavailable, nil), groupId: ingress.groupId,
+                          subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+                return
+            }
             (handler, activation) = created
         } catch {
             self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
+            self.emit(.objectRejected(.handlerUnavailable, error.localizedDescription),
+                      groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
 
@@ -607,6 +724,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
                 self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                self.emit(.objectRejected(.unprotect, error.localizedDescription),
+                          handlerGeneration: handler.generation,
+                          groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
                 return
             }
         } else {
@@ -614,11 +734,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
 
         // Check for action & state change.
-        let effectiveExtensions = immutableExtensions ?? extensions
         func notify(drop: Bool) {
             handler.objectReceived(objectHeaders,
                                    data: unprotected,
-                                   extensions: effectiveExtensions,
+                                   extensions: extensions,
                                    when: now,
                                    cached: false,
                                    drop: drop)
@@ -628,12 +747,17 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             if self.verbose {
                 self.logger.info("Dropping object - paused before state determination")
             }
+            self.emit(.objectRejected(.paused, nil), handlerGeneration: handler.generation,
+                      groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
         switch self.determineState(objectHeaders: objectHeaders,
                                    activation: activation,
                                    when: now) {
         case .drop:
+            self.emit(.objectRejected(.joinState, String(describing: self.getCurrentState())),
+                      handlerGeneration: handler.generation,
+                      groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             notify(drop: true)
             return
         case .normal(let start, let switchContext):
@@ -654,6 +778,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             if let existing = lockedHandler {
                 return (existing, .existing)
             }
+            self.handlerGeneration += 1
             let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                              mediaInterop: self.subscriptionConfig.mediaInterop,
                                              decodeBufferSize: self.subscriptionConfig.decodeQueueSize)
@@ -672,7 +797,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               activeSpeakerStats: self.activeSpeakerStats,
                                               handlerConfig: config,
                                               wifiDetector: self.wifiScanDetector,
-                                              switchLatencyMeasurement: self.switchLatencyMeasurement)
+                                              switchLatencyMeasurement: self.switchLatencyMeasurement,
+                                              generation: self.handlerGeneration,
+                                              videoPipelineEvent: self.videoPipelineEvent)
             newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
                 guard let newHandler else { return }
                 self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)
@@ -681,8 +808,41 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             let activation: ActivationType = self.handlerCreatedOnce ? .reactivation : .newSubscription
             self.handlerCreatedOnce = true
             lockedHandler = newHandler
+            self.emit(.handlerCreated(activation), handlerGeneration: newHandler.generation)
             return (newHandler, activation)
         }
+    }
+
+    private static func audioActivity(in extensions: HeaderExtensions?) -> UInt8? {
+        guard let extensions,
+              let value = try? extensions.getHeader(.audioActivityIndicator),
+              case .audioActivityIndicator(let activity) = value else {
+            return nil
+        }
+        return activity
+    }
+
+    private func scheduleDelayedLiveObject(_ ingress: VideoObjectIngress,
+                                           objectHeaders: QObjectHeaders,
+                                           data: Data,
+                                           extensions: HeaderExtensions?,
+                                           seconds: TimeInterval) {
+        let id = UUID()
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled, let self else { return }
+            self.removeDelayedLiveTask(id)
+            self.processLiveObject(ingress, objectHeaders: objectHeaders, data: data, extensions: extensions)
+        }
+        self.lifecycleLock.lock()
+        self.delayedLiveTasks[id] = task
+        self.lifecycleLock.unlock()
+    }
+
+    private func removeDelayedLiveTask(_ id: UUID) {
+        self.lifecycleLock.lock()
+        self.delayedLiveTasks.removeValue(forKey: id)
+        self.lifecycleLock.unlock()
     }
 
     private func fetch(currentGroup: UInt64, currentObject: UInt64) throws -> Fetch {
@@ -702,6 +862,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                   relayId: self.relayId,
                                   statusChanged: { [weak self] status in
                                     guard let self = self else { return }
+                                    self.emit(.fetchStatus(String(describing: status)))
                                     let message = "Fetch status changed: \(status)"
                                     if !status.isError || (status == .notConnected) {
                                         self.logger.info(message)
@@ -723,7 +884,6 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         return fetch
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
     private func onFetchedObject(fetch: Fetch,
                                  headers: QObjectHeaders,
                                  data: Data,
@@ -731,15 +891,59 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                  immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
+        let effectiveExtensions = immutableExtensions ?? extensions
+        let ingress = VideoObjectIngress(fullTrackName: self.fullTrackName,
+                                         groupId: headers.groupId,
+                                         subgroupId: headers.subgroupId,
+                                         objectId: headers.objectId,
+                                         payloadLength: headers.payloadLength,
+                                         status: headers.status,
+                                         activity: Self.audioActivity(in: effectiveExtensions),
+                                         cached: true)
+        self.emit(.objectReceived(cached: true, activity: ingress.activity),
+                  groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+        switch self.videoObjectIngressInterceptor?(ingress) ?? .deliver {
+        case .deliver:
+            self.processFetchedObject(fetch: fetch, ingress: ingress, headers: headers, data: data,
+                                      extensions: effectiveExtensions, currentGroup: currentGroup,
+                                      currentObject: currentObject)
+        case .drop(let reason):
+            self.emit(.objectRejected(.intercepted, reason), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+        case .delay(let seconds, _):
+            guard seconds.isFinite, seconds > 0 else {
+                self.emit(.objectRejected(.intercepted, "invalid delay: \(seconds)"),
+                          groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+                return
+            }
+            self.scheduleDelayedFetchObject(fetch: fetch, ingress: ingress, headers: headers, data: data,
+                                            extensions: effectiveExtensions, currentGroup: currentGroup,
+                                            currentObject: currentObject, seconds: seconds)
+        }
+    }
+
+    private func processFetchedObject(fetch: Fetch,
+                                      ingress: VideoObjectIngress,
+                                      headers: QObjectHeaders,
+                                      data: Data,
+                                      extensions: HeaderExtensions?,
+                                      currentGroup: UInt64,
+                                      currentObject: UInt64) {
         self.lifecycleLock.lock()
         defer { self.lifecycleLock.unlock() }
         // TODO: Reduce duplication with objectReceived?
-        guard !self.stopped else { return }
+        guard !self.stopped else {
+            self.emit(.objectRejected(.stopped, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
+            return
+        }
 
         guard !self.paused else {
             if self.verbose {
                 self.logger.info("Dropping fetched object in paused state")
             }
+            self.emit(.objectRejected(.paused, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
 
@@ -748,6 +952,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             if self.verbose {
                 self.logger.info("Dropping object from inactive fetch")
             }
+            self.emit(.objectRejected(.inactiveFetch, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
 
@@ -759,6 +965,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         guard let handler = self.handler.get() else {
             assert(self.stopped,
                    "Missing video handler while subscription is active")
+            self.emit(.objectRejected(.handlerUnavailable, nil), groupId: ingress.groupId,
+                      subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
         }
 
@@ -769,6 +977,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
                 self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                self.emit(.objectRejected(.unprotect, error.localizedDescription),
+                          handlerGeneration: handler.generation,
+                          groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
                 return
             }
         } else {
@@ -778,7 +989,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         // Pass.
         handler.objectReceived(headers,
                                data: unprotected,
-                               extensions: immutableExtensions ?? extensions,
+                               extensions: extensions,
                                when: .now,
                                cached: true,
                                drop: false)
@@ -795,6 +1006,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 }
                 return
             }
+            self.emit(.fetchCompleted, handlerGeneration: handler.generation,
+                      groupId: headers.groupId, subgroupId: headers.subgroupId, objectId: headers.objectId)
             self.lastSeenGroup = currentGroup
             self.switchContext.withLock { ctx in
                 ctx?.joinCompleteTime = .now
@@ -803,5 +1016,35 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             self.logger.debug("Starting video playout - fetch")
             handler.play(switchContext: self.switchContext.consume())
         }
+    }
+
+    private func scheduleDelayedFetchObject(
+        fetch: Fetch,
+        ingress: VideoObjectIngress,
+        headers: QObjectHeaders,
+        data: Data,
+        extensions: HeaderExtensions?,
+        currentGroup: UInt64,
+        currentObject: UInt64,
+        seconds: TimeInterval
+    ) {
+        let id = UUID()
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled, let self else { return }
+            self.removeDelayedFetchTask(id)
+            self.processFetchedObject(fetch: fetch, ingress: ingress, headers: headers, data: data,
+                                      extensions: extensions, currentGroup: currentGroup,
+                                      currentObject: currentObject)
+        }
+        self.lifecycleLock.lock()
+        self.delayedFetchTasks[id] = task
+        self.lifecycleLock.unlock()
+    }
+
+    private func removeDelayedFetchTask(_ id: UUID) {
+        self.lifecycleLock.lock()
+        self.delayedFetchTasks.removeValue(forKey: id)
+        self.lifecycleLock.unlock()
     }
 }

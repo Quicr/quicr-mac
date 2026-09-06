@@ -4,6 +4,7 @@
 // swiftlint:disable file_length
 
 import Dispatch
+import Synchronization
 import Testing
 @testable import QuicR
 
@@ -84,7 +85,8 @@ struct TestVideoSubscription {
                           activeSpeakerStats: ActiveSpeakerStats? = nil,
                           simulreceive: SimulreceiveMode = .none,
                           statusChanged: VideoSubscription.VideoStatusCallback? = nil,
-                          handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil) async throws -> VideoSubscription {
+                          handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil,
+                          videoPipelineEvent: VideoPipelineEventCallback? = nil) async throws -> VideoSubscription {
         let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
@@ -123,6 +125,7 @@ struct TestVideoSubscription {
                                                                            decodeQueueSize: 2),
                                                  sframeContext: nil,
                                                  wifiScanDetector: nil,
+                                                 videoPipelineEvent: videoPipelineEvent,
                                                  publisherInitiated: false,
                                                  callback: { subscription, details in
                                                     callback?(subscription, details)
@@ -423,6 +426,7 @@ struct TestVideoSubscription {
     func testCleanupFetchWaitsForGOP() async throws {
         var fetch: Fetch?
         var fetchCancelled = false
+        let handlerActivations = Mutex<[ActivationType]>([])
         let mockClient = MockClient(publish: { _ in },
                                     unpublish: { _ in },
                                     subscribe: { _ in },
@@ -436,7 +440,11 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold,
                                                            jitterBufferConfig: jitterBufferConfig,
-                                                           cleanupTime: 0.2)
+                                                           cleanupTime: 0.2,
+                                                           videoPipelineEvent: { event in
+                                                            guard case .handlerCreated(let activation) = event.kind else { return }
+                                                            handlerActivations.withLock { $0.append(activation) }
+                                                           })
 
         func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
@@ -462,6 +470,7 @@ struct TestVideoSubscription {
         let recreatedHandler = subscription.handler.get()
         let fetchingHandler = try #require(recreatedHandler)
         #expect(fetchingHandler !== initialHandler)
+        #expect(handlerActivations.withLock { $0 } == [.newSubscription, .reactivation])
         let queuedPFrame: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
         #expect(queuedPFrame?.frame.objectId == 1)
         #expect(!fetchCancelled)

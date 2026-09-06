@@ -47,6 +47,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     let config: VideoCodecConfig
     /// The full track name identifiying this stream.
     let fullTrackName: FullTrackName
+    let generation: UInt64
 
     private let _jitterBuffer = Mutex<JitterBuffer?>(nil)
     var jitterBuffer: JitterBuffer? { self._jitterBuffer.get() }
@@ -105,6 +106,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let detector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let jitterCalculation: RFC3550Jitter
+    private let videoPipelineEvent: VideoPipelineEventCallback?
 
     // Wi-Fi scan jitter buffer ramping state.
     enum RampState {
@@ -156,12 +158,15 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          activeSpeakerStats: ActiveSpeakerStats?,
          handlerConfig: Config,
          wifiDetector: WiFiScanDetector?,
-         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) throws {
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
+         generation: UInt64 = 1,
+         videoPipelineEvent: VideoPipelineEventCallback? = nil) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
         self.logger = .init(VideoHandler.self, prefix: "\(fullTrackName)")
         self.fullTrackName = fullTrackName
+        self.generation = generation
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
@@ -182,6 +187,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.handlerConfig = handlerConfig
         self.detector = wifiDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
+        self.videoPipelineEvent = videoPipelineEvent
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
@@ -233,6 +239,20 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 }
             }
         }
+    }
+
+    private func emit(_ kind: VideoPipelineEvent.Kind,
+                      groupId: UInt64? = nil,
+                      subgroupId: UInt64? = nil,
+                      objectId: UInt64? = nil) {
+        self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    fullTrackName: self.fullTrackName,
+                                                    handlerGeneration: self.generation,
+                                                    renderEpoch: nil,
+                                                    groupId: groupId,
+                                                    subgroupId: subgroupId,
+                                                    objectId: objectId,
+                                                    kind: kind))
     }
 
     deinit {
@@ -320,7 +340,11 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                         when: Ticks,
                         cached: Bool,
                         drop: Bool) {
-        guard !self.stopped.load(ordering: .acquiring) else { return }
+        guard !self.stopped.load(ordering: .acquiring) else {
+            self.emit(.objectRejected(.stopped, nil), groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
+            return
+        }
 
         if let lastReceived = self.lastReceived {
             let interval = when.timeIntervalSince(lastReceived)
@@ -339,6 +363,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         guard !drop else {
+            self.emit(.objectRejected(.unusable, "dropped by subscription"),
+                      groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
+                      objectId: objectHeaders.objectId)
             // Not usable, but notify receipt.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
             let details = ObjectReceived(timestamp: nil,
@@ -358,6 +385,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         guard !data.isEmpty else {
             guard objectHeaders.status == .endOfSubGroup else {
                 self.logger.warning("Got unexpected empty object")
+                self.emit(.objectRejected(.unusable, "empty object"), groupId: objectHeaders.groupId,
+                          subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
                 return
             }
             return
@@ -366,6 +395,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         // Video needs extensions to be present.
         guard let extensions = extensions else {
             self.logger.error("Missing expected header extensions")
+            self.emit(.objectRejected(.missingFormat, "missing header extensions"),
+                      groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
+                      objectId: objectHeaders.objectId)
             return
         }
 
@@ -418,8 +450,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                    objectId: objectHeaders.objectId,
                                                    presentation: presentationTimestamp) else {
                 self.logger.error("Failed to depacketize video frame")
+                self.emit(.objectRejected(.depacketize, nil), groupId: objectHeaders.groupId,
+                          subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
                 return
             }
+
+            self.emit(.objectUsable(presentationSeconds: presentationTimestamp.seconds),
+                      groupId: objectHeaders.groupId,
+                      subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
 
             let presentationInterval = presentationTimestamp.seconds
 
@@ -470,6 +508,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             try self.submitEncodedData(frame, details: details)
         } catch {
             self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
+            self.emit(.objectRejected(.decoder, error.localizedDescription),
+                      groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
+                      objectId: objectHeaders.objectId)
         }
     }
 
@@ -532,10 +573,16 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             let item = try DecimusVideoFrameJitterItem(frame)
             do {
                 try jitterBuffer.write(item: item, from: details.when.hostDate)
+                self.emit(.jitterAdmitted, groupId: details.headers.groupId,
+                          subgroupId: details.headers.subgroupId, objectId: details.headers.objectId)
             } catch JitterBufferError.full {
                 self.logger.warning("Didn't enqueue as queue was full")
+                self.emit(.jitterRejected(.jitterFull), groupId: details.headers.groupId,
+                          subgroupId: details.headers.subgroupId, objectId: details.headers.objectId)
             } catch JitterBufferError.old {
                 self.logger.warning("Didn't enqueue as frame was older than last read")
+                self.emit(.jitterRejected(.jitterOld), groupId: details.headers.groupId,
+                          subgroupId: details.headers.subgroupId, objectId: details.headers.objectId)
             }
         } else {
             try decode(sample: frame, from: details.when.hostDate)
@@ -828,6 +875,10 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                          objectId: objectId,
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
+        self.emit(.nameGate(accepted: gateResult,
+                            previousGroup: self.lastGroup,
+                            previousObject: self.lastObject),
+                  groupId: groupId, objectId: objectId)
         guard gateResult || self.videoBehaviour != .freeze else {
             // If there's a discontinuity and we want to freeze, notify, done.
             self.logger.warning("Discontinuity. Got: (\(groupId), \(objectId)), had: (\(String(describing: self.lastGroup)), \(String(describing: self.lastObject)))")
@@ -853,6 +904,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             if self.jitterBufferConfig.mode == .layer {
                 guard let registration = self.participant.get() else {
                     self.logger.warning("Missing expected participant")
+                    self.emit(.objectRejected(.displayLayer, "missing participant"),
+                              groupId: groupId, objectId: objectId)
                     return
                 }
                 try self.enqueueSample(sample: sampleBuffer,
@@ -868,7 +921,15 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 if let verticalMirror = sample.verticalMirror {
                     self.atomicMirror.store(verticalMirror, ordering: .releasing)
                 }
-                try decoder!.write(sampleBuffer)
+                self.emit(.decoderSubmitted(presentationSeconds: sampleBuffer.presentationTimeStamp.seconds),
+                          groupId: groupId, objectId: objectId)
+                do {
+                    try decoder!.write(sampleBuffer)
+                } catch {
+                    self.emit(.decoderError(error.localizedDescription),
+                              groupId: groupId, objectId: objectId)
+                    throw error
+                }
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let written = Date.now
@@ -936,6 +997,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                     return true
                 }
                 guard enqueued == true else { return }
+                self.emit(.displayEnqueued(presentationSeconds: sample.presentationTimeStamp.seconds))
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
@@ -943,6 +1005,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 }
             } catch {
                 self.logger.error("Could not enqueue sample: \(error)")
+                self.emit(.displayError(error.localizedDescription))
             }
         }
     }
@@ -1084,6 +1147,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private func handleDecodedSample(_ sample: CMSampleBuffer) {
         guard !self.stopped.load(ordering: .acquiring) else { return }
+
+        self.emit(.decoderOutput(presentationSeconds: sample.presentationTimeStamp.seconds))
 
         // Calculate / report E2E latency.
         let endToEndLatency: TimeInterval?

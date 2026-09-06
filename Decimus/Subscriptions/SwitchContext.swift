@@ -4,7 +4,7 @@
 import Foundation
 
 /// Type of activation that triggered the switch.
-enum ActivationType: String {
+enum ActivationType: String, Sendable {
     /// Fresh subscription created via publishReceived.
     case newSubscription = "new_subscription"
     /// Objects resumed on an existing subscription after idle.
@@ -14,7 +14,7 @@ enum ActivationType: String {
 }
 
 /// Join strategy chosen for mid-stream join.
-enum JoinStrategy: String {
+enum JoinStrategy: String, Sendable {
     /// Fetch missing objects from start of group.
     case fetch = "fetch"
     /// Request a new group (IDR) from the relay.
