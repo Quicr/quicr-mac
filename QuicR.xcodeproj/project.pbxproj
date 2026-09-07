@@ -379,14 +379,14 @@
 		9B60A680304B139300E851D7 /* TopNH264Fixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNH264Fixture.swift; sourceTree = "<group>"; };
 		9B60A681304B139300E851D7 /* TopNHarnessPreflight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNHarnessPreflight.swift; sourceTree = "<group>"; };
 		9B60A682304B139300E851D7 /* TestTopNClientHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTopNClientHarness.swift; sourceTree = "<group>"; };
-		9B60A69C304B139300E851D7 /* TopNHarnessInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TopNHarnessInfo.plist; sourceTree = "<group>"; };
-		9B60A683304B139300E851D7 /* topn-gop.qth264 */ = {isa = PBXFileReference; lastKnownFileType = file; path = topn-gop.qth264; sourceTree = "<group>"; };
+		9B60A683304B139300E851D7 /* topn-gop.qth264 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "topn-gop.qth264"; sourceTree = "<group>"; };
 		9B60A691304B139300E851D7 /* SyntheticVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticVideoPublication.swift; sourceTree = "<group>"; };
 		9B60A693304B139300E851D7 /* SyntheticVideoPublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticVideoPublicationFactory.swift; sourceTree = "<group>"; };
 		9B60A695304B139300E851D7 /* TopNHarnessScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNHarnessScenario.swift; sourceTree = "<group>"; };
 		9B60A697304B139300E851D7 /* TopNHarnessParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNHarnessParticipant.swift; sourceTree = "<group>"; };
 		9B60A699304B139300E851D7 /* TopNHarnessCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNHarnessCoordinator.swift; sourceTree = "<group>"; };
 		9B60A69B304B139300E851D7 /* TopNHarnessFaultController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopNHarnessFaultController.swift; sourceTree = "<group>"; };
+		9B60A69C304B139300E851D7 /* TopNHarnessInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TopNHarnessInfo.plist; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
 		9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPicker.swift; sourceTree = "<group>"; };
@@ -665,6 +665,33 @@
 			path = Codec;
 			sourceTree = "<group>";
 		};
+		9B60A650304B139300E851D7 /* TopNHarness */ = {
+			isa = PBXGroup;
+			children = (
+				9B60A64D304B139300E851D7 /* TopNHarnessTypes.swift */,
+				9B60A64E304B139300E851D7 /* TopNHarnessRecorder.swift */,
+				9B60A64F304B139300E851D7 /* TopNHarnessOracle.swift */,
+				9B60A680304B139300E851D7 /* TopNH264Fixture.swift */,
+				9B60A681304B139300E851D7 /* TopNHarnessPreflight.swift */,
+				9B60A691304B139300E851D7 /* SyntheticVideoPublication.swift */,
+				9B60A693304B139300E851D7 /* SyntheticVideoPublicationFactory.swift */,
+				9B60A695304B139300E851D7 /* TopNHarnessScenario.swift */,
+				9B60A697304B139300E851D7 /* TopNHarnessParticipant.swift */,
+				9B60A699304B139300E851D7 /* TopNHarnessCoordinator.swift */,
+				9B60A69B304B139300E851D7 /* TopNHarnessFaultController.swift */,
+				9B60A684304B139300E851D7 /* Fixtures */,
+			);
+			path = TopNHarness;
+			sourceTree = "<group>";
+		};
+		9B60A684304B139300E851D7 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				9B60A683304B139300E851D7 /* topn-gop.qth264 */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		9B6C9F0A2DE5E8020041B9C1 /* Audio */ = {
 			isa = PBXGroup;
 			children = (
@@ -732,33 +759,6 @@
 				9B60A69C304B139300E851D7 /* TopNHarnessInfo.plist */,
 			);
 			path = Tests;
-			sourceTree = "<group>";
-		};
-		9B60A650304B139300E851D7 /* TopNHarness */ = {
-			isa = PBXGroup;
-			children = (
-				9B60A64D304B139300E851D7 /* TopNHarnessTypes.swift */,
-				9B60A64E304B139300E851D7 /* TopNHarnessRecorder.swift */,
-				9B60A64F304B139300E851D7 /* TopNHarnessOracle.swift */,
-				9B60A680304B139300E851D7 /* TopNH264Fixture.swift */,
-				9B60A681304B139300E851D7 /* TopNHarnessPreflight.swift */,
-				9B60A691304B139300E851D7 /* SyntheticVideoPublication.swift */,
-				9B60A693304B139300E851D7 /* SyntheticVideoPublicationFactory.swift */,
-				9B60A695304B139300E851D7 /* TopNHarnessScenario.swift */,
-				9B60A697304B139300E851D7 /* TopNHarnessParticipant.swift */,
-				9B60A699304B139300E851D7 /* TopNHarnessCoordinator.swift */,
-				9B60A69B304B139300E851D7 /* TopNHarnessFaultController.swift */,
-				9B60A684304B139300E851D7 /* Fixtures */,
-			);
-			path = TopNHarness;
-			sourceTree = "<group>";
-		};
-		9B60A684304B139300E851D7 /* Fixtures */ = {
-			isa = PBXGroup;
-			children = (
-				9B60A683304B139300E851D7 /* topn-gop.qth264 */,
-			);
-			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		9B8E14DA2C7E935E009D8C24 /* libquicr */ = {
@@ -1523,12 +1523,10 @@
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
 				);
+				INFOPLIST_FILE = Tests/TopNHarnessInfo.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_FILE = Tests/TopNHarnessInfo.plist;
-				TOPN_HARNESS_CONFIG = "";
-				TOPN_HARNESS_FIXTURE_PREFLIGHT = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1538,6 +1536,8 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuicR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuicR";
+				TOPN_HARNESS_CONFIG = "";
+				TOPN_HARNESS_FIXTURE_PREFLIGHT = "";
 			};
 			name = Debug;
 		};
@@ -1555,12 +1555,10 @@
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
 				);
+				INFOPLIST_FILE = Tests/TopNHarnessInfo.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_FILE = Tests/TopNHarnessInfo.plist;
-				TOPN_HARNESS_CONFIG = "";
-				TOPN_HARNESS_FIXTURE_PREFLIGHT = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1570,6 +1568,8 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuicR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuicR";
+				TOPN_HARNESS_CONFIG = "";
+				TOPN_HARNESS_FIXTURE_PREFLIGHT = "";
 			};
 			name = Release;
 		};
