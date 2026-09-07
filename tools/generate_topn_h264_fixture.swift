@@ -11,6 +11,7 @@ private let width = 320
 private let height = 180
 private let frameRate: Int32 = 30
 private let frameCount = 150
+private let squareWidth = 24
 
 private struct GeneratorError: LocalizedError {
     let message: String
@@ -65,13 +66,13 @@ private func makePixelBuffer(frame index: Int) throws -> CVPixelBuffer {
         (255, 32, 32), (32, 255, 32), (32, 32, 255), (255, 255, 32),
         (255, 32, 255), (32, 255, 255), (255, 160, 32), (224, 224, 224)
     ]
-    let squareX = (index * 3) % (width - 24)
+    let squareX = -squareWidth + (index * (width + squareWidth) / (frameCount - 1))
 
     for y in 0..<height {
         let row = baseAddress.advanced(by: y * stride).assumingMemoryBound(to: UInt8.self)
         for x in 0..<width {
             let colour = colours[min(x / barWidth, colours.count - 1)]
-            let square = x >= squareX && x < squareX + 24 && y >= 78 && y < 102
+            let square = x >= squareX && x < squareX + squareWidth && y >= 78 && y < 102
             let offset = x * 4
             row[offset] = square ? 255 : colour.2
             row[offset + 1] = square ? 255 : colour.1
