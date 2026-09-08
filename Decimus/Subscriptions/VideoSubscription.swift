@@ -74,6 +74,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let videoPipelineEvent: VideoPipelineEventCallback?
     private let videoObjectIngressInterceptor: VideoObjectIngressInterceptor?
+    private let playoutClock: any VideoPlayoutClock
     private var paused = false
     private var stopped = false
     // TODO: Refactor so we don't need recursion / use Mutex<T>
@@ -222,6 +223,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          videoPipelineEvent: VideoPipelineEventCallback? = nil,
          videoObjectIngressInterceptor: VideoObjectIngressInterceptor? = nil,
+         playoutClock: any VideoPlayoutClock = ContinuousVideoPlayoutClock(),
          publisherInitiated: Bool,
          callback: @escaping Callback,
          statusChanged: @escaping VideoStatusCallback,
@@ -252,6 +254,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
         self.videoObjectIngressInterceptor = videoObjectIngressInterceptor
+        self.playoutClock = playoutClock
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop,
@@ -273,7 +276,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        wifiDetector: self.wifiScanDetector,
                                        switchLatencyMeasurement: self.switchLatencyMeasurement,
                                        generation: self.handlerGeneration,
-                                       videoPipelineEvent: self.videoPipelineEvent)
+                                       videoPipelineEvent: self.videoPipelineEvent,
+                                       playoutClock: self.playoutClock)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
@@ -799,7 +803,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               wifiDetector: self.wifiScanDetector,
                                               switchLatencyMeasurement: self.switchLatencyMeasurement,
                                               generation: self.handlerGeneration,
-                                              videoPipelineEvent: self.videoPipelineEvent)
+                                              videoPipelineEvent: self.videoPipelineEvent,
+                                              playoutClock: self.playoutClock)
             newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
                 guard let newHandler else { return }
                 self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)

@@ -18,6 +18,23 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
+protocol VideoPlayoutClock: Sendable {
+    func now() -> Ticks
+    func sleep(for duration: TimeInterval) async throws
+}
+
+struct ContinuousVideoPlayoutClock: VideoPlayoutClock {
+    func now() -> Ticks {
+        .now
+    }
+
+    func sleep(for duration: TimeInterval) async throws {
+        try await Task.sleep(for: .seconds(duration),
+                             tolerance: .seconds(duration / 2),
+                             clock: .continuous)
+    }
+}
+
 /// Information about a received object.
 struct ObjectReceived {
     /// The timestamp of the object, if available.
@@ -61,6 +78,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
+    private let playoutClock: any VideoPlayoutClock
     var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
         return result == 0 ? nil : .init(rawValue: result)
@@ -82,6 +100,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private nonisolated(unsafe) var lastObject: UInt64?
     private nonisolated(unsafe) var decodeTask: Task<(), Never>?
     private nonisolated(unsafe) var dequeueTask: Task<(), Never>?
+    private let dequeueSignals = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
     private nonisolated(unsafe) var dequeueBehaviour: VideoDequeuer?
     private nonisolated(unsafe) var lastFps: UInt16?
     private nonisolated(unsafe) var lastDimensions: CMVideoDimensions?
@@ -160,7 +179,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          wifiDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          generation: UInt64 = 1,
-         videoPipelineEvent: VideoPipelineEventCallback? = nil) throws {
+         videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         playoutClock: any VideoPlayoutClock) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -179,6 +199,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.videoBehaviour = videoBehaviour
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
+        self.playoutClock = playoutClock
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
@@ -258,6 +279,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     deinit {
         self.decodeTask?.cancel()
         self.dequeueTask?.cancel()
+        self.dequeueSignals.continuation.finish()
         if let spikeToken = self.spikeToken {
             self.detector!.removeNotifyCallback(token: spikeToken)
         }
@@ -271,6 +293,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                     ordering: .acquiringAndReleasing)
         guard exchange.exchanged else { return }
         self.decodeTask?.cancel()
+        self.dequeueSignals.continuation.finish()
         self._jitterBuffer.withLock { _ in
             self.dequeueTask?.cancel()
         }
@@ -535,6 +558,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 return
             }
             buffer.startPlaying()
+            self.dequeueSignals.continuation.yield(())
         }
     }
 
@@ -543,6 +567,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         guard let buffer = self.jitterBuffer else { return }
         buffer.pause()
         buffer.resetReadOrder()
+        self.dequeueSignals.continuation.yield(())
     }
 
     /// Pass an encoded video frame to this video handler.
@@ -573,6 +598,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             let item = try DecimusVideoFrameJitterItem(frame)
             do {
                 try jitterBuffer.write(item: item, from: details.when.hostDate)
+                self.dequeueSignals.continuation.yield(())
                 self.emit(.jitterAdmitted, groupId: details.headers.groupId,
                           subgroupId: details.headers.subgroupId, objectId: details.headers.objectId)
             } catch JitterBufferError.full {
@@ -775,75 +801,98 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private func createDequeueTask() {
         // Start the frame dequeue task.
+        let dequeueEvents = self.dequeueSignals.stream
+        let playoutClock = self.playoutClock
         self.dequeueTask = .init(priority: .high) { [weak self] in
+            var eventIterator = dequeueEvents.makeAsyncIterator()
             while !Task.isCancelled {
-                let waitTime: TimeInterval
-                let now: Ticks
-                if let self = self {
-                    now = .now
-
-                    // Wait until we expect to have a frame available.
-                    let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
-                    if let pid = self.dequeueBehaviour as? PIDDequeuer {
-                        pid.currentDepth = jitterBuffer.getDepth()
-                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now.hostDate)
-                    } else {
-                        guard let duration = self.duration else {
-                            self.logger.error("Missing duration")
-                            return
-                        }
-                        waitTime = calculateWaitTime(from: now) ?? duration
-                    }
+                let waitTime: TimeInterval?
+                if let self {
+                    waitTime = self.calculateDequeueWaitTime(from: playoutClock.now())
                 } else {
                     return
                 }
 
-                // Sleep without holding a strong reference.
-                if waitTime > 0 {
-                    try? await Task.sleep(for: .seconds(waitTime),
-                                          tolerance: .seconds(waitTime / 2),
-                                          clock: .continuous)
+                guard let waitTime else {
+                    guard await eventIterator.next() != nil else { return }
+                    continue
                 }
 
-                // Regain our strong reference after sleeping.
-                if let self = self {
-                    // Attempt to dequeue a frame.
-                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.hostDate) {
-                        if self.granularMetrics,
-                           let measurement = self.measurement,
-                           let time = self.calculateWaitTime(item: item, from: now) {
-                            measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
-                        }
-
-                        // Because of ordering and FETCH, it's possible the sample
-                        // does not have a format set. At the point of dequeue, we should
-                        // apply the matching group's format if we have it, so that this sample
-                        // does has a format.
-                        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
-                        let frame: DecimusVideoFrame
-                        if okay {
-                            frame = item.frame
-                        } else {
-                            guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
-                                self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
-                                continue
-                            }
-                            do {
-                                frame = try self.regen(item.frame, format: format)
-                            } catch {
-                                self.logger.error("Failed to regen sample: \(error.localizedDescription)")
-                                return
-                            }
-                        }
-                        do {
-                            try self.decode(sample: frame, from: now.hostDate)
-                        } catch {
-                            self.logger.error("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
-                        }
+                // Sleep without holding a strong reference.
+                if waitTime > 0 {
+                    do {
+                        try await playoutClock.sleep(for: waitTime)
+                    } catch {
+                        return
                     }
+                }
+
+                // Regain our strong reference and refresh the clock after sleeping.
+                if let self {
+                    guard self.processNextFrame(at: playoutClock.now()) else { return }
+                } else {
+                    return
                 }
             }
         }
+    }
+
+    private func calculateDequeueWaitTime(from now: Ticks) -> TimeInterval? {
+        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+        guard jitterBuffer.isPlaying(),
+              jitterBuffer.peek() as DecimusVideoFrameJitterItem? != nil else { return nil }
+        if let pid = self.dequeueBehaviour as? PIDDequeuer {
+            pid.currentDepth = jitterBuffer.getDepth()
+            return pid.calculateWaitTime(from: now.hostDate)
+        }
+        guard let duration = self.duration else {
+            self.logger.error("Missing duration")
+            return nil
+        }
+        return self.calculateWaitTime(from: now) ?? duration
+    }
+
+    /// Process the current head if its deadline is still due.
+    /// - Returns: False only when the dequeue task should terminate.
+    private func processNextFrame(at now: Ticks) -> Bool {
+        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+        guard jitterBuffer.isPlaying(),
+              let head: DecimusVideoFrameJitterItem = jitterBuffer.peek() else { return true }
+        if !(self.dequeueBehaviour is PIDDequeuer),
+           let remaining = self.calculateWaitTime(item: head, from: now),
+           remaining > 0 {
+            return true
+        }
+        guard let item: DecimusVideoFrameJitterItem = jitterBuffer.read(from: now.hostDate) else { return true }
+        if self.granularMetrics,
+           let measurement = self.measurement,
+           let time = self.calculateWaitTime(item: item, from: now) {
+            measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
+        }
+
+        // Because of ordering and FETCH, it's possible the sample does not have a format set.
+        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
+        let frame: DecimusVideoFrame
+        if okay {
+            frame = item.frame
+        } else {
+            guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
+                self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
+                return true
+            }
+            do {
+                frame = try self.regen(item.frame, format: format)
+            } catch {
+                self.logger.error("Failed to regen sample: \(error.localizedDescription)")
+                return false
+            }
+        }
+        do {
+            try self.decode(sample: frame, from: now.hostDate)
+        } catch {
+            self.logger.error("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
+        }
+        return true
     }
 
     /// Regenerate the frame to have the given format.

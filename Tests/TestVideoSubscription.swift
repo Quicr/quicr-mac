@@ -71,6 +71,149 @@ extension HeaderExtensions {
     }
 }
 
+private final class ManualVideoPlayoutClock: VideoPlayoutClock, Sendable {
+    private struct Sleeper {
+        let deadline: Ticks
+        let continuation: CheckedContinuation<Void, Error>
+    }
+
+    private struct SleepCountWaiter {
+        let count: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
+
+    private struct State {
+        var current: Ticks
+        var nextSleepId = 0
+        var cancelledSleepIds: Set<Int> = []
+        var sleepers: [Int: Sleeper] = [:]
+        var sleepDurations: [TimeInterval] = []
+        var sleepCountWaiters: [SleepCountWaiter] = []
+    }
+
+    private let state: Mutex<State>
+
+    init(now: Ticks) {
+        self.state = .init(.init(current: now))
+    }
+
+    func now() -> Ticks {
+        self.state.withLock { $0.current }
+    }
+
+    func sleep(for duration: TimeInterval) async throws {
+        let sleepId = self.state.withLock { state in
+            defer { state.nextSleepId += 1 }
+            return state.nextSleepId
+        }
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let waiters: [SleepCountWaiter]? = self.state.withLock { state in
+                    guard !Task.isCancelled,
+                          state.cancelledSleepIds.remove(sleepId) == nil else { return nil }
+                    state.sleepers[sleepId] = .init(deadline: state.current.addingTimeInterval(duration),
+                                                    continuation: continuation)
+                    state.sleepDurations.append(duration)
+                    let ready = state.sleepCountWaiters.filter { $0.count <= state.sleepDurations.count }
+                    state.sleepCountWaiters.removeAll { $0.count <= state.sleepDurations.count }
+                    return ready
+                }
+                guard let waiters else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                for waiter in waiters {
+                    waiter.continuation.resume()
+                }
+            }
+        } onCancel: {
+            self.cancelSleep(sleepId)
+        }
+    }
+
+    func waitUntilSleepCount(_ count: Int) async {
+        await withCheckedContinuation { continuation in
+            let ready = self.state.withLock { state in
+                guard state.sleepDurations.count < count else { return true }
+                state.sleepCountWaiters.append(.init(count: count, continuation: continuation))
+                return false
+            }
+            if ready {
+                continuation.resume()
+            }
+        }
+    }
+
+    func sleepDuration(at index: Int) -> TimeInterval {
+        self.state.withLock { $0.sleepDurations[index] }
+    }
+
+    func advance(by duration: TimeInterval) {
+        let ready = self.state.withLock { state in
+            state.current = state.current.addingTimeInterval(duration)
+            let ready = state.sleepers.filter { $0.value.deadline <= state.current }
+            state.sleepers = state.sleepers.filter { $0.value.deadline > state.current }
+            return Array(ready.values)
+        }
+        for sleeper in ready {
+            sleeper.continuation.resume()
+        }
+    }
+
+    private func cancelSleep(_ sleepId: Int) {
+        let sleeper: Sleeper? = self.state.withLock { state in
+            guard let sleeper = state.sleepers.removeValue(forKey: sleepId) else {
+                state.cancelledSleepIds.insert(sleepId)
+                return nil
+            }
+            return sleeper
+        }
+        sleeper?.continuation.resume(throwing: CancellationError())
+    }
+}
+
+private struct VideoHandlerBufferHarness {
+    let handler: VideoHandler
+
+    func submit(objectId: UInt64, presentation: Ticks) throws {
+        var extensions = HeaderExtensions()
+        try extensions.setHeader(.captureTimestamp(presentation.hostDate))
+        let priority: UInt8 = 0
+        let ttl: UInt16 = 0
+        withUnsafePointer(to: priority) { priorityPtr in
+            withUnsafePointer(to: ttl) { ttlPtr in
+                self.handler.objectReceived(.init(groupId: 0,
+                                                  subgroupId: 0,
+                                                  objectId: objectId,
+                                                  payloadLength: 1,
+                                                  status: .available,
+                                                  priority: priorityPtr,
+                                                  ttl: ttlPtr),
+                                            data: Data([0x01]),
+                                            extensions: extensions,
+                                            when: .now,
+                                            cached: false,
+                                            drop: false)
+            }
+        }
+    }
+
+    func headObjectId() -> UInt64? {
+        let item: DecimusVideoFrameJitterItem? = self.handler.jitterBuffer?.peek()
+        return item?.frame.objectId
+    }
+
+    func waitForHead(_ expected: UInt64?) async throws {
+        for _ in 0..<1_000 {
+            if self.headObjectId() == expected {
+                return
+            }
+            await Task.yield()
+        }
+        throw "Timed out waiting for jitter-buffer head \(String(describing: expected))"
+    }
+}
+
 // swiftlint:disable:next type_body_length
 struct TestVideoSubscription {
     @MainActor
@@ -86,7 +229,8 @@ struct TestVideoSubscription {
                           simulreceive: SimulreceiveMode = .none,
                           statusChanged: VideoSubscription.VideoStatusCallback? = nil,
                           handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil,
-                          videoPipelineEvent: VideoPipelineEventCallback? = nil) async throws -> VideoSubscription {
+                          videoPipelineEvent: VideoPipelineEventCallback? = nil,
+                          playoutClock: any VideoPlayoutClock = ContinuousVideoPlayoutClock()) async throws -> VideoSubscription {
         let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
@@ -126,6 +270,7 @@ struct TestVideoSubscription {
                                                  sframeContext: nil,
                                                  wifiScanDetector: nil,
                                                  videoPipelineEvent: videoPipelineEvent,
+                                                 playoutClock: playoutClock,
                                                  publisherInitiated: false,
                                                  callback: { subscription, details in
                                                     callback?(subscription, details)
@@ -301,6 +446,65 @@ struct TestVideoSubscription {
         await receiveTask.value
 
         #expect(handler.jitterBuffer == nil)
+    }
+
+    @Test("Retained interval handler refills before resuming at frame cadence")
+    @MainActor
+    func testRetainedHandlerRefillsBeforeResuming() async throws {
+        let targetDepth: TimeInterval = 0.2
+        let frameDuration: TimeInterval = 1 / 30
+        let deadlineEpsilon: TimeInterval = 0.000_001
+        let initialTime = Ticks.now
+        let clock = ManualVideoPlayoutClock(now: initialTime)
+        var jitterBufferConfig = JitterBuffer.Config()
+        jitterBufferConfig.mode = .interval
+        jitterBufferConfig.minDepth = targetDepth
+        jitterBufferConfig.adaptive = false
+        let subscription = try await self.makeSubscription(.video(),
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           jitterBufferConfig: jitterBufferConfig,
+                                                           playoutClock: clock)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        let buffer = VideoHandlerBufferHarness(handler: handler)
+        defer { handler.stop() }
+
+        let alignment = initialTime
+        handler.timeDiff.setTimeDiff(diff: .init(senderTimestamp: alignment.hostDate.timeIntervalSince1970,
+                                                 receiverHostTime: alignment))
+
+        // Warm the retained handler once, then leave its dequeue loop waiting on an empty buffer.
+        try buffer.submit(objectId: 0, presentation: alignment)
+        handler.play()
+        await clock.waitUntilSleepCount(1)
+        let warmupDelay = clock.sleepDuration(at: 0)
+        #expect(warmupDelay >= targetDepth - 0.001)
+        clock.advance(by: warmupDelay + deadlineEpsilon)
+        try await buffer.waitForHead(nil)
+        #expect(buffer.headObjectId() == nil)
+
+        // Model two frames arriving while the retained handler is idle. The first should refill the
+        // configured depth; the second should then follow at the media cadence, not 200 ms later.
+        let resumedAt = clock.now()
+        try buffer.submit(objectId: 1, presentation: resumedAt)
+        try buffer.submit(objectId: 2, presentation: resumedAt.addingTimeInterval(frameDuration))
+
+        await clock.waitUntilSleepCount(2)
+        let refillDelay = clock.sleepDuration(at: 1)
+        #expect(refillDelay >= targetDepth - 0.001)
+        clock.advance(by: targetDepth - 0.001)
+        #expect(buffer.headObjectId() == 1)
+        clock.advance(by: refillDelay - targetDepth + 0.001 + deadlineEpsilon)
+        try await buffer.waitForHead(2)
+
+        await clock.waitUntilSleepCount(3)
+        let resumedCadence = clock.sleepDuration(at: 2)
+        #expect(resumedCadence >= frameDuration - 0.001)
+        #expect(resumedCadence <= frameDuration + 0.001)
+        clock.advance(by: resumedCadence + deadlineEpsilon)
+        try await buffer.waitForHead(nil)
+        #expect(buffer.headObjectId() == nil)
     }
 
     @Test("Stop drains and cancels an active fetch, then rejects its late completion")
