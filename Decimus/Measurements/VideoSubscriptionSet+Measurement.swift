@@ -43,5 +43,26 @@ extension VideoSubscriptionSet {
         func age(_ age: TimeInterval, timestamp: Date) {
             self.record(field: "age", value: age, timestamp: timestamp)
         }
+
+        func displayEnqueueTiming(_ timing: VideoDisplayEnqueueTiming, timestamp: Date) {
+            let tags = [
+                "display_immediately": "\(timing.displayImmediately)",
+                "ready_for_more_media_data": "\(timing.readyForMoreMediaData)"
+            ]
+            self.record(field: "displayFrameAge",
+                        value: timing.frameAgeSeconds,
+                        timestamp: timestamp,
+                        tags: tags)
+            self.record(field: "displayMainActorQueueDelay",
+                        value: timing.mainActorQueueDelaySeconds,
+                        timestamp: timestamp,
+                        tags: tags)
+            if let presentationLead = timing.scheduledPresentationLeadSeconds {
+                self.record(field: "displayScheduledPresentationLead",
+                            value: presentationLead,
+                            timestamp: timestamp,
+                            tags: tags)
+            }
+        }
     }
 }

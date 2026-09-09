@@ -30,8 +30,9 @@ final class TopNHarnessRecorder: @unchecked Sendable {
         let wallClock = self.startWallClock.addingTimeInterval(elapsed)
         let stage = event.kind.topNStage
         let activity = Self.activity(from: event.kind)
-        let details = Self.details(from: event.kind)
-        let observedRemoteParticipant = remoteParticipant ?? Self.remoteParticipant(from: event.fullTrackName)
+        let remoteTrack = Self.remoteTrack(from: event.fullTrackName)
+        let details = Self.details(from: event.kind, quality: remoteTrack?.quality)
+        let observedRemoteParticipant = remoteParticipant ?? remoteTrack?.participant
         self.state.withLock { state in
             state.nextOrdinal += 1
             let recorded = TopNHarnessRecordedEvent(
@@ -121,7 +122,8 @@ final class TopNHarnessRecorder: @unchecked Sendable {
         return activity
     }
 
-    private static func details(from kind: VideoPipelineEvent.Kind) -> TopNHarnessEventDetails? {
+    private static func details(from kind: VideoPipelineEvent.Kind,
+                                quality: TopNVideoQuality?) -> TopNHarnessEventDetails? {
         switch kind {
         case .subscriptionStatus(let status): return .init(status: status)
         case .objectReceived(let cached, _): return .init(cached: cached)
@@ -132,24 +134,39 @@ final class TopNHarnessRecorder: @unchecked Sendable {
         case .fetchRequested(let start, let end): return .init(startObjectId: start, endObjectId: end)
         case .fetchStatus(let status): return .init(status: status)
         case .jitterRejected(let reason): return .init(reason: reason.rawValue)
+        case .jitterDequeued(let timing):
+            return .init(scheduledWaitSeconds: timing.scheduledWaitSeconds,
+                         deadlineLatenessSeconds: timing.deadlineLatenessSeconds,
+                         bufferDepthSeconds: timing.bufferDepthSeconds,
+                         resumedFromEmpty: timing.resumedFromEmpty)
         case .nameGate(let accepted, let previousGroup, let previousObject):
             return .init(accepted: accepted, previousGroupId: previousGroup, previousObjectId: previousObject)
         case .objectUsable(let seconds), .decoderSubmitted(let seconds),
-             .decoderOutput(let seconds), .simulreceiveCandidate(let seconds),
-             .displayEnqueued(let seconds):
+             .decoderOutput(let seconds), .displayEnqueued(let seconds):
             return .init(presentationSeconds: seconds)
+        case .simulreceiveCandidate(let seconds):
+            return .init(quality: quality, presentationSeconds: seconds)
         case .decoderError(let error), .displayError(let error): return .init(reason: error)
         case .simulreceiveSelected(let displayed, let seconds):
-            return .init(displayed: displayed, presentationSeconds: seconds)
+            return .init(displayed: displayed, quality: quality, presentationSeconds: seconds)
+        case .displayEnqueueTiming(let timing):
+            return .init(presentationSeconds: timing.presentationSeconds,
+                         frameAgeSeconds: timing.frameAgeSeconds,
+                         mainActorQueueDelaySeconds: timing.mainActorQueueDelaySeconds,
+                         scheduledPresentationLeadSeconds: timing.scheduledPresentationLeadSeconds,
+                         displayImmediately: timing.displayImmediately,
+                         readyForMoreMediaData: timing.readyForMoreMediaData)
         default: return nil
         }
     }
 
-    private static func remoteParticipant(from fullTrackName: FullTrackName) -> TopNParticipantID? {
+    private static func remoteTrack(from fullTrackName: FullTrackName) ->
+        (participant: TopNParticipantID, quality: TopNVideoQuality)? {
         let components = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
-        guard components.count == 4, components[0] == "meetings.wbx.com",
+        guard components.count == 5, components[0] == "meetings.wbx.com",
               components[2] == "video",
+              let quality = TopNVideoQuality(rawValue: components[3]),
               String(data: fullTrackName.name, encoding: .utf8) == "h264" else { return nil }
-        return TopNParticipantID(rawValue: components[3])
+        return (TopNParticipantID(rawValue: components[4]), quality)
     }
 }

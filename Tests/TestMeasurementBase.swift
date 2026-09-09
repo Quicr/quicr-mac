@@ -70,4 +70,22 @@ struct TestMeasurementBase {
         // Final drain should get whatever remains — no crash = success.
         _ = measurement.drain()
     }
+
+    @Test func simulreceiveDisplayEnqueueTiming() {
+        let measurement = VideoSubscriptionSet.VideoSubscriptionMeasurement(source: "remote")
+        let now = Date.now
+        let timing = VideoDisplayEnqueueTiming(presentationSeconds: now.timeIntervalSince1970 - 0.2,
+                                               frameAgeSeconds: 0.2,
+                                               mainActorQueueDelaySeconds: 0.004,
+                                               scheduledPresentationLeadSeconds: nil,
+                                               displayImmediately: true,
+                                               readyForMoreMediaData: false)
+
+        measurement.displayEnqueueTiming(timing, timestamp: now)
+
+        let points = measurement.drain()[now] ?? []
+        #expect(points.map(\.fieldName) == ["displayFrameAge", "displayMainActorQueueDelay"])
+        #expect(points.allSatisfy { $0.tags?["display_immediately"] == "true" })
+        #expect(points.allSatisfy { $0.tags?["ready_for_more_media_data"] == "false" })
+    }
 }

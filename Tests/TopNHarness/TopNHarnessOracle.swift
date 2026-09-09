@@ -10,6 +10,12 @@ import UIKit
 @testable import QuicR
 
 enum TopNHarnessOracle {
+    private struct SimulreceiveFrame: Hashable {
+        let connectionGeneration: UInt64
+        let renderEpoch: UInt64?
+        let presentationSeconds: TimeInterval
+    }
+
     private struct ObjectLocation: Hashable {
         let connectionGeneration: UInt64
         let handlerGeneration: UInt64?
@@ -27,6 +33,32 @@ enum TopNHarnessOracle {
     private struct SelectedFrame: Hashable {
         let frame: FrameIdentity
         let renderEpoch: UInt64?
+    }
+
+    static func simulreceiveViolation(
+        in events: [TopNHarnessRecordedEvent],
+        since stageWindowStartMilliseconds: Double
+    ) -> TopNOracleViolation.Code? {
+        let recent = events.filter { $0.elapsedMilliseconds >= stageWindowStartMilliseconds }
+            .sorted { $0.ordinal < $1.ordinal }
+        var candidates: [SimulreceiveFrame: Set<TopNVideoQuality>] = [:]
+        var exercised = false
+        let expected = Set(TopNVideoQuality.allCases)
+        for event in recent {
+            guard let presentationSeconds = event.details?.presentationSeconds else { continue }
+            let frame = SimulreceiveFrame(connectionGeneration: event.connectionGeneration,
+                                          renderEpoch: event.renderEpoch,
+                                          presentationSeconds: presentationSeconds)
+            if event.stage == .simulreceiveCandidate, let quality = event.details?.quality {
+                candidates[frame, default: []].insert(quality)
+            } else if event.stage == .simulreceiveSelected,
+                      event.details?.displayed == true,
+                      candidates[frame] == expected {
+                exercised = true
+                if event.details?.quality != .p1080 { return .lowerQualitySelected }
+            }
+        }
+        return exercised ? nil : .simulreceiveNotExercised
     }
 
     static func lifecycleReactivationFailure(
@@ -319,6 +351,15 @@ private struct TopNHarnessCapturedFrame {
 enum TopNHarnessPresentationError: Error, Equatable {
     case noWindowScene, invalidLayer, layerFailed, noDisplayedPixelBuffer, blackFrame
     case timebase(String)
+
+    var isRetryableBeforeDeadline: Bool {
+        switch self {
+        case .invalidLayer, .timebase, .noDisplayedPixelBuffer, .blackFrame:
+            true
+        case .noWindowScene, .layerFailed:
+            false
+        }
+    }
 }
 
 @MainActor
@@ -413,8 +454,7 @@ final class TopNHarnessPresentationHost {
                 }
                 try await Task.sleep(for: .milliseconds(50))
             } catch let error as TopNHarnessPresentationError {
-                guard clock.now < deadline,
-                      error == .noDisplayedPixelBuffer || error == .blackFrame else { throw error }
+                guard clock.now < deadline, error.isRetryableBeforeDeadline else { throw error }
                 try await Task.sleep(for: .milliseconds(50))
             }
         }

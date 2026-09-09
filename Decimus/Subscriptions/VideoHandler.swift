@@ -805,10 +805,16 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         let playoutClock = self.playoutClock
         self.dequeueTask = .init(priority: .high) { [weak self] in
             var eventIterator = dequeueEvents.makeAsyncIterator()
+            var resumedFromEmpty = false
             while !Task.isCancelled {
                 let waitTime: TimeInterval?
                 if let self {
                     waitTime = self.calculateDequeueWaitTime(from: playoutClock.now())
+                    if waitTime == nil,
+                       self.jitterBuffer?.isPlaying() == true,
+                       self.jitterBuffer?.peek() as DecimusVideoFrameJitterItem? == nil {
+                        resumedFromEmpty = true
+                    }
                 } else {
                     return
                 }
@@ -829,7 +835,13 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
                 // Regain our strong reference and refresh the clock after sleeping.
                 if let self {
-                    guard self.processNextFrame(at: playoutClock.now()) else { return }
+                    switch self.processNextFrame(at: playoutClock.now(),
+                                                 scheduledWait: waitTime,
+                                                 resumedFromEmpty: resumedFromEmpty) {
+                    case .pending: break
+                    case .dequeued: resumedFromEmpty = false
+                    case .terminate: return
+                    }
                 } else {
                     return
                 }
@@ -852,18 +864,38 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         return self.calculateWaitTime(from: now) ?? duration
     }
 
+    private enum DequeueResult {
+        case pending
+        case dequeued
+        case terminate
+    }
+
     /// Process the current head if its deadline is still due.
-    /// - Returns: False only when the dequeue task should terminate.
-    private func processNextFrame(at now: Ticks) -> Bool {
+    private func processNextFrame(at now: Ticks,
+                                  scheduledWait: TimeInterval,
+                                  resumedFromEmpty: Bool) -> DequeueResult {
         let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
         guard jitterBuffer.isPlaying(),
-              let head: DecimusVideoFrameJitterItem = jitterBuffer.peek() else { return true }
+              let head: DecimusVideoFrameJitterItem = jitterBuffer.peek() else { return .pending }
+        let deadlineDelta = self.calculateWaitTime(item: head, from: now)
         if !(self.dequeueBehaviour is PIDDequeuer),
-           let remaining = self.calculateWaitTime(item: head, from: now),
-           remaining > 0 {
-            return true
+           let deadlineDelta,
+           deadlineDelta > 0 {
+            return .pending
         }
-        guard let item: DecimusVideoFrameJitterItem = jitterBuffer.read(from: now.hostDate) else { return true }
+        let bufferDepth = jitterBuffer.getDepth()
+        let timing = VideoJitterDequeueTiming(scheduledWaitSeconds: scheduledWait,
+                                              deadlineLatenessSeconds: deadlineDelta.map { max(0, -$0) },
+                                              bufferDepthSeconds: bufferDepth.isFinite ? bufferDepth : nil,
+                                              resumedFromEmpty: resumedFromEmpty)
+        guard let item: DecimusVideoFrameJitterItem = jitterBuffer.read(from: now.hostDate) else { return .pending }
+        self.emit(.jitterDequeued(timing),
+                  groupId: item.frame.groupId,
+                  objectId: item.frame.objectId)
+        if self.granularMetrics,
+           let measurement = self.measurement {
+            measurement.dequeueTiming(timing, timestamp: now.hostDate)
+        }
         if self.granularMetrics,
            let measurement = self.measurement,
            let time = self.calculateWaitTime(item: item, from: now) {
@@ -878,13 +910,13 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         } else {
             guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
                 self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
-                return true
+                return .dequeued
             }
             do {
                 frame = try self.regen(item.frame, format: format)
             } catch {
                 self.logger.error("Failed to regen sample: \(error.localizedDescription)")
-                return false
+                return .terminate
             }
         }
         do {
@@ -892,7 +924,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         } catch {
             self.logger.error("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
         }
-        return true
+        return .dequeued
     }
 
     /// Regenerate the frame to have the given format.
@@ -1029,28 +1061,33 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                   let registration,
                   !self.stopped.load(ordering: .acquiring) else { return }
             do {
-                let enqueued = try registration.withParticipant { participant in
-                    guard !self.stopped.load(ordering: .acquiring) else { return false }
-                    // Set the layer's start time to the first sample's timestamp minus the target depth.
-                    if !self.startTimeSet {
-                        try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
-                        self.startTimeSet = true
+                let result: (enqueued: Bool, timing: VideoDisplayEnqueueTiming?)? =
+                    try registration.withParticipant { participant in
+                        guard !self.stopped.load(ordering: .acquiring) else { return (false, nil) }
+                        // Set the layer's start time to the first sample's timestamp minus the target depth.
+                        if !self.startTimeSet {
+                            try self.setLayerStartTime(layer: participant.view.layer!,
+                                                       time: sample.presentationTimeStamp)
+                            self.startTimeSet = true
+                        }
+                        let renderTime = switchContext != nil ? Date.now : nil
+                        let timing = try participant.enqueue(sample,
+                                                             transform: orientation?.toTransform(verticalMirror!),
+                                                             when: from,
+                                                             endToEndLatency: endToEndLatency,
+                                                             switchContext: switchContext,
+                                                             renderTime: renderTime)
+                        return (true, timing)
                     }
-                    let renderTime = switchContext != nil ? Date.now : nil
-                    try participant.enqueue(sample,
-                                            transform: orientation?.toTransform(verticalMirror!),
-                                            when: from,
-                                            endToEndLatency: endToEndLatency,
-                                            switchContext: switchContext,
-                                            renderTime: renderTime)
-                    return true
-                }
-                guard enqueued == true else { return }
+                guard result?.enqueued == true,
+                      let timing = result?.timing else { return }
+                self.emit(.displayEnqueueTiming(timing))
                 self.emit(.displayEnqueued(presentationSeconds: sample.presentationTimeStamp.seconds))
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
                     measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
+                    measurement.displayEnqueueTiming(timing, timestamp: Date.now)
                 }
             } catch {
                 self.logger.error("Could not enqueue sample: \(error)")

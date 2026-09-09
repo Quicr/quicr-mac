@@ -456,6 +456,7 @@ struct TestVideoSubscription {
         let deadlineEpsilon: TimeInterval = 0.000_001
         let initialTime = Ticks.now
         let clock = ManualVideoPlayoutClock(now: initialTime)
+        let pipelineEvents = Mutex<[VideoPipelineEvent]>([])
         var jitterBufferConfig = JitterBuffer.Config()
         jitterBufferConfig.mode = .interval
         jitterBufferConfig.minDepth = targetDepth
@@ -464,6 +465,9 @@ struct TestVideoSubscription {
                                                            fetchThreshold: 0,
                                                            ngThreshold: 0,
                                                            jitterBufferConfig: jitterBufferConfig,
+                                                           videoPipelineEvent: { event in
+                                                            pipelineEvents.withLock { $0.append(event) }
+                                                           },
                                                            playoutClock: clock)
         let currentHandler = subscription.handler.get()
         let handler = try #require(currentHandler)
@@ -497,6 +501,28 @@ struct TestVideoSubscription {
         #expect(buffer.headObjectId() == 1)
         clock.advance(by: refillDelay - targetDepth + 0.001 + deadlineEpsilon)
         try await buffer.waitForHead(2)
+        let matchingEvent: VideoPipelineEvent? = pipelineEvents.withLock { events in
+            for event in events where event.objectId == 1 {
+                if case .jitterDequeued = event.kind {
+                    return event
+                }
+            }
+            return nil
+        }
+        let refillEvent = try #require(matchingEvent)
+        guard case .jitterDequeued(let timing) = refillEvent.kind else {
+            Issue.record("Expected jitter dequeue timing")
+            return
+        }
+        #expect(timing.scheduledWaitSeconds >= 0.199)
+        #expect(timing.scheduledWaitSeconds <= 0.201)
+        let deadlineLateness = try #require(timing.deadlineLatenessSeconds)
+        #expect(deadlineLateness >= 0)
+        #expect(deadlineLateness <= 0.000_1)
+        let bufferDepth = try #require(timing.bufferDepthSeconds)
+        #expect(bufferDepth >= 0.03)
+        #expect(bufferDepth <= 0.1)
+        #expect(timing.resumedFromEmpty)
 
         await clock.waitUntilSleepCount(3)
         let resumedCadence = clock.sleepDuration(at: 2)

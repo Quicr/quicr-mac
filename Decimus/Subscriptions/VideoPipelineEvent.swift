@@ -26,6 +26,22 @@ enum VideoHandlerStopReason: String, Sendable {
     case subscriptionStopped
 }
 
+struct VideoJitterDequeueTiming: Sendable {
+    let scheduledWaitSeconds: TimeInterval
+    let deadlineLatenessSeconds: TimeInterval?
+    let bufferDepthSeconds: TimeInterval?
+    let resumedFromEmpty: Bool
+}
+
+struct VideoDisplayEnqueueTiming: Sendable {
+    let presentationSeconds: TimeInterval
+    let frameAgeSeconds: TimeInterval
+    let mainActorQueueDelaySeconds: TimeInterval
+    let scheduledPresentationLeadSeconds: TimeInterval?
+    let displayImmediately: Bool
+    let readyForMoreMediaData: Bool
+}
+
 struct VideoPipelineEvent: Sendable {
     enum Kind: Sendable {
         case subscriptionStatus(String)
@@ -41,6 +57,7 @@ struct VideoPipelineEvent: Sendable {
         case newGroupRequested
         case jitterAdmitted
         case jitterRejected(VideoPipelineRejection)
+        case jitterDequeued(VideoJitterDequeueTiming)
         case nameGate(accepted: Bool, previousGroup: UInt64?, previousObject: UInt64?)
         case decoderSubmitted(presentationSeconds: TimeInterval)
         case decoderOutput(presentationSeconds: TimeInterval)
@@ -48,6 +65,7 @@ struct VideoPipelineEvent: Sendable {
         case simulreceiveCandidate(presentationSeconds: TimeInterval)
         case simulreceiveSelected(displayed: Bool, presentationSeconds: TimeInterval)
         case displayEnqueued(presentationSeconds: TimeInterval)
+        case displayEnqueueTiming(VideoDisplayEnqueueTiming)
         case displayError(String)
     }
 

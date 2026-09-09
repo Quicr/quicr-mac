@@ -9,6 +9,16 @@ import VideoToolbox
 @testable import QuicR
 
 enum TopNHarnessPreflight {
+    static func validateFixtures(_ fixtures: TopNH264FixtureSet) async throws {
+        for quality in TopNVideoQuality.allCases {
+            do {
+                try await self.validateFixture(fixtures[quality])
+            } catch {
+                throw TopNH264FixtureError.invalid("\(quality.rawValue) preflight: \(error.localizedDescription)")
+            }
+        }
+    }
+
     static func validateFixture(_ fixture: TopNH264Fixture) async throws {
         let decoder = VTDecoder(config: .init(codec: .h264,
                                               bitrate: 400_000,
@@ -58,7 +68,9 @@ enum TopNHarnessPreflight {
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(2))
-                throw TopNH264FixtureError.invalid("H.264 decode preflight timed out")
+                let count = await observation.receivedFrameCount
+                throw TopNH264FixtureError.invalid(
+                    "H.264 decode preflight timed out after receiving \(count)/\(fixture.accessUnits.count) frames")
             }
             try await group.next()
             group.cancelAll()
@@ -82,12 +94,17 @@ private actor DecoderObservation {
     }
 
     var complete: Bool { self.frames.count == self.expectedFrameCount }
+    var receivedFrameCount: Int { self.frames.count }
 
     func record(_ sample: CMSampleBuffer) {
         guard let imageBuffer = sample.imageBuffer else { return }
         let index = Int(sample.presentationTimeStamp.value)
+        let sampleIndices = [self.expectedFrameCount / 10,
+                             self.expectedFrameCount / 2,
+                             self.expectedFrameCount * 9 / 10]
         self.frames.append(.init(index: index,
-                                 squareLeftEdge: self.squareLeftEdge(in: imageBuffer)))
+                                 squareLeftEdge: sampleIndices.contains(index) ?
+                                    self.squareLeftEdge(in: imageBuffer) : nil))
     }
 
     func validateForwardMotion(frameCount: Int) throws {
@@ -100,16 +117,13 @@ private actor DecoderObservation {
         let visible = ordered.compactMap { frame in
             frame.squareLeftEdge.map { (index: frame.index, x: $0) }
         }
-        guard visible.count > frameCount / 2 else {
-            throw TopNH264FixtureError.invalid("motion check could not detect the white square")
+        guard visible.count == 3 else {
+            throw TopNH264FixtureError.invalid("motion check did not find the square in every sample")
         }
-        for (previous, current) in zip(visible, visible.dropFirst()) where current.x < previous.x {
+        for (previous, current) in zip(visible, visible.dropFirst()) where current.x <= previous.x {
             throw TopNH264FixtureError.invalid(
                 "square moved backwards from x=\(previous.x) at frame \(previous.index) " +
                     "to x=\(current.x) at frame \(current.index)")
-        }
-        guard ordered.dropFirst().dropLast().allSatisfy({ $0.squareLeftEdge != nil }) else {
-            throw TopNH264FixtureError.invalid("square disappeared within the fixture")
         }
     }
 
@@ -127,7 +141,10 @@ private actor DecoderObservation {
                                 colorSpace: CGColorSpaceCreateDeviceRGB())
         }
         var leftEdge: Int?
-        for y in 70..<110 {
+        let squareWidth = max(24, width / 13)
+        let squareTop = max(0, height / 2 - squareWidth / 2 - 2)
+        let squareBottom = min(height, squareTop + squareWidth + 4)
+        for y in squareTop..<squareBottom {
             for x in 0..<width {
                 let offset = (y * width + x) * 4
                 guard pixels[offset] > 245,

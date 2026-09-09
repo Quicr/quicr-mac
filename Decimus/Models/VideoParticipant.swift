@@ -155,7 +155,7 @@ class VideoParticipant: Identifiable {
                  when: Date,
                  endToEndLatency: TimeInterval?,
                  switchContext: SwitchContext? = nil,
-                 renderTime: Date? = nil) throws {
+                 renderTime: Date? = nil) throws -> VideoDisplayEnqueueTiming {
         // Stats.
         if let stats = self.activeSpeakerStats {
             let participantId = self.participantId
@@ -196,7 +196,22 @@ class VideoParticipant: Identifiable {
         // Enqueue the frame.
         self.lastEnqueueTime = when
         self.display = true
+        guard let layer = self.view.layer else { throw VideoError.invalidLayer }
+        let enqueuedAt = Date.now
+        let timebaseSeconds = layer.controlTimebase.map { CMTimebaseGetTime($0).seconds }
+        let displayImmediately = sampleBuffer.sampleAttachments.first?[.displayImmediately] as? Bool ?? false
+        let timing = VideoDisplayEnqueueTiming(
+            presentationSeconds: sampleBuffer.presentationTimeStamp.seconds,
+            frameAgeSeconds: enqueuedAt.timeIntervalSince(
+                Date(timeIntervalSince1970: sampleBuffer.presentationTimeStamp.seconds)),
+            mainActorQueueDelaySeconds: enqueuedAt.timeIntervalSince(when),
+            scheduledPresentationLeadSeconds: displayImmediately ? nil : timebaseSeconds.map {
+                sampleBuffer.presentationTimeStamp.seconds - $0
+            },
+            displayImmediately: displayImmediately,
+            readyForMoreMediaData: layer.sampleBufferRenderer.isReadyForMoreMediaData)
         try self.view.enqueue(sampleBuffer, transform: transform)
+        return timing
     }
 
     deinit {

@@ -28,9 +28,27 @@ struct TopNPublishedObject: Sendable {
     let at: Ticks
 }
 
-final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable {
+final class SyntheticVideoPublicationTrack: PublicationInstance, @unchecked Sendable {
+    let quality: TopNVideoQuality
+    let profile: Profile
     let sink: MoQSink
+    private let statusHandler = Mutex<(@Sendable (QPublishTrackHandlerStatus) -> Void)?>(nil)
 
+    init(quality: TopNVideoQuality, profile: Profile, sink: MoQSink) {
+        self.quality = quality
+        self.profile = profile
+        self.sink = sink
+        self.sink.setCallbacks(onStatus: { [weak self] status in
+            self?.statusHandler.withLock { $0?(status) }
+        }, onMetrics: { _ in })
+    }
+
+    func setStatusHandler(_ handler: @escaping @Sendable (QPublishTrackHandlerStatus) -> Void) {
+        self.statusHandler.withLock { $0 = handler }
+    }
+}
+
+final class SyntheticVideoPublication: @unchecked Sendable {
     private struct ControlState: Sendable {
         var activity: TopNActivity = .speechEnd
         var actionID: String?
@@ -50,32 +68,37 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
         let closeSubgroupId: UInt64?
         let transition: VideoVADTransition
         let handledNGRGeneration: UInt64
+        let captureTimestamp: Date
+        let publishTimestamp: Date
+        var remainingQualities: Set<TopNVideoQuality>
+        var closedQualities: Set<TopNVideoQuality>
     }
 
-    private let profile: Profile
-    private let fixture: TopNH264Fixture
+    private let fixtures: TopNH264FixtureSet
+    private let tracks: [TopNVideoQuality: SyntheticVideoPublicationTrack]
     private let startingGroupId: UInt64
     private let startingRollReason: TopNGroupRollReason
     private let participant: TopNParticipantID
     private let connectionGeneration: UInt64
     private let faultController: TopNHarnessFaultController
     private let onPublished: @Sendable (TopNPublishedObject) -> Void
-    private let onStatus: @Sendable (QPublishTrackHandlerStatus) -> Void
+    private let onStatus: @Sendable (TopNVideoQuality, QPublishTrackHandlerStatus) -> Void
     private let control = Mutex(ControlState())
     private var mediaTask: Task<Void, Never>?
 
-    init(profile: Profile,
-         fixture: TopNH264Fixture,
+    var trackCount: Int { self.tracks.count }
+
+    init(fixtures: TopNH264FixtureSet,
+         tracks: [SyntheticVideoPublicationTrack],
          startingGroupId: UInt64,
          startingRollReason: TopNGroupRollReason,
          participant: TopNParticipantID,
          connectionGeneration: UInt64,
          faultController: TopNHarnessFaultController,
          onPublished: @escaping @Sendable (TopNPublishedObject) -> Void,
-         onStatus: @escaping @Sendable (QPublishTrackHandlerStatus) -> Void,
-         sink: MoQSink) {
-        self.profile = profile
-        self.fixture = fixture
+         onStatus: @escaping @Sendable (TopNVideoQuality, QPublishTrackHandlerStatus) -> Void) {
+        self.fixtures = fixtures
+        self.tracks = Dictionary(uniqueKeysWithValues: tracks.map { ($0.quality, $0) })
         self.startingGroupId = startingGroupId
         self.startingRollReason = startingRollReason
         self.participant = participant
@@ -83,10 +106,11 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
         self.faultController = faultController
         self.onPublished = onPublished
         self.onStatus = onStatus
-        self.sink = sink
-        self.sink.setCallbacks(onStatus: { [weak self] status in
-            self?.handleStatus(status)
-        }, onMetrics: { _ in })
+        for track in tracks {
+            track.setStatusHandler { [weak self] status in
+                self?.handleStatus(status, quality: track.quality)
+            }
+        }
     }
 
     @MainActor
@@ -116,8 +140,8 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
         self.control.withLock { $0.lastSuccessfulGroupId }
     }
 
-    private func handleStatus(_ status: QPublishTrackHandlerStatus) {
-        if status == .newGroupRequested {
+    private func handleStatus(_ status: QPublishTrackHandlerStatus, quality: TopNVideoQuality) {
+        if quality == .p1080, status == .newGroupRequested {
             let suppressed = self.faultController.shouldSuppressNextNGR(
                 publisher: self.participant, connectionGeneration: self.connectionGeneration)
             if !suppressed {
@@ -127,7 +151,95 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
                 }
             }
         }
-        self.onStatus(status)
+        self.onStatus(quality, status)
+    }
+
+    private func makeFirstCandidate(groupId: UInt64,
+                                    transition: VideoVADTransition) -> Candidate {
+        let snapshot = self.control.withLock { $0 }
+        var nextTransition = transition
+        _ = nextTransition.update(.init(rawValue: snapshot.activity.rawValue) ?? .speechEnd)
+        return .init(groupId: groupId, subgroupId: 0, objectId: 0, fixtureIndex: 0,
+                     activity: snapshot.activity, actionID: snapshot.actionID,
+                     rollReason: self.startingRollReason, closeGroupId: nil, closeSubgroupId: nil,
+                     transition: nextTransition, handledNGRGeneration: snapshot.requestedNGRGeneration,
+                     captureTimestamp: .now, publishTimestamp: .now,
+                     remainingQualities: Set(TopNVideoQuality.allCases), closedQualities: [])
+    }
+
+    private func makeNextCandidate(groupId: UInt64, subgroupId: UInt64, objectId: UInt64,
+                                   fixtureIndex: Int, subgroupOpen: Bool,
+                                   transition: VideoVADTransition,
+                                   handledNGRGeneration: UInt64) -> Candidate {
+        let snapshot = self.control.withLock { $0 }
+        var nextTransition = transition
+        let activityResult = nextTransition.update(.init(rawValue: snapshot.activity.rawValue) ?? .speechEnd)
+        let naturalRoll = fixtureIndex >= self.fixtures[.p1080].accessUnits.count
+        let ngr = snapshot.requestedNGRGeneration > handledNGRGeneration
+        let reason: TopNGroupRollReason? = if ngr {
+            .newGroupRequest
+        } else if activityResult.rollGroup {
+            .activityRise
+        } else if naturalRoll {
+            .naturalGOP
+        } else {
+            nil
+        }
+        let rollsGroup = reason != nil
+        let rollsSubgroup = !rollsGroup && activityResult.rollSubgroup
+        return .init(groupId: rollsGroup ? groupId + 1 : groupId,
+                     subgroupId: rollsGroup ? 0 : (rollsSubgroup ? subgroupId + 1 : subgroupId),
+                     objectId: rollsGroup ? 0 : objectId,
+                     fixtureIndex: rollsGroup ? 0 : fixtureIndex,
+                     activity: snapshot.activity, actionID: snapshot.actionID,
+                     rollReason: reason,
+                     closeGroupId: (rollsGroup || rollsSubgroup) && subgroupOpen ? groupId : nil,
+                     closeSubgroupId: (rollsGroup || rollsSubgroup) && subgroupOpen ? subgroupId : nil,
+                     transition: nextTransition,
+                     handledNGRGeneration: ngr ? snapshot.requestedNGRGeneration : handledNGRGeneration,
+                     captureTimestamp: .now, publishTimestamp: .now,
+                     remainingQualities: Set(TopNVideoQuality.allCases), closedQualities: [])
+    }
+
+    private func publish(_ candidate: inout Candidate) {
+        for quality in TopNVideoQuality.allCases where candidate.remainingQualities.contains(quality) {
+            guard let track = self.tracks[quality], track.sink.canPublish else { continue }
+            if let closeGroupId = candidate.closeGroupId,
+               let closeSubgroupId = candidate.closeSubgroupId,
+               !candidate.closedQualities.contains(quality) {
+                track.sink.endSubgroup(groupId: closeGroupId, subgroupId: closeSubgroupId, completed: true)
+                candidate.closedQualities.insert(quality)
+            }
+            let frame = self.fixtures[quality].accessUnits[candidate.fixtureIndex]
+            do {
+                var extensions = HeaderExtensions()
+                try extensions.setHeader(.captureTimestamp(candidate.captureTimestamp))
+                try extensions.setHeader(.audioActivityIndicator(candidate.activity.rawValue))
+                try extensions.setHeader(.publishTimestamp(candidate.publishTimestamp))
+                var priority = try track.profile.getPriority(index: frame.isIDR ? 0 : 1)
+                var ttl = try track.profile.getTTL(index: frame.isIDR ? 0 : 1)
+                let status = withUnsafePointer(to: &priority) { priorityPointer in
+                    withUnsafePointer(to: &ttl) { ttlPointer in
+                        track.sink.publishObject(
+                            QObjectHeaders(groupId: candidate.groupId, subgroupId: candidate.subgroupId,
+                                           objectId: candidate.objectId, payloadLength: UInt64(frame.payload.count),
+                                           status: .available, priority: priorityPointer, ttl: ttlPointer),
+                            data: frame.payload, extensions: extensions,
+                            immutableExtensions: nil, streamHeaderProperties: nil)
+                    }
+                }
+                self.onPublished(.init(fullTrackName: track.sink.fullTrackName,
+                                       groupId: candidate.groupId, subgroupId: candidate.subgroupId,
+                                       objectId: candidate.objectId, fixtureIndex: candidate.fixtureIndex,
+                                       activity: candidate.activity, activityActionID: candidate.actionID,
+                                       rollReason: candidate.rollReason, status: status, at: .now))
+                if status == .ok {
+                    candidate.remainingQualities.remove(quality)
+                }
+            } catch {
+                continue
+            }
+        }
     }
 
     private func run() async {
@@ -146,116 +258,28 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
 
         defer {
             if subgroupOpen {
-                self.sink.endSubgroup(groupId: groupId, subgroupId: subgroupId, completed: true)
+                for track in self.tracks.values {
+                    track.sink.endSubgroup(groupId: groupId, subgroupId: subgroupId, completed: true)
+                }
             }
         }
 
         while !Task.isCancelled {
-            if self.sink.canPublish, pendingCandidate == nil {
-                let snapshot = self.control.withLock { $0 }
-                var nextTransition = transition
-                let activityResult = nextTransition.update(.init(rawValue: snapshot.activity.rawValue) ?? .speechEnd)
+            if pendingCandidate == nil {
                 if firstCandidate {
-                    pendingCandidate = .init(groupId: groupId,
-                                             subgroupId: 0,
-                                             objectId: 0,
-                                             fixtureIndex: 0,
-                                             activity: snapshot.activity,
-                                             actionID: snapshot.actionID,
-                                             rollReason: self.startingRollReason,
-                                             closeGroupId: nil,
-                                             closeSubgroupId: nil,
-                                             transition: nextTransition,
-                                             handledNGRGeneration: snapshot.requestedNGRGeneration)
+                    pendingCandidate = self.makeFirstCandidate(groupId: groupId, transition: transition)
                     firstCandidate = false
-                    continue
-                }
-                let naturalRoll = fixtureIndex >= self.fixture.accessUnits.count
-                let ngr = snapshot.requestedNGRGeneration > handledNGRGeneration
-                let reason: TopNGroupRollReason?
-                if ngr {
-                    reason = .newGroupRequest
-                } else if activityResult.rollGroup {
-                    reason = .activityRise
-                } else if naturalRoll {
-                    reason = .naturalGOP
                 } else {
-                    reason = nil
-                }
-                let rollsGroup = reason != nil
-                let rollsSubgroup = !rollsGroup && activityResult.rollSubgroup
-                if rollsGroup {
-                    pendingCandidate = .init(groupId: groupId + 1,
-                                             subgroupId: 0,
-                                             objectId: 0,
-                                             fixtureIndex: 0,
-                                             activity: snapshot.activity,
-                                             actionID: snapshot.actionID,
-                                             rollReason: reason,
-                                             closeGroupId: subgroupOpen ? groupId : nil,
-                                             closeSubgroupId: subgroupOpen ? subgroupId : nil,
-                                             transition: nextTransition,
-                                             handledNGRGeneration: snapshot.requestedNGRGeneration)
-                } else {
-                    pendingCandidate = .init(groupId: groupId,
-                                             subgroupId: rollsSubgroup ? subgroupId + 1 : subgroupId,
-                                             objectId: objectId,
-                                             fixtureIndex: fixtureIndex,
-                                             activity: snapshot.activity,
-                                             actionID: snapshot.actionID,
-                                             rollReason: nil,
-                                             closeGroupId: rollsSubgroup && subgroupOpen ? groupId : nil,
-                                             closeSubgroupId: rollsSubgroup && subgroupOpen ? subgroupId : nil,
-                                             transition: nextTransition,
-                                             handledNGRGeneration: handledNGRGeneration)
+                    pendingCandidate = self.makeNextCandidate(
+                        groupId: groupId, subgroupId: subgroupId, objectId: objectId,
+                        fixtureIndex: fixtureIndex, subgroupOpen: subgroupOpen,
+                        transition: transition, handledNGRGeneration: handledNGRGeneration)
                 }
             }
 
-            if let candidate = pendingCandidate, self.sink.canPublish {
-                if let closeGroupId = candidate.closeGroupId,
-                   let closeSubgroupId = candidate.closeSubgroupId {
-                    self.sink.endSubgroup(groupId: closeGroupId, subgroupId: closeSubgroupId, completed: true)
-                    subgroupOpen = false
-                }
-                let frame = self.fixture.accessUnits[candidate.fixtureIndex]
-                do {
-                    var extensions = HeaderExtensions()
-                    try extensions.setHeader(.captureTimestamp(.now))
-                    try extensions.setHeader(.audioActivityIndicator(candidate.activity.rawValue))
-                    try extensions.setHeader(.publishTimestamp(.now))
-                    var priority = try self.profile.getPriority(index: frame.isIDR ? 0 : 1)
-                    var ttl = try self.profile.getTTL(index: frame.isIDR ? 0 : 1)
-                    let status = withUnsafePointer(to: &priority) { priorityPointer in
-                        withUnsafePointer(to: &ttl) { ttlPointer in
-                            let headers = QObjectHeaders(groupId: candidate.groupId,
-                                                         subgroupId: candidate.subgroupId,
-                                                         objectId: candidate.objectId,
-                                                         payloadLength: UInt64(frame.payload.count),
-                                                         status: .available,
-                                                         priority: priorityPointer,
-                                                         ttl: ttlPointer)
-                            return self.sink.publishObject(headers,
-                                                           data: frame.payload,
-                                                           extensions: extensions,
-                                                           immutableExtensions: nil,
-                                                           streamHeaderProperties: nil)
-                        }
-                    }
-                    self.onPublished(.init(fullTrackName: self.sink.fullTrackName,
-                                           groupId: candidate.groupId,
-                                           subgroupId: candidate.subgroupId,
-                                           objectId: candidate.objectId,
-                                           fixtureIndex: candidate.fixtureIndex,
-                                           activity: candidate.activity,
-                                           activityActionID: candidate.actionID,
-                                           rollReason: candidate.rollReason,
-                                           status: status,
-                                           at: .now))
-                    guard status == .ok else {
-                        deadline += interval
-                        try? await clock.sleep(until: deadline)
-                        continue
-                    }
+            if var candidate = pendingCandidate {
+                self.publish(&candidate)
+                if candidate.remainingQualities.isEmpty {
                     groupId = candidate.groupId
                     subgroupId = candidate.subgroupId
                     objectId = candidate.objectId + 1
@@ -263,11 +287,13 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
                     transition = candidate.transition
                     handledNGRGeneration = candidate.handledNGRGeneration
                     subgroupOpen = true
-                    self.control.withLock { $0.lastSuccessfulGroupId = groupId }
-                    self.control.withLock { $0.actionID = nil }
+                    self.control.withLock {
+                        $0.lastSuccessfulGroupId = groupId
+                        $0.actionID = nil
+                    }
                     pendingCandidate = nil
-                } catch {
-                    // Keep the candidate intact so a transient profile or sink failure is retried.
+                } else {
+                    pendingCandidate = candidate
                 }
             }
             deadline += interval
@@ -278,5 +304,4 @@ final class SyntheticVideoPublication: PublicationInstance, @unchecked Sendable 
             }
         }
     }
-
 }

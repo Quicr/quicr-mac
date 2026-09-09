@@ -11,9 +11,22 @@ enum TopNReconnectGroupDecision: Sendable {
 }
 
 final class TopNHarnessFaultController: @unchecked Sendable {
+    private struct PendingIDRDrop {
+        let groupId: UInt64
+        let objectId: UInt64
+        var tracks: Set<String>
+    }
+
+    private struct IngressResult {
+        let decision: VideoObjectIngressDecision
+        let rule: TopNFaultRule?
+        let shadowed: [String]
+    }
+
     private struct State {
         var enabled: Set<String> = []
         var consumed: Set<String> = []
+        var pendingIDRDrops: [String: PendingIDRDrop] = [:]
     }
 
     private let rules: [TopNFaultRule]
@@ -43,7 +56,7 @@ final class TopNHarnessFaultController: @unchecked Sendable {
                          remoteParticipant: TopNParticipantID,
                          connectionGeneration: UInt64,
                          ingress: VideoObjectIngress) -> VideoObjectIngressDecision {
-        let result = self.state.withLock { state -> (VideoObjectIngressDecision, TopNFaultRule?, [String]) in
+        let result = self.state.withLock { state -> IngressResult in
             let matching = self.rules.filter { rule in
                 guard state.enabled.contains(rule.id), !state.consumed.contains(rule.id),
                       rule.localParticipant == localParticipant, rule.remoteParticipant == remoteParticipant,
@@ -51,30 +64,46 @@ final class TopNHarnessFaultController: @unchecked Sendable {
                 if let activity = rule.activity, ingress.activity != activity.rawValue { return false }
                 if let cached = rule.cached, ingress.cached != cached { return false }
                 switch rule.kind {
-                case .dropNextIDR: return ingress.objectId == 0
+                case .dropNextIDR:
+                    guard ingress.objectId == 0 else { return false }
+                    guard let pending = state.pendingIDRDrops[rule.id] else { return true }
+                    return pending.groupId == ingress.groupId && pending.objectId == ingress.objectId
                 case .dropLocationRange, .delayLocationRange:
                     return rule.locationRange?.contains(groupId: ingress.groupId, objectId: ingress.objectId) == true
                 default: return false
                 }
             }
-            guard let first = matching.first else { return (.deliver, nil, []) }
-            if first.kind == .dropNextIDR { state.consumed.insert(first.id) }
+            guard let first = matching.first else {
+                return .init(decision: .deliver, rule: nil, shadowed: [])
+            }
+            if first.kind == .dropNextIDR {
+                var pending = state.pendingIDRDrops[first.id] ?? .init(
+                    groupId: ingress.groupId, objectId: ingress.objectId, tracks: [])
+                pending.tracks.insert(ingress.fullTrackName.description)
+                if pending.tracks.count == TopNVideoQuality.allCases.count {
+                    state.pendingIDRDrops.removeValue(forKey: first.id)
+                    state.consumed.insert(first.id)
+                } else {
+                    state.pendingIDRDrops[first.id] = pending
+                }
+            }
             let shadowed = matching.dropFirst().map(\.id)
             switch first.kind {
             case .dropNextIDR, .dropLocationRange:
-                return (.drop(reason: first.id), first, shadowed)
+                return .init(decision: .drop(reason: first.id), rule: first, shadowed: shadowed)
             case .delayLocationRange:
-                return (.delay(seconds: first.delaySeconds ?? 0, reason: first.id), first, shadowed)
+                return .init(decision: .delay(seconds: first.delaySeconds ?? 0, reason: first.id),
+                             rule: first, shadowed: shadowed)
             default:
-                return (.deliver, nil, [])
+                return .init(decision: .deliver, rule: nil, shadowed: [])
             }
         }
-        if let rule = result.1 {
+        if let rule = result.rule {
             self.recordFault(rule: rule, local: localParticipant, remote: remoteParticipant,
                              generation: connectionGeneration, ingress: ingress,
-                             disposition: String(describing: result.0), shadowed: result.2)
+                             disposition: String(describing: result.decision), shadowed: result.shadowed)
         }
-        return result.0
+        return result.decision
     }
 
     func shouldSuppressNextNGR(publisher: TopNParticipantID,

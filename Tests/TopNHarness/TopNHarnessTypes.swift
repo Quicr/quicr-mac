@@ -285,9 +285,10 @@ enum TopNHarnessStage: String, Codable, Sendable {
     case publicationStatus, publishedObject, connectionLeft, connectionRejoined
     case subscriptionStatus, objectReceived, objectUsable, objectRejected
     case handlerCreated, handlerStopped, joinDecision, fetchRequested
-    case fetchStatus, fetchCompleted, newGroupRequested, jitterAdmitted, jitterRejected
+    case fetchStatus, fetchCompleted, newGroupRequested, jitterAdmitted, jitterRejected, jitterDequeued
     case nameGate, decoderSubmitted, decoderOutput, decoderError
-    case simulreceiveCandidate, simulreceiveSelected, displayEnqueued, displayPresented, displayError
+    case simulreceiveCandidate, simulreceiveSelected, displayEnqueued, displayEnqueueTiming
+    case displayPresented, displayError
 }
 
 struct TopNHarnessEventDetails: Codable, Sendable {
@@ -300,20 +301,36 @@ struct TopNHarnessEventDetails: Codable, Sendable {
     let cached: Bool?
     let accepted: Bool?
     let displayed: Bool?
+    let quality: TopNVideoQuality?
     let startObjectId: UInt64?
     let endObjectId: UInt64?
     let previousGroupId: UInt64?
     let previousObjectId: UInt64?
     let presentationSeconds: TimeInterval?
     let delaySeconds: TimeInterval?
+    let scheduledWaitSeconds: TimeInterval?
+    let deadlineLatenessSeconds: TimeInterval?
+    let bufferDepthSeconds: TimeInterval?
+    let resumedFromEmpty: Bool?
+    let frameAgeSeconds: TimeInterval?
+    let mainActorQueueDelaySeconds: TimeInterval?
+    let scheduledPresentationLeadSeconds: TimeInterval?
+    let displayImmediately: Bool?
+    let readyForMoreMediaData: Bool?
     let shadowedFaultIDs: [String]?
 
     init(status: String? = nil, statusCode: UInt64? = nil, reason: String? = nil,
          faultID: String? = nil, joinStrategy: String? = nil, rollReason: String? = nil,
          cached: Bool? = nil, accepted: Bool? = nil, displayed: Bool? = nil,
+         quality: TopNVideoQuality? = nil,
          startObjectId: UInt64? = nil, endObjectId: UInt64? = nil,
          previousGroupId: UInt64? = nil, previousObjectId: UInt64? = nil,
          presentationSeconds: TimeInterval? = nil, delaySeconds: TimeInterval? = nil,
+         scheduledWaitSeconds: TimeInterval? = nil, deadlineLatenessSeconds: TimeInterval? = nil,
+         bufferDepthSeconds: TimeInterval? = nil, resumedFromEmpty: Bool? = nil,
+         frameAgeSeconds: TimeInterval? = nil, mainActorQueueDelaySeconds: TimeInterval? = nil,
+         scheduledPresentationLeadSeconds: TimeInterval? = nil,
+         displayImmediately: Bool? = nil, readyForMoreMediaData: Bool? = nil,
          shadowedFaultIDs: [String]? = nil) {
         self.status = status
         self.statusCode = statusCode
@@ -324,12 +341,22 @@ struct TopNHarnessEventDetails: Codable, Sendable {
         self.cached = cached
         self.accepted = accepted
         self.displayed = displayed
+        self.quality = quality
         self.startObjectId = startObjectId
         self.endObjectId = endObjectId
         self.previousGroupId = previousGroupId
         self.previousObjectId = previousObjectId
         self.presentationSeconds = presentationSeconds
         self.delaySeconds = delaySeconds
+        self.scheduledWaitSeconds = scheduledWaitSeconds
+        self.deadlineLatenessSeconds = deadlineLatenessSeconds
+        self.bufferDepthSeconds = bufferDepthSeconds
+        self.resumedFromEmpty = resumedFromEmpty
+        self.frameAgeSeconds = frameAgeSeconds
+        self.mainActorQueueDelaySeconds = mainActorQueueDelaySeconds
+        self.scheduledPresentationLeadSeconds = scheduledPresentationLeadSeconds
+        self.displayImmediately = displayImmediately
+        self.readyForMoreMediaData = readyForMoreMediaData
         self.shadowedFaultIDs = shadowedFaultIDs
     }
 }
@@ -412,6 +439,7 @@ struct TopNOracleViolation: Error, Equatable, Sendable {
         case missingRequiredTrack, noUsableObject, noDecoderOutput, noSelection, noDisplay
         case displayNotSustained, unhealthyConnection
         case missingInactiveCleanup, missingReactivation, staleGenerationDisplay, noPresentedFrame
+        case simulreceiveNotExercised, lowerQualitySelected
     }
     let code: Code
     let subscriber: TopNParticipantID
@@ -434,6 +462,7 @@ extension VideoPipelineEvent.Kind {
         case .newGroupRequested: .newGroupRequested
         case .jitterAdmitted: .jitterAdmitted
         case .jitterRejected: .jitterRejected
+        case .jitterDequeued: .jitterDequeued
         case .nameGate: .nameGate
         case .decoderSubmitted: .decoderSubmitted
         case .decoderOutput: .decoderOutput
@@ -441,6 +470,7 @@ extension VideoPipelineEvent.Kind {
         case .simulreceiveCandidate: .simulreceiveCandidate
         case .simulreceiveSelected: .simulreceiveSelected
         case .displayEnqueued: .displayEnqueued
+        case .displayEnqueueTiming: .displayEnqueueTiming
         case .displayError: .displayError
         }
     }

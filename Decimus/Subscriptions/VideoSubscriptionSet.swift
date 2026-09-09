@@ -791,26 +791,32 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         e2eLatency = nil
                     }
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                    let rendered = try self.renderState.withLock { state in
+                    let rendered: VideoDisplayEnqueueTiming? = try self.renderState.withLock { state in
                         guard let registration = try self.getOrCreateParticipant(state: &state,
                                                                                  epoch: epoch) else {
-                            return false
+                            return nil
                         }
-                        let enqueued = try registration.withParticipant { participant in
+                        guard let timing = try registration.withParticipant({ participant in
                             if let dispatchLabel {
                                 participant.label = dispatchLabel
                             }
-                            try participant.enqueue(selectedSample,
-                                                    transform: transform,
-                                                    when: when,
-                                                    endToEndLatency: e2eLatency)
-                            return true
-                        }
-                        guard enqueued == true else { return false }
+                            return try participant.enqueue(selectedSample,
+                                                           transform: transform,
+                                                           when: when,
+                                                           endToEndLatency: e2eLatency)
+                        }) else { return nil }
                         self.mediaState.withLock { $0 = .rendered }
-                        return true
+                        return timing
                     }
-                    guard rendered else { return }
+                    guard let timing = rendered else { return }
+                    if self.granularMetrics,
+                       let measurement = self.measurement {
+                        measurement.displayEnqueueTiming(timing, timestamp: Date.now)
+                    }
+                    self.emit(.displayEnqueueTiming(timing),
+                              fullTrackName: selected.fullTrackName,
+                              handlerGeneration: handler.generation,
+                              epoch: epoch)
                     self.emit(.displayEnqueued(
                                 presentationSeconds: selectedSample.presentationTimeStamp.seconds),
                               fullTrackName: selected.fullTrackName,
