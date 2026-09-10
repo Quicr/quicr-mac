@@ -32,6 +32,34 @@ final class TestTopNHarnessOracle: XCTestCase {
         ])
     }
 
+    func testDecodedImageAvailabilityRecordsQualityAndPresentationTime() throws {
+        let recorder = TopNHarnessRecorder()
+        let fullTrackName = try FullTrackName(
+            namespace: ["meetings.wbx.com", "meeting", "video", "1080p", "p1"],
+            name: "h264")
+        let presentationSeconds = 123.456
+
+        recorder.record(client: .init(rawValue: "p2"),
+                        connectionGeneration: 1,
+                        event: .init(occurredAt: .now,
+                                     fullTrackName: fullTrackName,
+                                     handlerGeneration: 2,
+                                     renderEpoch: nil,
+                                     groupId: nil,
+                                     subgroupId: nil,
+                                     objectId: nil,
+                                     kind: .simulreceiveImageAvailable(
+                                        presentationSeconds: presentationSeconds)))
+
+        let events = recorder.snapshot()
+        XCTAssertEqual(events.count, 1)
+        let event = try XCTUnwrap(events.first)
+        XCTAssertEqual(event.stage, .simulreceiveImageAvailable)
+        XCTAssertEqual(event.remoteParticipant, .init(rawValue: "p1"))
+        XCTAssertEqual(event.details?.quality, .p1080)
+        XCTAssertEqual(event.details?.presentationSeconds, presentationSeconds)
+    }
+
     func testSimulreceiveFixtureRequiresAllThreeQualities() {
         let emptyVersionTwoContainer = Data([0x51, 0x54, 0x48, 0x31,
                                              0x00, 0x02, 0x00, 0x00])
@@ -45,10 +73,10 @@ final class TestTopNHarnessOracle: XCTestCase {
     func testSyntheticPublicationFactoryCreatesOneTrackPerQuality() throws {
         let participant = TopNParticipantID(rawValue: "p1")
         let fixtures = TopNH264FixtureSet(fixtures: Dictionary(uniqueKeysWithValues:
-            TopNVideoQuality.allCases.map { quality in
-                (quality, TopNH264Fixture(fps: 30, width: quality.width,
-                                         height: quality.height, accessUnits: []))
-            }))
+                                                                TopNVideoQuality.allCases.map { quality in
+                                                                    (quality, TopNH264Fixture(fps: 30, width: quality.width,
+                                                                                              height: quality.height, accessUnits: []))
+                                                                }))
         let profiles = TopNVideoQuality.allCases.map { quality in
             Profile(qualityProfile: quality.qualityProfile,
                     expiry: [5000, 5000], priorities: [2, 3],
@@ -92,10 +120,10 @@ final class TestTopNHarnessOracle: XCTestCase {
 
         func ingress(_ quality: TopNVideoQuality, groupId: UInt64) throws -> VideoObjectIngress {
             .init(fullTrackName: try FullTrackName(
-                namespace: quality.publicationNamespace(meetingID: "meeting", participant: remote),
-                name: "h264"),
-                groupId: groupId, subgroupId: 0, objectId: 0,
-                payloadLength: 1, status: .available, activity: nil, cached: false)
+                    namespace: quality.publicationNamespace(meetingID: "meeting", participant: remote),
+                    name: "h264"),
+                  groupId: groupId, subgroupId: 0, objectId: 0,
+                  payloadLength: 1, status: .available, activity: nil, cached: false)
         }
         func isDropped(_ decision: VideoObjectIngressDecision) -> Bool {
             if case .drop = decision { return true }
@@ -104,12 +132,12 @@ final class TestTopNHarnessOracle: XCTestCase {
 
         for quality in TopNVideoQuality.allCases {
             XCTAssertTrue(isDropped(controller.ingressDecision(
-                localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
-                ingress: try ingress(quality, groupId: 7))))
+                                        localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
+                                        ingress: try ingress(quality, groupId: 7))))
         }
         XCTAssertFalse(isDropped(controller.ingressDecision(
-            localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
-            ingress: try ingress(.p1080, groupId: 8))))
+                                    localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
+                                    ingress: try ingress(.p1080, groupId: 8))))
     }
 
     func testParticipantIdentifiersCannotEscapeArtifactDirectories() {
@@ -161,9 +189,9 @@ final class TestTopNHarnessOracle: XCTestCase {
 
         XCTAssertNil(TopNHarnessOracle.simulreceiveViolation(in: candidates + [selected1080], since: 0))
         XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
-            in: Array(candidates.dropLast()) + [selected1080], since: 0), .simulreceiveNotExercised)
+                        in: Array(candidates.dropLast()) + [selected1080], since: 0), .simulreceiveNotExercised)
         XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
-            in: candidates + [selected720], since: 0), .lowerQualitySelected)
+                        in: candidates + [selected720], since: 0), .lowerQualitySelected)
 
         let laterCandidates = TopNVideoQuality.allCases.enumerated().map { index, quality in
             self.event(Double(120 + index), stage: .simulreceiveCandidate,
@@ -175,8 +203,8 @@ final class TestTopNHarnessOracle: XCTestCase {
                                           generation: 2, presentationSeconds: 11,
                                           displayed: true, quality: .p720)
         XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
-            in: candidates + [selected1080] + laterCandidates + [laterSelected720], since: 0),
-            .lowerQualitySelected)
+                        in: candidates + [selected1080] + laterCandidates + [laterSelected720], since: 0),
+                       .lowerQualitySelected)
     }
 
     func testPipelineProgressRequiresOneOrderedCausalFrame() {

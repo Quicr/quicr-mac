@@ -144,6 +144,8 @@ final class TopNHarnessRecorder: @unchecked Sendable {
         case .objectUsable(let seconds), .decoderSubmitted(let seconds),
              .decoderOutput(let seconds), .displayEnqueued(let seconds):
             return .init(presentationSeconds: seconds)
+        case .simulreceiveImageAvailable(let seconds):
+            return .init(quality: quality, presentationSeconds: seconds)
         case .simulreceiveCandidate(let seconds):
             return .init(quality: quality, presentationSeconds: seconds)
         case .decoderError(let error), .displayError(let error): return .init(reason: error)
@@ -161,7 +163,7 @@ final class TopNHarnessRecorder: @unchecked Sendable {
     }
 
     private static func remoteTrack(from fullTrackName: FullTrackName) ->
-        (participant: TopNParticipantID, quality: TopNVideoQuality)? {
+    (participant: TopNParticipantID, quality: TopNVideoQuality)? {
         let components = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
         guard components.count == 5, components[0] == "meetings.wbx.com",
               components[2] == "video",

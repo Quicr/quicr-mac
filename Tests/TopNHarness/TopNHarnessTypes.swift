@@ -286,7 +286,7 @@ enum TopNHarnessStage: String, Codable, Sendable {
     case subscriptionStatus, objectReceived, objectUsable, objectRejected
     case handlerCreated, handlerStopped, joinDecision, fetchRequested
     case fetchStatus, fetchCompleted, newGroupRequested, jitterAdmitted, jitterRejected, jitterDequeued
-    case nameGate, decoderSubmitted, decoderOutput, decoderError
+    case nameGate, decoderSubmitted, decoderOutput, simulreceiveImageAvailable, decoderError
     case simulreceiveCandidate, simulreceiveSelected, displayEnqueued, displayEnqueueTiming
     case displayPresented, displayError
 }
@@ -466,6 +466,7 @@ extension VideoPipelineEvent.Kind {
         case .nameGate: .nameGate
         case .decoderSubmitted: .decoderSubmitted
         case .decoderOutput: .decoderOutput
+        case .simulreceiveImageAvailable: .simulreceiveImageAvailable
         case .decoderError: .decoderError
         case .simulreceiveCandidate: .simulreceiveCandidate
         case .simulreceiveSelected: .simulreceiveSelected

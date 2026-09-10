@@ -8,6 +8,102 @@ import Synchronization
 import Testing
 
 final class TestVideoSubscriptionSet: XCTestCase {
+    func testCoalescingWaitsForHigherQualityUntilItsDeadline() throws {
+        var state = SimulreceiveCoalescingState()
+        let start = Date(timeIntervalSince1970: 100)
+        let presentationTime = CMTime(value: 1, timescale: 30)
+
+        XCTAssertEqual(try XCTUnwrap(state.waitDuration(at: start,
+                                                        presentationTime: presentationTime,
+                                                        availableQualityCount: 1,
+                                                        expectedQualityCount: 3,
+                                                        highestAvailablePristineWidth: 640,
+                                                        expectedHighestWidth: 1920,
+                                                        highestQualityAdvanced: false)),
+                       0.006,
+                       accuracy: 0.000_001)
+        XCTAssertEqual(try XCTUnwrap(state.waitDuration(at: start.addingTimeInterval(0.001),
+                                                        presentationTime: presentationTime,
+                                                        availableQualityCount: 2,
+                                                        expectedQualityCount: 3,
+                                                        highestAvailablePristineWidth: 1280,
+                                                        expectedHighestWidth: 1920,
+                                                        highestQualityAdvanced: false)),
+                       0.005,
+                       accuracy: 0.000_001)
+        XCTAssertNil(state.waitDuration(at: start.addingTimeInterval(0.0015),
+                                        presentationTime: presentationTime,
+                                        availableQualityCount: 3,
+                                        expectedQualityCount: 3,
+                                        highestAvailablePristineWidth: 1920,
+                                        expectedHighestWidth: 1920,
+                                        highestQualityAdvanced: false))
+    }
+
+    func testCoalescingUsesBestAvailableAfterDeadline() {
+        var state = SimulreceiveCoalescingState()
+        let start = Date(timeIntervalSince1970: 100)
+        let presentationTime = CMTime(value: 1, timescale: 30)
+
+        _ = state.waitDuration(at: start,
+                               presentationTime: presentationTime,
+                               availableQualityCount: 1,
+                               expectedQualityCount: 3,
+                               highestAvailablePristineWidth: 640,
+                               expectedHighestWidth: 1920,
+                               highestQualityAdvanced: false)
+
+        XCTAssertNil(state.waitDuration(at: start.addingTimeInterval(0.006),
+                                        presentationTime: presentationTime,
+                                        availableQualityCount: 1,
+                                        expectedQualityCount: 3,
+                                        highestAvailablePristineWidth: 640,
+                                        expectedHighestWidth: 1920,
+                                        highestQualityAdvanced: false))
+    }
+
+    func testCoalescingDoesNotWaitWhenHigherQualityAlreadyAdvanced() {
+        var state = SimulreceiveCoalescingState()
+
+        XCTAssertNil(state.waitDuration(at: Date(timeIntervalSince1970: 100),
+                                        presentationTime: CMTime(value: 1, timescale: 30),
+                                        availableQualityCount: 2,
+                                        expectedQualityCount: 3,
+                                        highestAvailablePristineWidth: 1280,
+                                        expectedHighestWidth: 1920,
+                                        highestQualityAdvanced: true))
+    }
+
+    func testCoalescingAllowanceAdaptsWithinMeasuredBounds() {
+        var state = SimulreceiveCoalescingState()
+
+        XCTAssertEqual(state.allowance, 0.006, accuracy: 0.000_001)
+        state.record(decodedSpread: 0.0004)
+        state.record(decodedSpread: 0.0008)
+        XCTAssertEqual(state.allowance, 0.006, accuracy: 0.000_001)
+        state.record(decodedSpread: 0.002)
+        XCTAssertEqual(state.allowance, 0.006, accuracy: 0.000_001)
+        state.record(decodedSpread: 0.006)
+        XCTAssertEqual(state.allowance, 0.0075, accuracy: 0.000_001)
+        state.record(decodedSpread: 0.1)
+        XCTAssertEqual(state.allowance, 0.0075, accuracy: 0.000_001)
+    }
+
+    func testMediaSignalInterruptsRenderWait() async {
+        let wakeup = SimulreceiveRenderWakeup()
+        let completed = Atomic(false)
+        let task = Task {
+            await wakeup.wait(for: 60)
+            completed.store(true, ordering: .releasing)
+        }
+
+        await Task.yield()
+        wakeup.signal()
+        await task.value
+
+        XCTAssertTrue(completed.load(ordering: .acquiring))
+    }
+
     private func testImage(width: Int, height: Int) throws -> CVPixelBuffer {
         var buffer: CVPixelBuffer?
         let result = CVPixelBufferCreate(kCFAllocatorDefault,
@@ -53,6 +149,30 @@ final class TestVideoSubscriptionSet: XCTestCase {
         let lower = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["3"], name: ""), image: lowerImage)
 
         return [highest, medium, lower]
+    }
+
+    func testCoalescingRetainsPendingFrameWhenMailboxAdvances() throws {
+        var state = SimulreceiveCoalescingState()
+        let firstTime = CMTime(value: 1, timescale: 30)
+        let secondTime = CMTime(value: 2, timescale: 30)
+        let first = try self.getQualities(discontinous: [false, false, false],
+                                          timing: [firstTime, firstTime, firstTime])[2]
+        let second = try self.getQualities(discontinous: [false, false, false],
+                                           timing: [secondTime, secondTime, secondTime])[2]
+        let start = Date(timeIntervalSince1970: 100)
+
+        let initialCandidates = state.candidates(from: [first.fullTrackName: first.image])
+        _ = state.waitDuration(at: start,
+                               presentationTime: firstTime,
+                               availableQualityCount: initialCandidates.count,
+                               expectedQualityCount: 3,
+                               highestAvailablePristineWidth: 1280,
+                               expectedHighestWidth: 1920,
+                               highestQualityAdvanced: false)
+        let candidatesAfterAdvance = state.candidates(from: [second.fullTrackName: second.image])
+
+        XCTAssertEqual(candidatesAfterAdvance.count, 1)
+        XCTAssertEqual(candidatesAfterAdvance.values.first?.image.presentationTimeStamp, firstTime)
     }
 
     func testOnlyConsiderOldest() throws {

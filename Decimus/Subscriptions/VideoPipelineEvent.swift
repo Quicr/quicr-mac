@@ -61,6 +61,7 @@ struct VideoPipelineEvent: Sendable {
         case nameGate(accepted: Bool, previousGroup: UInt64?, previousObject: UInt64?)
         case decoderSubmitted(presentationSeconds: TimeInterval)
         case decoderOutput(presentationSeconds: TimeInterval)
+        case simulreceiveImageAvailable(presentationSeconds: TimeInterval)
         case decoderError(String)
         case simulreceiveCandidate(presentationSeconds: TimeInterval)
         case simulreceiveSelected(displayed: Bool, presentationSeconds: TimeInterval)

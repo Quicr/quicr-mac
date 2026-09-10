@@ -58,6 +58,11 @@ typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 /// A discontinuity occurred.
 typealias DiscontinuityCallback = @Sendable (_ groupId: UInt64, _ objectId: UInt64) -> Void
 
+/// Notify a subscription set that a decoded simulreceive image is ready for selection.
+typealias DecodedImageAvailableCallback = @Sendable (_ fullTrackName: FullTrackName,
+                                                     _ handlerGeneration: UInt64,
+                                                     _ decodedSpread: TimeInterval?) -> Void
+
 /// Handles decoding, jitter, and rendering of a video stream.
 final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // swiftlint:disable:this type_body_length
     /// The current configuration in use.
@@ -126,6 +131,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let jitterCalculation: RFC3550Jitter
     private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let decodedImageAvailable: DecodedImageAvailableCallback?
 
     // Wi-Fi scan jitter buffer ramping state.
     enum RampState {
@@ -180,6 +186,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          generation: UInt64 = 1,
          videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         decodedImageAvailable: DecodedImageAvailableCallback? = nil,
          playoutClock: any VideoPlayoutClock) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
@@ -209,6 +216,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.detector = wifiDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
+        self.decodedImageAvailable = decodedImageAvailable
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
@@ -1253,14 +1261,18 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         if self.simulreceive != .none {
-            _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
-                                                    now: now)
             self.lastDecodedImage.withLock { image in
                 guard !self.stopped.load(ordering: .acquiring) else { return }
                 image = .init(image: sample,
                               fps: UInt(self.config.fps),
                               discontinous: sample.discontinous)
             }
+            let decodedSpread = self.variances.calculateSetVariance(
+                timestamp: sample.presentationTimeStamp.seconds,
+                now: now)
+            self.emit(.simulreceiveImageAvailable(
+                        presentationSeconds: sample.presentationTimeStamp.seconds))
+            self.decodedImageAvailable?(self.fullTrackName, self.generation, decodedSpread)
         }
 
         // Consume pending switch context and record decode time.

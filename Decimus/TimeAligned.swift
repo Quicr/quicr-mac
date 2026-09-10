@@ -106,7 +106,9 @@ final class TimeAligner {
             }
         }
 
-        if force || self.hostTimeWindow.withLock({ $0.count == 1 }) {
+        if force ||
+            self.hostTimeWindow.withLock({ $0.count == 1 }) ||
+            self.getAlignables().contains(where: { $0.timeDiff.getTimeDiff() == nil }) {
             self.set(when)
         }
     }

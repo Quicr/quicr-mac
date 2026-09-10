@@ -388,6 +388,12 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          wifiScanDetector: self.wifiScanDetector,
                                          switchLatencyMeasurement: self.switchLatencyMeasurement,
                                          videoPipelineEvent: self.videoPipelineEvent,
+                                         decodedImageAvailable: { [weak set] identity, fullTrackName, generation, spread in
+                                            set?.decodedImageAvailable(subscriptionIdentity: identity,
+                                                                       fullTrackName: fullTrackName,
+                                                                       handlerGeneration: generation,
+                                                                       decodedSpread: spread)
+                                         },
                                          videoObjectIngressInterceptor: self.videoObjectIngressInterceptor,
                                          publisherInitiated: publisherInitiated,
                                          callback: { [weak set] subscription, details in
