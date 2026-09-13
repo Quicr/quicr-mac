@@ -434,6 +434,15 @@ final class MoqCallController: QClientCallbacks, Sendable {
 
     // MARK: Callbacks.
 
+    /// A stream was closed by the peer.
+    /// - Parameters:
+    ///   - streamId: The QUIC stream identifier.
+    ///   - flag: How the stream was closed.
+    func streamClosed(_ streamId: UInt64, flag: QStreamClosedFlag) {
+        guard flag == .reset, (streamId & 0x2) == 0 else { return }
+        self.logger.error("Request stream \(streamId) was reset")
+    }
+
     private enum StatusAction {
         case none
         case callEnded

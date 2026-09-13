@@ -65,6 +65,7 @@ typedef struct QConnectionMetrics {
 - (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
 - (void) publishNamespaceStatusChanged: (NSData* _Nonnull) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
+- (void) streamClosed: (uint64_t) streamId flag: (QStreamClosedFlag) flag;
 - (void) publishReceived: (uint64_t) connectionHandle
                requestId: (uint64_t) requestId
                      tfn: (id<QFullTrackName> _Nonnull) tfn

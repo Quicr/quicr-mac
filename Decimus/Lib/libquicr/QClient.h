@@ -16,6 +16,7 @@
 class QClient final : public quicr::Session::ClientCallbacks
 {
 public:
+    void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override;
     void StatusChanged(const std::shared_ptr<quicr::Session>& session, quicr::Session::Status status) override;
     quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
         const std::shared_ptr<quicr::Session>& session,

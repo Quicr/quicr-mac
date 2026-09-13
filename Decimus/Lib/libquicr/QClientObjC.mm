@@ -265,6 +265,25 @@ static QConnectionMetrics convert(const quicr::ConnectionMetrics& metrics)
     };
 }
 
+static QStreamClosedFlag convert(const quicr::StreamClosedFlag flag)
+{
+    switch (flag) {
+        case quicr::StreamClosedFlag::kFin:
+            return kQStreamClosedFlagFin;
+        case quicr::StreamClosedFlag::kReset:
+            return kQStreamClosedFlagReset;
+        case quicr::StreamClosedFlag::kStopSending:
+            return kQStreamClosedFlagStopSending;
+    }
+}
+
+void QClient::OnStreamClosed(const std::uint64_t stream_id, const quicr::StreamClosedFlag flag)
+{
+    if (_callbacks) {
+        [_callbacks streamClosed:stream_id flag:convert(flag)];
+    }
+}
+
 void QClient::MetricsSampled(const std::shared_ptr<quicr::Session>&, const quicr::ConnectionMetrics& metrics)
 {
     if (_callbacks)

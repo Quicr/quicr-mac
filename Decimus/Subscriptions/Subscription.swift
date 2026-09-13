@@ -84,6 +84,15 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks,
         self.statusCallback?(status)
     }
 
+    /// A subgroup data stream was closed by the peer.
+    /// - Parameters:
+    ///   - streamId: The QUIC stream identifier.
+    ///   - flag: How the stream was closed.
+    func streamClosed(_ streamId: UInt64, flag: QStreamClosedFlag) {
+        guard flag == .reset else { return }
+        self.logger.warning("Subgroup data stream \(streamId) was reset")
+    }
+
     /// Fires when a full object has been received.
     /// - Parameters:
     ///   - objectHeaders: The headers for this object.

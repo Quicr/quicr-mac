@@ -215,6 +215,14 @@ void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &
     }
 }
 
+void QSubscribeTrackHandler::StreamClosed(const std::uint64_t stream_id, const bool reset)
+{
+    quicr::SubscribeTrackHandler::StreamClosed(stream_id, reset);
+    if (_callbacks) {
+        [_callbacks streamClosed:stream_id flag:reset ? kQStreamClosedFlagReset : kQStreamClosedFlagFin];
+    }
+}
+
 void QSubscribeTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;

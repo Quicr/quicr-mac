@@ -22,6 +22,7 @@ public:
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data, std::optional<quicr::messages::StreamHeaderProperties> stream_mode) override;
     void PartialObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override;
     void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
+    void StreamClosed(std::uint64_t stream_id, bool reset) override;
 
     // Methods.
     void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);

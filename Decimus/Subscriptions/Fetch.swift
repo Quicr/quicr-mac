@@ -62,6 +62,11 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
         self.logger.debug("Status changed: \(status)")
     }
 
+    func streamClosed(_ streamId: UInt64, flag: QStreamClosedFlag) {
+        guard flag == .reset else { return }
+        self.logger.warning("Fetch data stream \(streamId) was reset")
+    }
+
     func objectReceived(_ objectHeaders: QObjectHeaders,
                         data: Data,
                         extensions: HeaderExtensions?,
