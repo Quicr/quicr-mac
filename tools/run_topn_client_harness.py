@@ -53,8 +53,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--join-policy", choices=("ngr", "fetch", "wait", "mixed"), default="ngr")
     parser.add_argument("--fetch-threshold-seconds", type=float)
     parser.add_argument("--new-group-threshold-seconds", type=float)
-    parser.add_argument("--scenario", choices=("orderly", "overlap", "lifecycle", "seeded", "round-robin",
-                                               "lifecycle-conversation", "drop-idr-recovery"), default="orderly")
+    parser.add_argument("--scenario", choices=("orderly", "overlap", "lifecycle", "abrupt-reconnect",
+                                               "seeded", "round-robin", "lifecycle-conversation",
+                                               "drop-idr-recovery"), default="orderly")
     parser.add_argument("--scenario-file", type=Path)
     parser.add_argument("--duration-seconds", type=positive, default=None)
     parser.add_argument("--seed", type=int, default=1)
@@ -235,8 +236,9 @@ def join_policy(args: argparse.Namespace) -> dict[str, object]:
 
 
 def make_config(args: argparse.Namespace, run_dir: Path, staging_dir: Path | None, timestamp: str, scenario_file: Path | None) -> dict[str, object]:
-    if args.participants < 3 or args.participants > 65535:
-        raise ValueError("participants must be in 3...65535")
+    minimum_participants = 2 if args.scenario == "abrupt-reconnect" or scenario_file else 3
+    if args.participants < minimum_participants or args.participants > 65535:
+        raise ValueError(f"participants must be in {minimum_participants}...65535")
     if not 1 <= args.top_n < args.participants:
         raise ValueError("top-n must be in 1..<participants")
     if args.max_display_gap_seconds > args.liveness_seconds:

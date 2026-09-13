@@ -68,6 +68,21 @@ class RelayURITests(unittest.TestCase):
                 HARNESS.validate_relay_uri(uri)
 
 
+class ScenarioArgumentTests(unittest.TestCase):
+    def test_accepts_abrupt_reconnect_scenario(self) -> None:
+        args = HARNESS.build_parser().parse_args(["--scenario", "abrupt-reconnect", "--participants", "2"])
+        config = HARNESS.make_config(args, Path("/tmp/run"), None, "timestamp", None)
+
+        self.assertEqual(args.scenario, "abrupt-reconnect")
+        self.assertEqual(config["participants"], ["p1", "p2"])
+
+    def test_accepts_three_participant_abrupt_reconnect(self) -> None:
+        args = HARNESS.build_parser().parse_args(["--scenario", "abrupt-reconnect", "--participants", "3"])
+        config = HARNESS.make_config(args, Path("/tmp/run"), None, "timestamp", None)
+
+        self.assertEqual(config["participants"], ["p1", "p2", "p3"])
+
+
 class RunnerFailureTests(unittest.TestCase):
     def test_finalises_metadata_and_removes_staging_after_infrastructure_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
