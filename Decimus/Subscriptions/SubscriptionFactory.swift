@@ -177,6 +177,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let wifiScanDetector: WiFiScanDetector?
     private let mediaInterop: Bool
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
+    private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let videoObjectIngressInterceptor: VideoObjectIngressInterceptor?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -193,7 +195,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          sframeContext: SFrameContext?,
          calculateLatency: Bool,
          mediaInterop: Bool,
-         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) {
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
+         videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         videoObjectIngressInterceptor: VideoObjectIngressInterceptor? = nil) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -215,6 +219,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
         self.mediaInterop = mediaInterop
         self.switchLatencyMeasurement = switchLatencyMeasurement
+        self.videoPipelineEvent = videoPipelineEvent
+        self.videoObjectIngressInterceptor = videoObjectIngressInterceptor
     }
 
     func create(subscription: ManifestSubscription,
@@ -282,7 +288,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
                                             config: .init(calculateLatency: self.calculateLatency,
-                                                          qualityHitThreshold: self.subscriptionConfig.qualityHitThreshold))
+                                                          qualityHitThreshold: self.subscriptionConfig.qualityHitThreshold),
+                                            videoPipelineEvent: self.videoPipelineEvent)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -377,6 +384,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          sframeContext: self.sframeContext,
                                          wifiScanDetector: self.wifiScanDetector,
                                          switchLatencyMeasurement: self.switchLatencyMeasurement,
+                                         videoPipelineEvent: self.videoPipelineEvent,
+                                         videoObjectIngressInterceptor: self.videoObjectIngressInterceptor,
                                          publisherInitiated: publisherInitiated,
                                          callback: { [weak set] subscription, details in
                                             set?.receivedObject(subscription, details: details)

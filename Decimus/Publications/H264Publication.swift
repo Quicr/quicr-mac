@@ -66,7 +66,7 @@ final class H264Publication: FrameListener, PublicationInstance {
     // Encode callback members.
     // These all touched only serially from the callback, so don't need protecting.
     private nonisolated(unsafe) var currentSubgroupId: UInt64 = 0
-    private nonisolated(unsafe) var sequence: UInt64 = 0
+    private nonisolated(unsafe) var mediaInteropSequence: UInt64 = 0
     private nonisolated(unsafe) var currentGroupId: UInt64?
     private nonisolated(unsafe) var currentObjectId: UInt64 = 0
 
@@ -146,11 +146,10 @@ final class H264Publication: FrameListener, PublicationInstance {
         do {
             if publication.mediaInterop {
                 try extensions.setHeader(.videoH264AVCCMetadata(.init(sample: sample,
-                                                                      sequence: publication.sequence,
+                                                                      sequence: publication.mediaInteropSequence,
                                                                       date: presentationDate)))
             } else {
                 try extensions.setHeader(.captureTimestamp(presentationDate))
-                try extensions.setHeader(.sequenceNumber(publication.sequence))
             }
         } catch {
             publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
@@ -296,7 +295,9 @@ final class H264Publication: FrameListener, PublicationInstance {
         publication.currentGroupId = thisGroupId
         publication.currentSubgroupId = thisSubgroupId
         publication.currentObjectId = thisObjectId
-        publication.sequence += 1
+        if publication.mediaInterop {
+            publication.mediaInteropSequence += 1
+        }
 
         // Metrics.
         guard let measurement = publication.measurement else { return }

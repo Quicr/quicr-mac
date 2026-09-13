@@ -30,7 +30,6 @@ final class TestDecimusVideoFrame: XCTestCase {
         let original = DecimusVideoFrame(samples: [originalSampleBuffer],
                                          groupId: 1,
                                          objectId: 2,
-                                         sequenceNumber: 3,
                                          fps: 4,
                                          orientation: .portrait,
                                          verticalMirror: true)
@@ -46,7 +45,6 @@ final class TestDecimusVideoFrame: XCTestCase {
         // Now query all properites and compare.
         XCTAssertEqual(copied.groupId, original.groupId)
         XCTAssertEqual(copied.objectId, original.objectId)
-        XCTAssertEqual(copied.sequenceNumber, original.sequenceNumber)
         XCTAssertEqual(copied.fps, original.fps)
         XCTAssertEqual(copied.orientation, original.orientation)
         XCTAssertEqual(copied.verticalMirror, original.verticalMirror)

@@ -102,3 +102,7 @@ iOSInjectionProject/
 .DS_Store
 .tmp.dprobes.h
 *~
+# Local top-N client harness artefacts.
+.topn-harness-results/
+__pycache__/
+*.pyc

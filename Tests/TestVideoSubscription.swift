@@ -4,6 +4,7 @@
 // swiftlint:disable file_length
 
 import Dispatch
+import Synchronization
 import Testing
 @testable import QuicR
 
@@ -63,9 +64,8 @@ extension MockClient {
 }
 
 extension HeaderExtensions {
-    static func video(sequenceNumber: UInt64) -> HeaderExtensions {
+    static func video() -> HeaderExtensions {
         var extensions = HeaderExtensions()
-        try? extensions.setHeader(.sequenceNumber(sequenceNumber))
         try? extensions.setHeader(.captureTimestamp(.now))
         return extensions
     }
@@ -85,7 +85,8 @@ struct TestVideoSubscription {
                           activeSpeakerStats: ActiveSpeakerStats? = nil,
                           simulreceive: SimulreceiveMode = .none,
                           statusChanged: VideoSubscription.VideoStatusCallback? = nil,
-                          handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil) async throws -> VideoSubscription {
+                          handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil,
+                          videoPipelineEvent: VideoPipelineEventCallback? = nil) async throws -> VideoSubscription {
         let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
@@ -124,6 +125,7 @@ struct TestVideoSubscription {
                                                                            decodeQueueSize: 2),
                                                  sframeContext: nil,
                                                  wifiScanDetector: nil,
+                                                 videoPipelineEvent: videoPipelineEvent,
                                                  publisherInitiated: false,
                                                  callback: { subscription, details in
                                                     callback?(subscription, details)
@@ -156,7 +158,7 @@ struct TestVideoSubscription {
         let receiveTask = Task.detached {
             subscription.mockObject(groupId: 0,
                                     objectId: 0,
-                                    immutableExtensions: .video(sequenceNumber: 1))
+                                    immutableExtensions: .video())
         }
         let entered = await Task.detached {
             receiveEntered.wait(timeout: .now() + 2) == .success
@@ -264,7 +266,7 @@ struct TestVideoSubscription {
         }
 
         let receiveTask = Task.detached {
-            let extensions = HeaderExtensions.video(sequenceNumber: 1)
+            let extensions = HeaderExtensions.video()
             let priority: UInt8 = 0
             let ttl: UInt16 = 0
             withUnsafePointer(to: priority) { priorityPtr in
@@ -313,7 +315,7 @@ struct TestVideoSubscription {
                                                            ngThreshold: self.ngThreshold)
         subscription.mockObject(groupId: 0,
                                 objectId: self.fetchThreshold - 1,
-                                immutableExtensions: .video(sequenceNumber: 1))
+                                immutableExtensions: .video())
         let activeFetch = try #require(fetch)
         let currentHandler = subscription.handler.get()
         let handler = try #require(currentHandler)
@@ -327,7 +329,7 @@ struct TestVideoSubscription {
         let fetchTask = Task.detached {
             activeFetch.mockObject(groupId: 0,
                                    objectId: self.fetchThreshold - 3,
-                                   immutableExtensions: .video(sequenceNumber: 2))
+                                   immutableExtensions: .video())
         }
         let entered = await Task.detached {
             receiveEntered.wait(timeout: .now() + 2) == .success
@@ -357,7 +359,7 @@ struct TestVideoSubscription {
         #expect(subscription.handler.get() == nil)
         activeFetch.mockObject(groupId: 0,
                                objectId: self.fetchThreshold - 2,
-                               immutableExtensions: .video(sequenceNumber: 3))
+                               immutableExtensions: .video())
         #expect(subscription.getCurrentState() == .startup)
     }
 
@@ -424,6 +426,7 @@ struct TestVideoSubscription {
     func testCleanupFetchWaitsForGOP() async throws {
         var fetch: Fetch?
         var fetchCancelled = false
+        let handlerActivations = Mutex<[ActivationType]>([])
         let mockClient = MockClient(publish: { _ in },
                                     unpublish: { _ in },
                                     subscribe: { _ in },
@@ -437,13 +440,14 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold,
                                                            jitterBufferConfig: jitterBufferConfig,
-                                                           cleanupTime: 0.2)
+                                                           cleanupTime: 0.2,
+                                                           videoPipelineEvent: { event in
+                                                            guard case .handlerCreated(let activation) = event.kind else { return }
+                                                            handlerActivations.withLock { $0.append(activation) }
+                                                           })
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -466,6 +470,7 @@ struct TestVideoSubscription {
         let recreatedHandler = subscription.handler.get()
         let fetchingHandler = try #require(recreatedHandler)
         #expect(fetchingHandler !== initialHandler)
+        #expect(handlerActivations.withLock { $0 } == [.newSubscription, .reactivation])
         let queuedPFrame: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
         #expect(queuedPFrame?.frame.objectId == 1)
         #expect(!fetchCancelled)
@@ -563,11 +568,8 @@ struct TestVideoSubscription {
         var sentGroupId: UInt64 = 0
         var sendObjectId = ngThreshold
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -609,7 +611,6 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold)
         func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -639,7 +640,6 @@ struct TestVideoSubscription {
 
         func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -669,7 +669,6 @@ struct TestVideoSubscription {
 
         func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -706,11 +705,8 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold,
                                                            callback: callback)
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -751,11 +747,8 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold,
                                                            callback: callback)
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -804,7 +797,6 @@ struct TestVideoSubscription {
         // Objects should still be dropped
         func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -827,11 +819,8 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -885,10 +874,8 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: self.fetchThreshold,
                                                            ngThreshold: self.ngThreshold)
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
-            return .video(sequenceNumber: sequence)
+            return .video()
         }
 
         subscription.mockObject(groupId: 0,
@@ -927,11 +914,8 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1028,11 +1012,8 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold,
                                                            cleanupTime: 60)
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1065,11 +1046,8 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold,
                                                            cleanupTime: 0.2)
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1118,11 +1096,8 @@ struct TestVideoSubscription {
                                     fetchCancel: { _ in })
         let subscription = try await self.makeRunningSubscription(mockClient)
 
-        var sequence: UInt64 = 100
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1145,11 +1120,8 @@ struct TestVideoSubscription {
                                     fetchCancel: { _ in })
         let subscription = try await self.makeRunningSubscription(mockClient)
 
-        var sequence: UInt64 = 100
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1174,11 +1146,8 @@ struct TestVideoSubscription {
                                     fetchCancel: { _ in })
         let subscription = try await self.makeRunningSubscription(mockClient)
 
-        var sequence: UInt64 = 100
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }
@@ -1216,11 +1185,8 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
 
-        var sequence: UInt64 = 0
         func loc() -> HeaderExtensions {
-            sequence += 1
             var extensions = HeaderExtensions()
-            try? extensions.setHeader(.sequenceNumber(sequence))
             try? extensions.setHeader(.captureTimestamp(.now))
             return extensions
         }

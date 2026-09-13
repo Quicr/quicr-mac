@@ -20,6 +20,10 @@ protocol AudioDecoder {
     func reset() throws
 }
 
+protocol SequencedAudioJitterItem: JitterBuffer.JitterItem {
+    var sequenceNumber: UInt64 { get }
+}
+
 class AudioHandler: TimeAlignable {
     struct Config {
         let jitterDepth: TimeInterval
@@ -65,17 +69,19 @@ class AudioHandler: TimeAlignable {
     private var timeAligner: TimeAligner?
 
     /// Audio data to be emplaced into the jitter buffer.
-    private class AudioJitterItem: JitterBuffer.JitterItem {
+    private class AudioJitterItem: SequencedAudioJitterItem {
         /// Encoded opus data.
         let data: Data
         /// Sequence number of this opus packet.
         let sequenceNumber: UInt64
+        let location: QLocationImpl
         /// Capture timestamp of this audio (first frame's time).
         let timestamp: CMTime
 
         init(data: Data, sequenceNumber: UInt64, timestamp: CMTime) {
             self.data = data
             self.sequenceNumber = sequenceNumber
+            self.location = .init(group: sequenceNumber, object: 0)
             self.timestamp = timestamp
         }
     }
@@ -724,7 +730,7 @@ class AudioHandler: TimeAlignable {
         }
     }
 
-    func checkForDiscontinuity(_ item: JitterBuffer.JitterItem,
+    func checkForDiscontinuity(_ item: SequencedAudioJitterItem,
                                window: OpusWindowSize,
                                when: Date,
                                lastUsedSequence: UInt64?,

@@ -267,7 +267,7 @@ struct VideoSubscriptionSetTests {
 
         subscription.mockObject(groupId: 0,
                                 objectId: 0,
-                                immutableExtensions: .video(sequenceNumber: 1))
+                                immutableExtensions: .video())
         let captured = deferred.withLock { $0 }
         let callback = try #require(captured)
         _ = set.removeHandler(resolvedFullTrackName)
@@ -351,7 +351,7 @@ struct VideoSubscriptionSetTests {
 
         subscription.mockObject(groupId: 0,
                                 objectId: 0,
-                                immutableExtensions: .video(sequenceNumber: 2))
+                                immutableExtensions: .video())
         let recreatedHandler = subscription.handler.get()
         let replacement = try #require(recreatedHandler)
         #expect(replacement !== initialHandler)

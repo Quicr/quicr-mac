@@ -13,8 +13,8 @@
 @end
 
 @interface QLocationImpl: NSObject<QLocation>
-@property uint64_t group;
-@property uint64_t object;
+@property (readonly) uint64_t group;
+@property (readonly) uint64_t object;
 -(instancetype _Nonnull) initWithGroup: (uint64_t) group object: (uint64_t) object;
 @end
 

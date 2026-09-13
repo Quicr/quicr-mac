@@ -299,14 +299,16 @@ struct AudioHandlerTests {
         }
     }
 
-    private final class EncodedAudioItem: JitterBuffer.JitterItem {
+    private final class EncodedAudioItem: SequencedAudioJitterItem {
         let data: Data
         let sequenceNumber: UInt64
+        let location: QLocationImpl
         let timestamp: CMTime
 
         init(sequenceNumber: UInt64) {
             self.data = Data([UInt8(sequenceNumber)])
             self.sequenceNumber = sequenceNumber
+            self.location = .init(group: sequenceNumber, object: 0)
             self.timestamp = CMTime(value: CMTimeValue(sequenceNumber * 20), timescale: 1_000)
         }
     }
