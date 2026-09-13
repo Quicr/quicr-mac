@@ -17,8 +17,9 @@ class QClient final : public quicr::Session::ClientCallbacks
 {
 public:
     void StatusChanged(const std::shared_ptr<quicr::Session>& session, quicr::Session::Status status) override;
-    quicr::Reply<void, int> ServerSetupReceived(const std::shared_ptr<quicr::Session>& session,
-                                                 const quicr::ServerSetupAttributes& serverSetupAttributes) override;
+    quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
+        const std::shared_ptr<quicr::Session>& session,
+        const quicr::ServerSetupAttributes& serverSetupAttributes) override;
     void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
                         const quicr::ConnectionMetrics& metrics) override;
     quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(

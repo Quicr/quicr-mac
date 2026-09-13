@@ -282,8 +282,9 @@ static QServerSetupAttributes convert(const quicr::ServerSetupAttributes& server
     return attributes;
 }
 
-quicr::Reply<void, int> QClient::ServerSetupReceived(const std::shared_ptr<quicr::Session>&,
-                                                      const quicr::ServerSetupAttributes& server_setup_attributes)
+quicr::Reply<void, quicr::ErrorCode> QClient::ServerSetupReceived(
+  const std::shared_ptr<quicr::Session>&,
+  const quicr::ServerSetupAttributes& server_setup_attributes)
 {
     if (_callbacks)
     {
