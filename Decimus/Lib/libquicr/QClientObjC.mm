@@ -76,13 +76,12 @@ static quicr::PublishOkAttributes convertOk(QPublishAttributes attributes) {
 {
     assert(!qClientPtr);
 
-    auto session = qSessionMgr.AddTransport(qClientConfig, qClientCallbacks);
+    const auto session = qSessionMgr.AddTransport(qClientConfig, qClientCallbacks).lock();
+    if (!session) {
+        return kQClientStatusClientFailedToConnect;
+    }
 
-    assert(session.lock());
-
-    qClientPtr = session.lock();
-
-    assert(qClientPtr);
+    qClientPtr = session;
 
     return static_cast<QClientStatus>(qClientPtr->GetStatus());
 }
@@ -189,8 +188,6 @@ static quicr::PublishOkAttributes convertOk(QPublishAttributes attributes) {
                    tfn: (id<QFullTrackName> _Nonnull) tfn
               response: (QPublishResponse) response
                handler: (QSubscribeTrackHandlerObjC* _Nullable) handler {
-    assert(qClientPtr);
-    
     qClientCallbacks->ResolvePublish(requestId,
                                      convertOk(attributes),
                                      std::static_pointer_cast<quicr::SubscribeTrackHandler>(handler ? handler->handlerPtr : nullptr),
