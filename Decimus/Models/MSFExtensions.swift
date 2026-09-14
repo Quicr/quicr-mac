@@ -30,11 +30,32 @@ extension MSF.Track {
 
     /// Convert this track to a manifest `Profile`, using the given namespace and name.
     func toProfile(namespace: [String]) -> Profile {
-        .init(qualityProfile: self.qualityProfile,
-              expiry: [5000, 5000],
-              priorities: [0, 1],
-              namespace: namespace,
-              name: self.name)
+        let expiry: [Int]
+        let priorities: [Int]
+        switch self.mediaType {
+        case ManifestMediaTypes.audio.rawValue:
+            expiry = [120]
+            priorities = [1]
+        case ManifestMediaTypes.video.rawValue:
+            expiry = [5000, 5000]
+            let height = self.height ?? Int.max
+            if height <= 360 {
+                priorities = [2, 3]
+            } else if height <= 720 {
+                priorities = [4, 5]
+            } else {
+                priorities = [6, 7]
+            }
+        default:
+            expiry = [5000, 5000]
+            priorities = [2, 3]
+        }
+
+        return .init(qualityProfile: self.qualityProfile,
+                     expiry: expiry,
+                     priorities: priorities,
+                     namespace: namespace,
+                     name: self.name)
     }
 }
 
