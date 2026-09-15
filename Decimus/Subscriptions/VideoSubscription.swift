@@ -737,6 +737,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             handler.objectReceived(objectHeaders,
                                    data: unprotected,
                                    extensions: extensions,
+                                   activity: ingress.activity,
                                    when: now,
                                    cached: false,
                                    drop: drop)
@@ -989,6 +990,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         handler.objectReceived(headers,
                                data: unprotected,
                                extensions: extensions,
+                               activity: ingress.activity,
                                when: .now,
                                cached: true,
                                drop: false)

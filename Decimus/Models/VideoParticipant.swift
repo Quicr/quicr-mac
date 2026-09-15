@@ -27,6 +27,10 @@ class VideoParticipant: Identifiable {
     var display = false
     /// Last time a frame was enqueued.
     var lastEnqueueTime: Date?
+    /// Latest valid activity value received on live video.
+    private(set) var activity: AudioActivityValue?
+    /// When this participant most recently became active.
+    private(set) var lastActiveTime: Date?
     private let logger = DecimusLogger(VideoParticipant.self)
 
     // Active speaker statistics.
@@ -126,6 +130,8 @@ class VideoParticipant: Identifiable {
     }
 
     func received(_ details: ObjectReceived) {
+        self.receivedActivity(details)
+
         if let timestamp = details.timestamp,
            let receive = self.latencies?.receive {
             let presentationDate = Date(timeIntervalSince1970: timestamp)
@@ -147,6 +153,21 @@ class VideoParticipant: Identifiable {
             } else {
                 await stats.dataDropped(participantId, when: details.when.hostDate)
             }
+        }
+    }
+
+    func receivedActivity(_ details: ObjectReceived) {
+        if details.usable,
+           !details.cached,
+           let rawActivity = details.activity,
+           let activity = AudioActivityValue(rawValue: rawActivity) {
+            let becameActive = activity != self.activity &&
+                (activity == .speechStart || self.activity == nil)
+            if activity != .speechEnd,
+               becameActive || !self.display {
+                self.lastActiveTime = details.when.hostDate
+            }
+            self.activity = activity
         }
     }
 
@@ -254,6 +275,11 @@ final class VideoParticipantRegistration {
 @Observable
 @MainActor
 class VideoParticipants {
+    enum DisplayOrder {
+        case identifier
+        case recentActivity
+    }
+
     class Weak<T: AnyObject>: Identifiable {
         weak var value: T?
         init(_ value: T) {
@@ -280,10 +306,39 @@ class VideoParticipants {
     /// Maximum number of participants to display, nil for unlimited.
     var maxDisplayCount: Int?
 
+    /// Ordering applied before the display count is clamped.
+    var displayOrder: DisplayOrder = .identifier
+
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Entry] = [:]
     var participants: [Weak<VideoParticipant>] {
         self.weakParticipants.values.map(\.participant)
+    }
+    var displayParticipants: [Weak<VideoParticipant>] {
+        self.participants
+            .filter { $0.value?.display == true }
+            .sorted { lhs, rhs in
+                guard let lhs = lhs.value,
+                      let rhs = rhs.value else {
+                    return lhs.value != nil
+                }
+                switch self.displayOrder {
+                case .identifier:
+                    return lhs.id < rhs.id
+                case .recentActivity:
+                    let lhsActivity = lhs.activity?.rawValue ?? 0
+                    let rhsActivity = rhs.activity?.rawValue ?? 0
+                    if lhsActivity != rhsActivity {
+                        return lhsActivity > rhsActivity
+                    }
+                    let lhsActiveTime = lhs.lastActiveTime ?? .distantPast
+                    let rhsActiveTime = rhs.lastActiveTime ?? .distantPast
+                    if lhsActiveTime != rhsActiveTime {
+                        return lhsActiveTime > rhsActiveTime
+                    }
+                    return lhs.id < rhs.id
+                }
+            }
     }
     private var stalenessTask: Task<Void, Never>?
 

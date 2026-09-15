@@ -32,6 +32,8 @@ struct ObjectReceived {
     let usable: Bool
     /// The publish timestamp, if available.
     let publishTimestamp: Date?
+    /// Audio activity indicator carried by the video object, if available.
+    let activity: UInt8?
 }
 
 /// Callback type for an object.
@@ -304,6 +306,22 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
     }
 
+    private func reportParticipantActivity(_ details: ObjectReceived) {
+        guard !self.stopped.load(ordering: .acquiring),
+              details.usable,
+              !details.cached,
+              details.activity != nil else { return }
+
+        Task { @MainActor [weak self] in
+            guard let self,
+                  !self.stopped.load(ordering: .acquiring),
+                  let registration = self.participant.get() else { return }
+            registration.withParticipant { participant in
+                participant.receivedActivity(details)
+            }
+        }
+    }
+
     /// Register to receive notifications of an object being received.
     /// - Parameter callback: Callback to be called.
     /// - Returns: Token for unregister.
@@ -337,6 +355,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     func objectReceived(_ objectHeaders: QObjectHeaders, // swiftlint:disable:this cyclomatic_complexity function_body_length
                         data: Data,
                         extensions: HeaderExtensions?,
+                        activity: UInt8? = nil,
                         when: Ticks,
                         cached: Bool,
                         drop: Bool) {
@@ -373,7 +392,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                          cached: cached,
                                          headers: objectHeaders,
                                          usable: false,
-                                         publishTimestamp: nil)
+                                         publishTimestamp: nil,
+                                         activity: activity)
             for callback in toCall {
                 callback(details)
             }
@@ -500,9 +520,13 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                          cached: cached,
                                          headers: objectHeaders,
                                          usable: true,
-                                         publishTimestamp: publishTimestamp)
+                                         publishTimestamp: publishTimestamp,
+                                         activity: activity)
             for callback in toCall {
                 callback(details)
+            }
+            if self.simulreceive != .enable {
+                self.reportParticipantActivity(details)
             }
 
             try self.submitEncodedData(frame, details: details)

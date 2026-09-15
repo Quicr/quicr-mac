@@ -397,6 +397,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             // Clamp displayed videos to the top-N the relay delivers.
             switch self.config.joinType {
             case .activeSpeaker:
+                self.videoParticipants.displayOrder = .recentActivity
                 self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
                 self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
                 self.videoParticipants.startStalenessChecks()
@@ -427,6 +428,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         // can match incoming publishes against the namespace prefix immediately.
         if self.demoEnabled, self.subscriptionFactory != nil {
             // Prepare layout for dynamic switching.
+            self.videoParticipants.displayOrder = .recentActivity
             self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
             self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
             self.videoParticipants.startStalenessChecks()
