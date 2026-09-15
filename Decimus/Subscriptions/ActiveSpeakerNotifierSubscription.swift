@@ -54,7 +54,7 @@ class ActiveSpeakerNotifierSubscription: Subscription,
         do {
             participants = try self.decoder.decode([ParticipantId].self, from: data)
         } catch {
-            self.logger.error("Failed to decode active speaker list: \(error.localizedDescription)")
+            self.logger.warning("Failed to decode active speaker list: \(error.localizedDescription)")
             return
         }
         self.logger.debug("Got active speaker participants: \(participants)")

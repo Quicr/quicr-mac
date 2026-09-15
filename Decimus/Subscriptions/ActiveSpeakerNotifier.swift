@@ -174,7 +174,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             guard let set = try? self.controller.subscribeToSet(details: manifestSet,
                                                                 factory: self.factory,
                                                                 subscribeType: .subscribe) else {
-                self.logger.error("Couldn't subscribe to set")
+                self.logger.warning("Couldn't subscribe to set")
                 continue
             }
 
@@ -238,7 +238,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                         }
                     }
                 } catch {
-                    self.logger.error(
+                    self.logger.warning(
                         "Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
                 }
             }

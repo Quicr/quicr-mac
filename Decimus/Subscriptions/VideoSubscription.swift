@@ -462,8 +462,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
             // Check new group supported.
             guard self.isNewGroupRequestSupported() else {
-                self.logger.warning("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - No dynamic groups",
-                                    alert: true)
+                self.logger.warning("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - No dynamic groups")
                 self.emit(.objectRejected(.joinState, "dynamic groups unsupported"),
                           groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
                           objectId: objectHeaders.objectId)
@@ -704,7 +703,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             }
             (handler, activation) = created
         } catch {
-            self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
+            self.logger.warning("Failed to recreate video handler: \(error.localizedDescription)")
             self.emit(.objectRejected(.handlerUnavailable, error.localizedDescription),
                       groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
             return
@@ -723,7 +722,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             do {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
-                self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                self.logger.warning("Unprotect failure: \(error.localizedDescription)")
                 self.emit(.objectRejected(.unprotect, error.localizedDescription),
                           handlerGeneration: handler.generation,
                           groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)
@@ -976,7 +975,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             do {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
-                self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                self.logger.warning("Unprotect failure: \(error.localizedDescription)")
                 self.emit(.objectRejected(.unprotect, error.localizedDescription),
                           handlerGeneration: handler.generation,
                           groupId: ingress.groupId, subgroupId: ingress.subgroupId, objectId: ingress.objectId)

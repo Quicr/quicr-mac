@@ -35,7 +35,7 @@ final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
             let updated = dict.updateValue(.init(measurement), forKey: measurement.id)
             assert(updated == nil)
             guard updated == nil else {
-                self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
+                self.logger.warning("Shouldn't call register for existing measurement: \(measurement)")
                 return
             }
         }

@@ -34,7 +34,7 @@ final class VTDecoder: Sendable {
     private func close(_ session: VTDecompressionSession) {
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            self.logger.warning("VTDecoder failed to flush frames: \(flush)", alert: true)
+            self.logger.warning("VTDecoder failed to flush frames: \(flush)")
         }
         VTDecompressionSessionInvalidate(session)
     }
@@ -127,10 +127,10 @@ final class VTDecoder: Sendable {
                        presentation: CMTime,
                        duration: CMTime) {
         // Check status code.
-        guard status == .zero else { self.logger.error("Bad decode: \(status)"); return }
+        guard status == .zero else { self.logger.warning("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        guard let image = image else { self.logger.error("Missing image"); return }
+        guard let image = image else { self.logger.warning("Missing image"); return }
         do {
             let created: CMVideoFormatDescription = try .init(imageBuffer: image)
             let sample: CMSampleBuffer = try .init(imageBuffer: image,
@@ -146,7 +146,7 @@ final class VTDecoder: Sendable {
                 break
             }
         } catch {
-            self.logger.error("Couldn't create CMSampleBuffer: \(error)")
+            self.logger.warning("Couldn't create CMSampleBuffer: \(error)")
         }
     }
 }

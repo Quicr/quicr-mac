@@ -61,7 +61,7 @@ final class TextSubscriptions: Sendable {
             do {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
-                self.logger.error("Failed to unprotect text message: \(error.localizedDescription)")
+                self.logger.warning("Failed to unprotect text message: \(error.localizedDescription)")
                 return
             }
         } else {
@@ -69,7 +69,7 @@ final class TextSubscriptions: Sendable {
         }
 
         guard let text = String(data: unprotected, encoding: .utf8) else {
-            self.logger.error("Failed to decode text message from data")
+            self.logger.warning("Failed to decode text message from data")
             return
         }
         let message = TextMessage(author: .participant(participantId), message: text, dateReceived: .now)

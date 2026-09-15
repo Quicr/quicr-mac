@@ -235,7 +235,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                         registration.remove()
                     }
                 } catch {
-                    self.logger.error("Failed to create VideoParticipant: \(error)")
+                    self.logger.warning("Failed to create VideoParticipant: \(error)")
                 }
             }
         }
@@ -394,7 +394,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
         // Video needs extensions to be present.
         guard let extensions = extensions else {
-            self.logger.error("Missing expected header extensions")
+            self.logger.warning("Missing expected header extensions")
             self.emit(.objectRejected(.missingFormat, "missing header extensions"),
                       groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
                       objectId: objectHeaders.objectId)
@@ -437,7 +437,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 // Timestamp.
                 guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
                       case .captureTimestamp(let timestamp) = presentationTimestampData else {
-                    self.logger.error("Video needs LOC timestamp set")
+                    self.logger.warning("Video needs LOC timestamp set")
                     return
                 }
                 presentationTimestamp = .init(value: .init(timestamp.timeIntervalSince1970 * microsecondsPerSecond),
@@ -449,7 +449,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
                                                    presentation: presentationTimestamp) else {
-                self.logger.error("Failed to depacketize video frame")
+                self.logger.warning("Failed to depacketize video frame")
                 self.emit(.objectRejected(.depacketize, nil), groupId: objectHeaders.groupId,
                           subgroupId: objectHeaders.subgroupId, objectId: objectHeaders.objectId)
                 return
@@ -507,7 +507,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
             try self.submitEncodedData(frame, details: details)
         } catch {
-            self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
+            self.logger.warning("Failed to handle obj recv: \(error.localizedDescription)")
             self.emit(.objectRejected(.decoder, error.localizedDescription),
                       groupId: objectHeaders.groupId, subgroupId: objectHeaders.subgroupId,
                       objectId: objectHeaders.objectId)
@@ -531,7 +531,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self._jitterBuffer.withLock { buffer in
             guard !self.stopped.load(ordering: .acquiring) else { return }
             guard let buffer else {
-                self.logger.error("Set play with no buffer")
+                self.logger.warning("Set play with no buffer")
                 return
             }
             buffer.startPlaying()
@@ -789,7 +789,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                         waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now.hostDate)
                     } else {
                         guard let duration = self.duration else {
-                            self.logger.error("Missing duration")
+                            self.logger.warning("Missing duration")
                             return
                         }
                         waitTime = calculateWaitTime(from: now) ?? duration
@@ -831,14 +831,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                             do {
                                 frame = try self.regen(item.frame, format: format)
                             } catch {
-                                self.logger.error("Failed to regen sample: \(error.localizedDescription)")
+                                self.logger.warning("Failed to regen sample: \(error.localizedDescription)")
                                 return
                             }
                         }
                         do {
                             try self.decode(sample: frame, from: now.hostDate)
                         } catch {
-                            self.logger.error("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.warning("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -1004,7 +1004,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                     measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
                 }
             } catch {
-                self.logger.error("Could not enqueue sample: \(error)")
+                self.logger.warning("Could not enqueue sample: \(error)")
                 self.emit(.displayError(error.localizedDescription))
             }
         }
@@ -1037,7 +1037,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                     try participant.view.flush()
                 }
             } catch {
-                self.logger.error("Could not flush layer: \(error)")
+                self.logger.warning("Could not flush layer: \(error)")
             }
             self.logger.debug("Flushing display layer")
             self.startTimeSet = false
@@ -1107,7 +1107,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         } else {
             assert(objectId != 0)
             if objectId == 0 {
-                self.logger.error("IDR didn't contain format?")
+                self.logger.warning("IDR didn't contain format?")
             }
             format = self.currentFormats.get()[groupId]
         }
@@ -1196,7 +1196,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                        endToEndLatency: endToEndLatency,
                                        switchContext: switchCtx)
             } catch {
-                self.logger.error("Failed to enqueue decoded sample: \(error)")
+                self.logger.warning("Failed to enqueue decoded sample: \(error)")
             }
         }
     }

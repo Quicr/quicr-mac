@@ -112,8 +112,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   relayId: relayId)
                 publications.append((fullTrackName, publication))
             } catch {
-                self.logger.warning("[\(fullTrackName)] Couldn't create publication: \(error.localizedDescription)",
-                                    alert: true)
+                self.logger.warning("[\(fullTrackName)] Couldn't create publication: \(error.localizedDescription)")
             }
         }
         return publications

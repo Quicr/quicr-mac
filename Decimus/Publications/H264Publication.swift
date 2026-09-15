@@ -86,7 +86,7 @@ final class H264Publication: FrameListener, PublicationInstance {
         if idr {
             // SPS + PPS.
             guard let parameterSets = try? publication.handleParameterSets(sample: sample) else {
-                publication.logger.error("Failed to handle parameter sets")
+                publication.logger.warning("Failed to handle parameter sets")
                 return
             }
 
@@ -95,14 +95,14 @@ final class H264Publication: FrameListener, PublicationInstance {
                 let avccData: Data
                 guard let description = sample.formatDescription,
                       let extracted = H264Utilities.extractAVCCAtom(from: description) else {
-                    publication.logger.error("Failed to parse AVCDecoderConfigurationRecord")
+                    publication.logger.warning("Failed to parse AVCDecoderConfigurationRecord")
                     return
                 }
                 avccData = extracted
                 do {
                     try extensions.setHeader(.videoH264AVCCExtradata(avccData))
                 } catch {
-                    publication.logger.error("Failed to set extradata header: \(error.localizedDescription)")
+                    publication.logger.warning("Failed to set extradata header: \(error.localizedDescription)")
                     return
                 }
                 extradata = nil
@@ -152,7 +152,7 @@ final class H264Publication: FrameListener, PublicationInstance {
                 try extensions.setHeader(.captureTimestamp(presentationDate))
             }
         } catch {
-            publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
+            publication.logger.warning("Failed to set media extensions: \(error.localizedDescription)")
         }
 
         let buffer = sample.dataBuffer!
@@ -172,7 +172,7 @@ final class H264Publication: FrameListener, PublicationInstance {
                         offset += publication.startCode.count + Int(naluLength)
                     }
                 } catch {
-                    publication.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
+                    publication.logger.warning("Failed to get byte pointer: \(error.localizedDescription)")
                     return
                 }
             }
@@ -227,7 +227,7 @@ final class H264Publication: FrameListener, PublicationInstance {
             do {
                 try extensions.setHeader(.audioActivityIndicator(sentActivityValue.rawValue))
             } catch {
-                publication.logger.error("Failed to set VAD header: \(error.localizedDescription)")
+                publication.logger.warning("Failed to set VAD header: \(error.localizedDescription)")
             }
         }
 
@@ -253,7 +253,7 @@ final class H264Publication: FrameListener, PublicationInstance {
                                             plaintext: data)
                     }
                 } catch {
-                    publication.logger.error("Failed to protect data: \(error.localizedDescription)")
+                    publication.logger.warning("Failed to protect data: \(error.localizedDescription)")
                     return (QPublishObjectStatus.internalError, 0)
                 }
             } else {
@@ -261,7 +261,7 @@ final class H264Publication: FrameListener, PublicationInstance {
             }
             guard var priority = try? publication.profile.getPriority(index: idr ? 0 : 1),
                   var ttl = try? publication.profile.getTTL(index: idr ? 0 : 1) else {
-                publication.logger.error("Malformed profile")
+                publication.logger.warning("Malformed profile")
                 return (QPublishObjectStatus.internalError, 0)
             }
             if publication.granularMetrics {
@@ -472,7 +472,7 @@ final class H264Publication: FrameListener, PublicationInstance {
         do {
             try encoder.write(sample: sampleBuffer, timestamp: timestamp, forceKeyFrame: keyFrame)
         } catch {
-            self.logger.error("Failed to encode frame: \(error.localizedDescription)")
+            self.logger.warning("Failed to encode frame: \(error.localizedDescription)")
         }
 
         // Metrics.

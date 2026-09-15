@@ -460,12 +460,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.logger.info("[\(device.localizedName)] Capture pressure fair: \(factor)")
             level = 1
         case .serious:
-            self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(factor)",
-                                alert: true)
+            self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(factor)")
             level = 2
         case .critical:
-            self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(factor)",
-                                alert: true)
+            self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(factor)")
             level = 3
         case .shutdown:
             self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(factor)")

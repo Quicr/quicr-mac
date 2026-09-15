@@ -65,7 +65,7 @@ struct PreviewView: NSViewRepresentable {
         do {
             try captureManager.addInput(self.view.frameListener)
         } catch {
-            self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
+            self.logger.warning("Failed to add input for preview: \(error.localizedDescription)")
         }
         return view
     }
@@ -77,7 +77,7 @@ struct PreviewView: NSViewRepresentable {
         do {
             try nsView.captureManager.removeInput(listener: nsView.frameListener)
         } catch {
-            logger.error("Failed to remove input for preview: \(error.localizedDescription)")
+            logger.warning("Failed to remove input for preview: \(error.localizedDescription)")
         }
     }
 }
@@ -98,7 +98,7 @@ struct PreviewView: UIViewRepresentable {
         do {
             try captureManager.addInput(self.view.frameListener)
         } catch {
-            self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
+            self.logger.warning("Failed to add input for preview: \(error.localizedDescription)")
         }
         view.contentMode = .scaleAspectFit
         return view
@@ -111,7 +111,7 @@ struct PreviewView: UIViewRepresentable {
         do {
             try uiView.captureManager.removeInput(listener: uiView.frameListener)
         } catch {
-            logger.error("Failed to remove input for preview: \(error.localizedDescription)")
+            logger.warning("Failed to remove input for preview: \(error.localizedDescription)")
         }
     }
 }
