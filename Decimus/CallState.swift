@@ -108,64 +108,64 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage(PlaytimeSettingsView.defaultsKey)
     private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
-    @AppStorage(SettingsView.verboseKey)
-    private(set) var verbose = false
+    @AppStorage(AppSettings.verbose.key)
+    private(set) var verbose = AppSettings.verbose.defaultValue
 
-    @AppStorage(SettingsView.moqRoleKey)
-    private(set) var role = MoQRole.both
-    @AppStorage(SettingsView.mediaInteropKey)
-    private(set) var mediaInterop = false
-    @AppStorage(SettingsView.appExtensionModeKey)
-    private(set) var appExtensionMode = AppExtensionMode.mutable
-    @AppStorage(SettingsView.useOverrideNamespaceKey)
-    private(set) var useOverrideNamespace = false
-    @AppStorage(SettingsView.overrideNamespaceKey)
-    private(set) var overrideNamespaceJSON: String = ""
+    @AppStorage(AppSettings.moqRole.key)
+    private(set) var role = AppSettings.moqRole.defaultValue
+    @AppStorage(AppSettings.mediaInterop.key)
+    private(set) var mediaInterop = AppSettings.mediaInterop.defaultValue
+    @AppStorage(AppSettings.appExtensionMode.key)
+    private(set) var appExtensionMode = AppSettings.appExtensionMode.defaultValue
+    @AppStorage(AppSettings.useOverrideNamespace.key)
+    private(set) var useOverrideNamespace = AppSettings.useOverrideNamespace.defaultValue
+    @AppStorage(AppSettings.overrideNamespace.key)
+    private(set) var overrideNamespaceJSON = AppSettings.overrideNamespace.defaultValue
     nonisolated static let namespaceSourcePlaceholder = "{s}"
     private var resolvedNamespace: [String]?
 
     // Subscribe namespace.
-    @AppStorage(SettingsView.subscribeNamespaceEnabledKey)
-    private var subscribeNamespaceEnabled = false
-    @AppStorage(SettingsView.subscribeNamespaceKey)
-    private var subscribeNamespace: String = ""
-    @AppStorage(SettingsView.subscribeNamespaceAcceptKey)
-    private var subscribeNamespaceAccept: String = ""
+    @AppStorage(AppSettings.subscribeNamespaceEnabled.key)
+    private var subscribeNamespaceEnabled = AppSettings.subscribeNamespaceEnabled.defaultValue
+    @AppStorage(AppSettings.subscribeNamespace.key)
+    private var subscribeNamespace = AppSettings.subscribeNamespace.defaultValue
+    @AppStorage(AppSettings.subscribeNamespaceAccept.key)
+    private var subscribeNamespaceAccept = AppSettings.subscribeNamespaceAccept.defaultValue
     private var subscriptionNamespaceAcceptParsed: NamespacePrefix?
 
     // Audio activivty top N demo.
-    @AppStorage(SettingsView.demoEnabledKey)
-    private var demoEnabled = false
+    @AppStorage(AppSettings.demoEnabled.key)
+    private var demoEnabled = AppSettings.demoEnabled.defaultValue
 
     // Demo FTN prefix.
-    @AppStorage(SettingsView.demoMeetingIdKey)
-    private var demoMeetingId: String = "demo-meeting-1"
+    @AppStorage(AppSettings.demoMeetingId.key)
+    private var demoMeetingId = AppSettings.demoMeetingId.defaultValue
 
     // Max concurent.
-    @AppStorage(SettingsView.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 1
+    @AppStorage(AppSettings.demoMaxTracksSelected.key)
+    private var demoMaxTracksSelected = AppSettings.demoMaxTracksSelected.defaultValue
 
     // Max time before deselecting.
-    @AppStorage(SettingsView.demoTimeoutKey)
-    private var demoTimeout: TimeInterval = 0.5
+    @AppStorage(AppSettings.demoTimeout.key)
+    private var demoTimeout = AppSettings.demoTimeout.defaultValue
 
-    @AppStorage(SettingsView.demoTimeToSpeechStartKey)
-    private var demoTimeToSpeechStart: TimeInterval = 0.15
+    @AppStorage(AppSettings.demoTimeToSpeechStart.key)
+    private var demoTimeToSpeechStart = AppSettings.demoTimeToSpeechStart.defaultValue
 
-    @AppStorage(SettingsView.demoTimeToContinuousKey)
-    private var demoTimeToContinuous: TimeInterval = 0.5
+    @AppStorage(AppSettings.demoTimeToContinuous.key)
+    private var demoTimeToContinuous = AppSettings.demoTimeToContinuous.defaultValue
 
-    @AppStorage(SettingsView.demoTimeToDropStartKey)
-    private var demoTimeToDropStart: TimeInterval = 0.25
+    @AppStorage(AppSettings.demoTimeToDropStart.key)
+    private var demoTimeToDropStart = AppSettings.demoTimeToDropStart.defaultValue
 
-    @AppStorage(SettingsView.demoTimeToDropContinuousKey)
-    private var demoTimeToDropContinuous: TimeInterval = 0.6
+    @AppStorage(AppSettings.demoTimeToDropContinuous.key)
+    private var demoTimeToDropContinuous = AppSettings.demoTimeToDropContinuous.defaultValue
 
-    @AppStorage(SettingsView.demoVadRollSubgroupKey)
-    private var demoVadRollSubgroup: Bool = true
+    @AppStorage(AppSettings.demoVadRollSubgroup.key)
+    private var demoVadRollSubgroup = AppSettings.demoVadRollSubgroup.defaultValue
 
-    @AppStorage(SettingsView.demoVadAggressivenessKey)
-    private var demoVadAggressiveness: Int = 3
+    @AppStorage(AppSettings.demoVadAggressiveness.key)
+    private var demoVadAggressiveness = AppSettings.demoVadAggressiveness.defaultValue
 
     @AppStorage(ManifestSettingsView.defaultsKey)
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
@@ -174,8 +174,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
     // Recording.
-    @AppStorage(SettingsView.recordingKey)
-    private(set) var recording = false
+    @AppStorage(AppSettings.recording.key)
+    private(set) var recording = AppSettings.recording.defaultValue
     @AppStorage(DisplayPicker.displayRecordKey)
     private var recordDisplay: Int = 0
     private var appRecorder: AppRecorder?

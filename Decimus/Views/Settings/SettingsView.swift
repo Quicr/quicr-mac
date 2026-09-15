@@ -11,88 +11,68 @@ struct SettingsView: View {
     @State private var cancelConfirmation = false
     private let logger = DecimusLogger(SettingsView.self)
 
-    static let verboseKey = "verbose"
-    @AppStorage(Self.verboseKey)
-    private var verbose: Bool = false
+    @AppStorage(AppSettings.verbose.key)
+    private var verbose = AppSettings.verbose.defaultValue
 
-    static let recordingKey = "recordCall"
-    @AppStorage(Self.recordingKey)
-    private var recordCall: Bool = false
+    @AppStorage(AppSettings.recording.key)
+    private var recordCall = AppSettings.recording.defaultValue
 
-    static let mediaInteropKey = "mediaInterop"
-    @AppStorage(Self.mediaInteropKey)
-    private var mediaInterop: Bool = false
+    @AppStorage(AppSettings.mediaInterop.key)
+    private var mediaInterop = AppSettings.mediaInterop.defaultValue
 
-    static let useOverrideNamespaceKey = "useOverrideNamespace"
-    @AppStorage(Self.useOverrideNamespaceKey)
-    private var useOverrideNamespace: Bool = false
+    @AppStorage(AppSettings.useOverrideNamespace.key)
+    private var useOverrideNamespace = AppSettings.useOverrideNamespace.defaultValue
 
-    static let overrideNamespaceKey = "overrideNamespace"
-    @AppStorage(Self.overrideNamespaceKey)
-    private var overrideNamespace: String = "[\"moq://decimus.webex.com/v1/\", \"media-interop\", \"{s}\"]"
+    @AppStorage(AppSettings.overrideNamespace.key)
+    private var overrideNamespace = AppSettings.overrideNamespace.defaultValue
 
-    static let subscribeNamespaceEnabledKey = "subscribeNamespaceEnabled"
-    @AppStorage(Self.subscribeNamespaceEnabledKey)
-    private var subscribeNamespaceEnabled = false
+    @AppStorage(AppSettings.subscribeNamespaceEnabled.key)
+    private var subscribeNamespaceEnabled = AppSettings.subscribeNamespaceEnabled.defaultValue
 
-    static let subscribeNamespaceKey = "subscribeNamespace"
-    @AppStorage(Self.subscribeNamespaceKey)
-    private var subscribeNamespace = "[\"moq://decimus.webex.com/v1/\"]"
+    @AppStorage(AppSettings.subscribeNamespace.key)
+    private var subscribeNamespace = AppSettings.subscribeNamespace.defaultValue
 
-    static let subscribeNamespaceAcceptKey = "subscribeNamespaceAccept"
-    @AppStorage(Self.subscribeNamespaceAcceptKey)
-    private var subscribeNamespaceAccept = "[\"moq://decimus.webex.com/v1/\", \"media-interop\"]"
+    @AppStorage(AppSettings.subscribeNamespaceAccept.key)
+    private var subscribeNamespaceAccept = AppSettings.subscribeNamespaceAccept.defaultValue
 
-    static let moqRoleKey = "moqRole"
-    @AppStorage(Self.moqRoleKey)
-    private var moqRole: MoQRole = .both
+    @AppStorage(AppSettings.moqRole.key)
+    private var moqRole = AppSettings.moqRole.defaultValue
 
-    static let appExtensionModeKey = "appExtensionMode"
-    @AppStorage(Self.appExtensionModeKey)
-    private var appExtensionMode: AppExtensionMode = .mutable
+    @AppStorage(AppSettings.appExtensionMode.key)
+    private var appExtensionMode = AppSettings.appExtensionMode.defaultValue
 
     // Audio demo settings.
     // TODO: Probably smarten this up a bit.
 
-    static let demoEnabledKey = "demoEnabled"
-    @AppStorage(Self.demoEnabledKey)
-    private var demoEnabled: Bool = false
+    @AppStorage(AppSettings.demoEnabled.key)
+    private var demoEnabled = AppSettings.demoEnabled.defaultValue
 
-    static let demoMeetingIdKey = "demoMeetingId"
-    @AppStorage(Self.demoMeetingIdKey)
-    private var demoMeetingId: String = "demo-meeting-1"
+    @AppStorage(AppSettings.demoMeetingId.key)
+    private var demoMeetingId = AppSettings.demoMeetingId.defaultValue
 
-    static let demoMaxTracksSelectedKey = "demoMaxTracksSelected"
-    @AppStorage(Self.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 2
+    @AppStorage(AppSettings.demoMaxTracksSelected.key)
+    private var demoMaxTracksSelected = AppSettings.demoMaxTracksSelected.defaultValue
 
-    static let demoTimeoutKey = "demoMaxTimeSelected"
-    @AppStorage(Self.demoTimeoutKey)
-    private var demoTimeout: TimeInterval = 0.5
+    @AppStorage(AppSettings.demoTimeout.key)
+    private var demoTimeout = AppSettings.demoTimeout.defaultValue
 
-    static let demoTimeToSpeechStartKey = "demoTimeToSpeechStart"
-    @AppStorage(Self.demoTimeToSpeechStartKey)
-    private var demoTimeToSpeechStart: TimeInterval = 0.15
+    @AppStorage(AppSettings.demoTimeToSpeechStart.key)
+    private var demoTimeToSpeechStart = AppSettings.demoTimeToSpeechStart.defaultValue
 
-    static let demoTimeToContinuousKey = "demoTimeToContinuous"
-    @AppStorage(Self.demoTimeToContinuousKey)
-    private var demoTimeToContinuous: TimeInterval = 0.5
+    @AppStorage(AppSettings.demoTimeToContinuous.key)
+    private var demoTimeToContinuous = AppSettings.demoTimeToContinuous.defaultValue
 
-    static let demoTimeToDropStartKey = "demoTimeToDropStart"
-    @AppStorage(Self.demoTimeToDropStartKey)
-    private var demoTimeToDropStart: TimeInterval = 0.25
+    @AppStorage(AppSettings.demoTimeToDropStart.key)
+    private var demoTimeToDropStart = AppSettings.demoTimeToDropStart.defaultValue
 
-    static let demoTimeToDropContinuousKey = "demoTimeToDropContinuous"
-    @AppStorage(Self.demoTimeToDropContinuousKey)
-    private var demoTimeToDropContinuous: TimeInterval = 0.6
+    @AppStorage(AppSettings.demoTimeToDropContinuous.key)
+    private var demoTimeToDropContinuous = AppSettings.demoTimeToDropContinuous.defaultValue
 
-    static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
-    @AppStorage(Self.demoVadRollSubgroupKey)
-    private var demoVadRollSubgroup: Bool = false
+    @AppStorage(AppSettings.demoVadRollSubgroup.key)
+    private var demoVadRollSubgroup = AppSettings.demoVadRollSubgroup.defaultValue
 
-    static let demoVadAggressivenessKey = "demoVadAggressiveness"
-    @AppStorage(Self.demoVadAggressivenessKey)
-    private var demoVadAggressiveness: Int = 3
+    @AppStorage(AppSettings.demoVadAggressiveness.key)
+    private var demoVadAggressiveness = AppSettings.demoVadAggressiveness.defaultValue
 
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
