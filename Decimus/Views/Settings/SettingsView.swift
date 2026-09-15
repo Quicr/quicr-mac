@@ -64,7 +64,7 @@ struct SettingsView: View {
 
     static let demoMaxTracksSelectedKey = "demoMaxTracksSelected"
     @AppStorage(Self.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 1
+    private var demoMaxTracksSelected: Int = 2
 
     static let demoTimeoutKey = "demoMaxTimeSelected"
     @AppStorage(Self.demoTimeoutKey)
