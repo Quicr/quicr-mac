@@ -24,7 +24,6 @@ typedef struct QPublishTrackMetricsQuic {
     uint64_t tx_queue_discards;
     uint64_t tx_queue_expired;
     uint64_t tx_delayed_callback;
-    uint64_t tx_reset_wait;
     QMinMaxAvg tx_queue_size;
     QMinMaxAvg tx_callback_ms;
     QMinMaxAvg tx_object_duration_us;

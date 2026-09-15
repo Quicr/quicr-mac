@@ -170,10 +170,33 @@ void QPublishTrackHandler::StatusChanged(Status status)
 
 static QPublishTrackMetricsQuic convert(const quicr::PublishTrackMetrics::Quic& metrics)
 {
-    static_assert(sizeof(QPublishTrackMetricsQuic) == sizeof(quicr::PublishTrackMetrics::Quic));
-    QPublishTrackMetricsQuic converted;
-    memcpy(&converted, &metrics, sizeof(QPublishTrackMetricsQuic));
-    return converted;
+    return QPublishTrackMetricsQuic {
+        .tx_buffer_drops = metrics.tx_buffer_drops,
+        .tx_queue_discards = metrics.tx_queue_discards,
+        .tx_queue_expired = metrics.tx_queue_expired,
+        .tx_delayed_callback = metrics.tx_delayed_callback,
+        .tx_queue_size = {
+            .min = metrics.tx_queue_size.min,
+            .max = metrics.tx_queue_size.max,
+            .avg = metrics.tx_queue_size.avg,
+            .value_sum = metrics.tx_queue_size.value_sum,
+            .value_count = metrics.tx_queue_size.value_count,
+        },
+        .tx_callback_ms = {
+            .min = metrics.tx_callback_ms.min,
+            .max = metrics.tx_callback_ms.max,
+            .avg = metrics.tx_callback_ms.avg,
+            .value_sum = metrics.tx_callback_ms.value_sum,
+            .value_count = metrics.tx_callback_ms.value_count,
+        },
+        .tx_object_duration_us = {
+            .min = metrics.tx_object_duration_us.min,
+            .max = metrics.tx_object_duration_us.max,
+            .avg = metrics.tx_object_duration_us.avg,
+            .value_sum = metrics.tx_object_duration_us.value_sum,
+            .value_count = metrics.tx_object_duration_us.value_count,
+        },
+    };
 }
 
 static QPublishTrackMetrics convert(const quicr::PublishTrackMetrics& metrics)

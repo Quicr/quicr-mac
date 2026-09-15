@@ -20,7 +20,7 @@ void QSubscribeNamespaceHandler::StatusChanged(Status status)
         if (status == Status::kError) {
             auto error = GetError();
             if (error.has_value()) {
-                errorCode = static_cast<QSubscribeNamespaceErrorCode>(error->first);
+                errorCode = static_cast<QSubscribeNamespaceErrorCode>(error->reason_code);
             }
         }
         [_callbacks statusChanged:static_cast<QSubscribeNamespaceHandlerStatus>(status) errorCode:errorCode];

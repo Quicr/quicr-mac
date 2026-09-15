@@ -26,6 +26,7 @@ typedef struct QSubscribeTrackMetrics {
 
 @protocol QSubscribeTrackHandlerCallbacks
 - (void) statusChanged: (QSubscribeTrackHandlerStatus) status;
+- (void) streamClosed: (uint64_t) streamId flag: (QStreamClosedFlag) flag;
 - (void) objectReceived: (QObjectHeaders) objectHeaders
                    data: (NSData* _Nonnull) data
              extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions

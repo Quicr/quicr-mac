@@ -42,6 +42,12 @@ typedef NS_ENUM(uint8_t, QSubgroupIdMode) {
     kQSubgroupIdModeExplicit,
 };
 
+typedef NS_ENUM(uint8_t, QStreamClosedFlag) {
+    kQStreamClosedFlagFin,
+    kQStreamClosedFlagReset,
+    kQStreamClosedFlagStopSending,
+};
+
 @interface QStreamHeaderProperties : NSObject
 @property (nonatomic, readonly) bool extensions;
 @property (nonatomic, readonly) QSubgroupIdMode subgroupIdMode;

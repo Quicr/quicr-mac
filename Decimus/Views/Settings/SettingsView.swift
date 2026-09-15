@@ -112,33 +112,16 @@ struct SettingsView: View {
                                 isPresented: self.$cancelConfirmation) {
                 Button("Reset", role: .destructive) {
                     // Reset all settings to defaults.
-                    UserDefaults.standard.removeObject(forKey: RelaySettingsView.defaultsKey)
-                    UserDefaults.standard.removeObject(forKey: ManifestSettingsView.defaultsKey)
-                    UserDefaults.standard.removeObject(forKey: PlaytimeSettingsView.defaultsKey)
                     do {
                         try InfluxSettingsView.reset()
                     } catch {
                         self.logger.warning("Failed to reset settings: \(error.localizedDescription)", alert: true)
                     }
-                    UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.useOverrideNamespaceKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.appExtensionModeKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMeetingIdKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeoutKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToSpeechStartKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToContinuousKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropContinuousKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoVadAggressivenessKey)
+                    if let bundleID = Bundle.main.bundleIdentifier {
+                        UserDefaults.standard.removePersistentDomain(forName: bundleID)
+                    } else {
+                        self.logger.error("Failed to reset settings: missing bundle ID")
+                    }
                 }
             }
             .buttonStyle(BorderedButtonStyle())

@@ -24,6 +24,33 @@ enum VideoBehaviour: CaseIterable, Identifiable, Codable {
     var id: Self { self }
 }
 
+enum CongestionControl: String, Codable, CaseIterable, Identifiable, CustomStringConvertible {
+    case bbr
+    case c4
+    case cubic
+    case newReno
+
+    var id: Self { self }
+
+    var description: String {
+        switch self {
+        case .bbr: "BBR"
+        case .c4: "C4"
+        case .cubic: "Cubic"
+        case .newReno: "NewReno"
+        }
+    }
+
+    var transportValue: QCongestionControl {
+        switch self {
+        case .bbr: .bbr
+        case .c4: .cFour
+        case .cubic: .cubic
+        case .newReno: .newReno
+        }
+    }
+}
+
 /// Reliability structure breakout by media.
 struct MediaReliability: Codable {
     /// Target reliability state for audio.
@@ -81,10 +108,8 @@ struct SubscriptionConfig: Codable {
     var chunkSize: UInt32
     /// Control encoder bitrate budgets.
     var bitrateType: BitrateType
-    /// True to enable "reset & wait" functionality.
-    var useResetWaitCC: Bool
-    /// True to use BBR congestion control.
-    var useBBR: Bool
+    /// Congestion control algorithm.
+    var congestionControl: CongestionControl
     /// True to emit a qlog at the end of the call into Downloads or Documents.
     var enableQlog: Bool
     /// True to enable pause/resume behaviour.
@@ -130,8 +155,7 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 500
         chunkSize = 3000
         bitrateType = .average
-        useResetWaitCC = false
-        useBBR = true
+        congestionControl = .bbr
         enableQlog = false
         pauseResume = false
         quicrLogs = false

@@ -40,7 +40,6 @@ final class TrackMeasurement: MetricsMeasurement {
         record(field: "tx_queue_discards", value: metrics.quic.tx_queue_discards as AnyObject, timestamp: time)
         record(field: "tx_queue_expired", value: metrics.quic.tx_queue_expired as AnyObject, timestamp: time)
         record(field: "tx_delayed_callback", value: metrics.quic.tx_delayed_callback as AnyObject, timestamp: time)
-        record(field: "tx_reset_wait", value: metrics.quic.tx_reset_wait as AnyObject, timestamp: time)
     }
 
     func record(_ metrics: QSubscribeTrackMetrics) {

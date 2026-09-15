@@ -7,8 +7,7 @@ struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var timeQueueTTL: Int
     @Binding var chunkSize: UInt32
-    @Binding var useResetWaitCC: Bool
-    @Binding var useBBR: Bool
+    @Binding var congestionControl: CongestionControl
     @Binding var quicrLogs: Bool
     @Binding var enableQlog: Bool
     @Binding var quicPriorityLimit: UInt8
@@ -33,10 +32,11 @@ struct TransportConfigSettings: View {
             }
         }
         #endif
-        LabeledToggle("Use Reset and Wait",
-                      isOn: self.$useResetWaitCC)
-        LabeledToggle("Use BBR",
-                      isOn: self.$useBBR)
+        Picker("Congestion Control", selection: self.$congestionControl) {
+            ForEach(CongestionControl.allCases) { algorithm in
+                Text(algorithm.description)
+            }
+        }
         LabeledContent("Time Queue RX Size") {
             NumberView(value: self.$timeQueueTTL,
                        formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),

@@ -6,8 +6,17 @@
 #ifndef TransportConfig_h
 #define TransportConfig_h
 
+#import <Foundation/Foundation.h>
+
 #include <stdbool.h>
 #include <stdint.h>
+
+typedef NS_ENUM(uint8_t, QCongestionControl) {
+    kQCongestionControlBbr,
+    kQCongestionControlCFour,
+    kQCongestionControlCubic,
+    kQCongestionControlNewReno,
+};
 
 struct TransportConfig
 {
@@ -31,10 +40,8 @@ struct TransportConfig
     const uint32_t quic_wifi_shadow_rtt_us;
     /// QUIC idle timeout for connection(s) in milliseconds
     const uint64_t idle_timeout_ms;
-    /// Use Reset and wait strategy for congestion control
-    const bool use_reset_wait_strategy;
-    /// Use BBR if true, NewReno if false
-    const bool use_bbr;
+    /// Congestion control algorithm to use
+    const QCongestionControl congestion_control;
     /// QUIC LOG file location path, null terminated cstring
     const char *quic_qlog_path;
     /// Lowest priority that will not be bypassed from pacing/CC in picoquic

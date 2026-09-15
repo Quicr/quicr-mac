@@ -97,7 +97,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private var receiveContext: SFrameContext?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
-    var showLabels: Bool = true
+    var showLabels: Bool = false
 
     @AppStorage("influxConfig")
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -749,8 +749,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                           quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
                                           quic_wifi_shadow_rtt_us: 0,
                                           idle_timeout_ms: 15000,
-                                          use_reset_wait_strategy: subConfig.useResetWaitCC,
-                                          use_bbr: subConfig.useBBR,
+                                          congestion_control: subConfig.congestionControl.transportValue,
                                           quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
                                           quic_priority_limit: subConfig.quicPriorityLimit,
                                           max_connections: 1,
