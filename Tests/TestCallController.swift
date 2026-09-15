@@ -71,7 +71,7 @@ final class TestQClientObjC: XCTestCase {
                                         time_queue_init_queue_size: 1, time_queue_max_duration: 1,
                                         time_queue_bucket_interval: 1, time_queue_rx_size: 1, debug: false,
                                         quic_cwin_minimum: 8 * 1024, quic_wifi_shadow_rtt_us: 0,
-                                        idle_timeout_ms: 1, use_bbr: false, quic_qlog_path: nil,
+                                        idle_timeout_ms: 1, congestion_control: .newReno, quic_qlog_path: nil,
                                         quic_priority_limit: 0, max_connections: 1, ssl_keylog: false,
                                         socket_buffer_size: 1_000_000)
         return connectUri.withCString { uri in

@@ -9,7 +9,7 @@ struct SubscriptionSettingsView: View {
     static let showLabelsKey = "showLabels"
 
     @AppStorage(Self.showLabelsKey)
-    private var showLabels: Bool = true
+    private var showLabels: Bool = false
 
     @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
@@ -236,8 +236,8 @@ struct SubscriptionSettingsView: View {
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
                                     chunkSize:
                                         $subscriptionConfig.value.chunkSize,
-                                    useBBR:
-                                        $subscriptionConfig.value.useBBR,
+                                    congestionControl:
+                                        $subscriptionConfig.value.congestionControl,
                                     quicrLogs: $subscriptionConfig.value.quicrLogs,
                                     enableQlog: $subscriptionConfig.value.enableQlog,
                                     quicPriorityLimit:

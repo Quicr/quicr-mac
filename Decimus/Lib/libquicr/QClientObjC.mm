@@ -10,6 +10,19 @@
 #include "TransportConfig.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 
+static quicr::CongestionControl convert(QCongestionControl congestionControl) {
+    switch (congestionControl) {
+        case kQCongestionControlBbr:
+            return quicr::CongestionControl::kBbr;
+        case kQCongestionControlCFour:
+            return quicr::CongestionControl::kC4;
+        case kQCongestionControlCubic:
+            return quicr::CongestionControl::kCubic;
+        case kQCongestionControlNewReno:
+            return quicr::CongestionControl::kNewReno;
+    }
+}
+
 static quicr::TransportConfig convert(TransportConfig config) {
     return {
         .tls_cert_filename = config.tls_cert_filename ? std::string(config.tls_cert_filename) : "",
@@ -22,7 +35,7 @@ static quicr::TransportConfig convert(TransportConfig config) {
         .quic_cwin_minimum = config.quic_cwin_minimum,
         .quic_wifi_shadow_rtt_us = config.quic_wifi_shadow_rtt_us,
         .idle_timeout_ms = config.idle_timeout_ms,
-        .use_bbr = config.use_bbr,
+        .congestion_control = convert(config.congestion_control),
         .quic_qlog_path = config.quic_qlog_path ? std::string(config.quic_qlog_path) : "",
         .quic_priority_limit = config.quic_priority_limit,
         .max_connections = config.max_connections,
