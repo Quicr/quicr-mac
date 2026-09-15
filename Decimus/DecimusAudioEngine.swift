@@ -56,7 +56,7 @@ class DecimusAudioEngine: AudioPlayout {
         switch type {
         case .began:
             // We got interupted.
-            self.logger.warning("Audio interuption", alert: true)
+            self.logger.warning("Audio interuption")
         case .ended:
             // Resume.
             guard let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
@@ -65,12 +65,12 @@ class DecimusAudioEngine: AudioPlayout {
                 do {
                     try AVAudioSession.sharedInstance().setActive(true)
                     try self.reconfigureAndRestart()
-                    self.logger.notice("Audio resumed")
+                    self.logger.info("Audio resumed")
                 } catch {
                     self.logger.error("Failed to resume audio session")
                 }
             } else {
-                self.logger.warning("Audio interuption ended, but didn't ask resume", alert: true)
+                self.logger.warning("Audio interuption ended, but didn't ask resume")
             }
         @unknown default:
             self.logger.warning("Got unexpected audio interuption value")

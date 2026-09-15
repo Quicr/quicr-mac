@@ -45,14 +45,14 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
                         immutableExtensions: HeaderExtensions?) {
         // Extract the client ID from the header.
         guard let immutableExtensions else {
-            self.logger.error("Missing expected extensions")
+            self.logger.warning("Missing expected extensions")
             return
         }
 
         // Parse.
         guard let participantIdExtension = try? immutableExtensions.getHeader(AppHeadersRegistry.participantId),
               case .participantId(let participantId) = participantIdExtension else {
-            self.logger.error("Missing participant ID extension")
+            self.logger.warning("Missing participant ID extension")
             return
         }
         if let ourParticipantId = self.ourParticipantId,
@@ -97,7 +97,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
                                          config: self.audioHandlerConfig)
                 self.audioMediaObjects[participantId] = media
             } catch {
-                self.logger.error(
+                self.logger.warning(
                     "Failed to create audio handler for active speaker participant: \(error.localizedDescription)")
                 return
             }
@@ -120,7 +120,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
         // Decode the LOC here.
         guard let captureTimestampExtension = try? immutableExtensions.getHeader(.captureTimestamp),
               case .captureTimestamp(let captureTimestamp) = captureTimestampExtension else {
-            self.logger.error("Missing capture timestamp extension")
+            self.logger.warning("Missing capture timestamp extension")
             return
         }
 
@@ -130,7 +130,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
                                          date: now,
                                          timestamp: captureTimestamp)
         } catch {
-            self.logger.error("Failed to handle audio: \(error.localizedDescription)")
+            self.logger.warning("Failed to handle audio: \(error.localizedDescription)")
         }
     }
 }

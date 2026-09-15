@@ -484,7 +484,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         do {
             return try self.makeSimulreceiveDecision(at: Ticks.now, epoch: epoch)
         } catch {
-            self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+            self.logger.warning("Simulreceive failure: \(error.localizedDescription)")
             return nil
         }
     }
@@ -818,7 +818,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                               epoch: epoch)
                     self.displayCallbacks.fire()
                 } catch {
-                    self.logger.error("Could not enqueue sample: \(error)")
+                    self.logger.warning("Could not enqueue sample: \(error)")
                     self.emit(.displayError(error.localizedDescription),
                               fullTrackName: selected.fullTrackName,
                               handlerGeneration: handler.generation,

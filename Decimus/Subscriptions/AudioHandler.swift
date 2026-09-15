@@ -305,15 +305,15 @@ class AudioHandler: TimeAlignable {
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
-            self.logger.error("Got multiple buffers: \(data.pointee.mNumberBuffers)")
+            self.logger.warning("Got multiple buffers: \(data.pointee.mNumberBuffers)")
             for (idx, buffer) in buffers.enumerated() {
-                self.logger.error("Buffer \(idx) size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
+                self.logger.warning("Buffer \(idx) size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
             }
             return 1
         }
 
         guard data.pointee.mBuffers.mNumberChannels == self.asbd.pointee.mChannelsPerFrame else {
-            self.logger.error("""
+            self.logger.warning("""
                               Unexpected render block channels. \
                               Got \(data.pointee.mBuffers.mNumberChannels). \
                               Expected \(self.asbd.pointee.mChannelsPerFrame)
@@ -483,7 +483,7 @@ class AudioHandler: TimeAlignable {
                 let discontinuityStartOffset = copiedFrames * bytesPerFrame
                 let numberOfSilenceBytes = Int(framesUnderan) * bytesPerFrame
                 guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {
-                    self.logger.error("Invalid buffers when calculating silence")
+                    self.logger.warning("Invalid buffers when calculating silence")
                     break
                 }
                 memset(dataPointer + discontinuityStartOffset, 0, Int(numberOfSilenceBytes))
@@ -527,7 +527,7 @@ class AudioHandler: TimeAlignable {
                 memcpy(packet.pointee.data, data, packet.pointee.length)
                 concealed += UInt64(packet.pointee.elements)
             } catch {
-                handler.logger.error("\(error.localizedDescription)")
+                handler.logger.warning("\(error.localizedDescription)")
             }
         }
         if let measurement = handler.measurement {
@@ -548,7 +548,7 @@ class AudioHandler: TimeAlignable {
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
         guard let data = audioBuffer.mData else {
-            self.logger.error("AudioBuffer data was nil")
+            self.logger.warning("AudioBuffer data was nil")
             return
         }
 
@@ -595,7 +595,7 @@ class AudioHandler: TimeAlignable {
                         } else {
                             let interval = TimeInterval(stored) / microsecondsPerSecond
                             guard let window = OpusWindowSize(rawValue: interval) else {
-                                self.logger.error("Bad opus window size calculation")
+                                self.logger.warning("Bad opus window size calculation")
                                 return
                             }
                             self.windowSize = window
@@ -687,19 +687,19 @@ class AudioHandler: TimeAlignable {
                 let windowSize: TimeInterval = TimeInterval(frames) / self.decoder.encodedFormat.sampleRate
                 self.windowSizeUs.store(.init(windowSize * microsecondsPerSecond), ordering: .releasing)
             } catch {
-                self.logger.error("Failed to extract frame count from Opus")
+                self.logger.warning("Failed to extract frame count from Opus")
             }
         }
 
         // Decode.
         guard let decoded = try? self.decoder.write(data: item.data) else {
-            self.logger.error("Failed to decode audio")
+            self.logger.warning("Failed to decode audio")
             return
         }
 
         // Enqueue for playout.
         guard let diff = self.timeDiff.getTimeDiff() else {
-            self.logger.error("Missing timing info, cannot use this audio")
+            self.logger.warning("Missing timing info, cannot use this audio")
             return
         }
         let playout = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
@@ -763,7 +763,7 @@ class AudioHandler: TimeAlignable {
         self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
         // Enqueue for playout.
         guard let diff = self.timeDiff.getTimeDiff() else {
-            self.logger.error("Missing timing info, cannot use this audio")
+            self.logger.warning("Missing timing info, cannot use this audio")
             return nil
         }
         let itemDate = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
@@ -792,7 +792,7 @@ class AudioHandler: TimeAlignable {
                     self.measurement?.playoutFull(timestamp: self.granularMetrics ? when : nil)
                 }
             } catch {
-                self.logger.error("Failure generating PLC: \(error.localizedDescription)")
+                self.logger.warning("Failure generating PLC: \(error.localizedDescription)")
             }
         }
         return nil

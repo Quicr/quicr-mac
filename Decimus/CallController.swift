@@ -335,8 +335,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
                     count += 1
                 } catch let error as PubSubFactoryError {
                     self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
-                                            "\(error.localizedDescription)",
-                                        alert: true)
+                                            "\(error.localizedDescription)")
                 }
             }
         }
@@ -440,7 +439,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
     ///   - flag: How the stream was closed.
     func streamClosed(_ streamId: UInt64, flag: QStreamClosedFlag) {
         guard flag == .reset, (streamId & 0x2) == 0 else { return }
-        self.logger.error("Request stream \(streamId) was reset")
+        self.logger.warning("Request stream \(streamId) was reset")
     }
 
     private enum StatusAction {
@@ -463,14 +462,14 @@ final class MoqCallController: QClientCallbacks, Sendable {
                 }
                 state.connectionContinuation = nil
                 guard state.serverId != nil else {
-                    self.logger.error("Missing expected Server Setup on ready")
+                    self.logger.warning("Missing expected Server Setup on ready")
                     return .resume(cont, MoqCallControllerError.missingSetup)
                 }
                 state.connected = true
                 return .resume(cont, nil)
             case .notReady:
                 guard let cont = state.connectionContinuation else {
-                    self.logger.error("Missing expected continuation")
+                    self.logger.warning("Missing expected continuation")
                     return .none
                 }
                 state.connectionContinuation = nil
@@ -484,7 +483,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
             case .clientNotConnected:
                 state.connected = false
                 guard let cont = state.connectionContinuation else {
-                    self.logger.error("Disconnected from relay")
+                    self.logger.warning("Disconnected from relay")
                     return .callEnded
                 }
                 state.connectionContinuation = nil

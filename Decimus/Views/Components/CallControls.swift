@@ -59,7 +59,7 @@ struct CallControls: View {
             }
             return devices
         } catch {
-            self.logger.error("Failed to query devices: \(error.localizedDescription)")
+            self.logger.warning("Failed to query devices: \(error.localizedDescription)")
             return []
         }
     }
@@ -72,7 +72,7 @@ struct CallControls: View {
             }
             return devices
         } catch {
-            self.logger.error("Failed to query active devices: \(error.localizedDescription)")
+            self.logger.warning("Failed to query active devices: \(error.localizedDescription)")
             return []
         }
     }
@@ -231,7 +231,7 @@ struct CallControls: View {
                         }
                     }
                 } catch {
-                    self.logger.error("Unable to set muted speech activity listener")
+                    self.logger.warning("Unable to set muted speech activity listener")
                 }
             }
             #endif

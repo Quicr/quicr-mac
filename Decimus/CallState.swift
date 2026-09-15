@@ -415,7 +415,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                      codecFactory: CodecFactoryImpl())
                         }
                     case .failure(let error):
-                        self.logger.error("Catalog parse failed: \(error.localizedDescription)")
+                        self.logger.warning("Catalog parse failed: \(error.localizedDescription)")
                     }
                 }
             } catch {
@@ -636,7 +636,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         var newNamespaces: [NamespacePrefix: MSF.Track] = [:]
         for track in catalog.tracks {
             guard let namespace = track.namespace else {
-                self.logger.error("Missing namespace for catalog track")
+                self.logger.warning("Missing namespace for catalog track")
                 continue
             }
             var tuples = namespace.tuples
@@ -654,7 +654,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                     try controller.unsubscribeNamespace(handler)
                     self.logger.info("[nab] Unsubscribed namespace: \(prefix)")
                 } catch {
-                    self.logger.error("[nab] Failed to unsubscribe namespace: \(error.localizedDescription)")
+                    self.logger.warning("[nab] Failed to unsubscribe namespace: \(error.localizedDescription)")
                 }
             }
             // Tear down individual subscriptions created under this namespace.
@@ -664,7 +664,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                         try controller.unsubscribe(entry.sourceId, ftn: entry.ftn)
                         self.logger.info("[nab] Removed subscription: \(entry.ftn) from set \(entry.sourceId)")
                     } catch {
-                        self.logger.error("[nab] Failed to remove subscription \(entry.ftn): \(error.localizedDescription)")
+                        self.logger.warning("[nab] Failed to remove subscription \(entry.ftn): \(error.localizedDescription)")
                     }
                 }
             }
@@ -690,7 +690,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                 self.nabNamespaceHandlers[prefix] = handler
                 self.logger.info("[nab] Subscribed namespace: \(prefix) using filter: \(String(describing: filter))")
             } catch {
-                self.logger.error("[nab] Failed to subscribe namespace: \(error.localizedDescription)")
+                self.logger.warning("[nab] Failed to subscribe namespace: \(error.localizedDescription)")
             }
         }
 
@@ -708,7 +708,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                             try controller.unpublish(ftn)
                             self.logger.info("[nab] Unpublished: \(key)")
                         } catch {
-                            self.logger.error("[nab] Failed to unpublish \(key): \(error.localizedDescription)")
+                            self.logger.warning("[nab] Failed to unpublish \(key): \(error.localizedDescription)")
                         }
                     }
                 }
@@ -798,12 +798,12 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         do {
             try self.captureManager?.stopCapturing()
         } catch {
-            self.logger.error("Error while stopping camera: \(error)")
+            self.logger.warning("Error while stopping camera: \(error)")
         }
         do {
             try self.engine?.stop()
         } catch {
-            self.logger.error("Error while stopping audio: \(error)")
+            self.logger.warning("Error while stopping audio: \(error)")
         }
         do {
             try await self.appRecorder?.stopCapture()
@@ -819,7 +819,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         do {
             try controller?.disconnect()
         } catch {
-            self.logger.error("Error while leaving call: \(error)")
+            self.logger.warning("Error while leaving call: \(error)")
         }
         self.currentCatalog = nil
         self.nabNamespaceHandlers.removeAll()
@@ -846,7 +846,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                 self.logger.debug("Resolved influx token from default")
             }
         } catch {
-            self.logger.warning("Failed to fetch metrics credentials", alert: true)
+            self.logger.warning("Failed to fetch metrics credentials")
             return
         }
 
@@ -989,7 +989,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
 
         // Otherwise it's regular sub ns, or maybe oob publish.
-        self.logger.notice("Got non demo sub ns publish, ignoring")
+        self.logger.info("Got non demo sub ns publish, ignoring")
         return .reject
     }
 }
@@ -1068,7 +1068,7 @@ extension CallState {
             self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
             return subscription
         } catch {
-            self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
+            self.logger.warning("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
             return nil
         }
     }
@@ -1141,7 +1141,7 @@ extension CallState {
             self.logger.info("[nab] Created \(mediaType) subscription for \(remoteClientId)")
             return subscription
         } catch {
-            self.logger.error("[nab] Failed to create subscription: \(error.localizedDescription)")
+            self.logger.warning("[nab] Failed to create subscription: \(error.localizedDescription)")
             return nil
         }
     }

@@ -155,7 +155,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
             sequence = seq ?? objectHeaders.groupId
             timestamp = time
         } catch {
-            self.logger.error("Failed to parse extensions: \(error.localizedDescription)")
+            self.logger.warning("Failed to parse extensions: \(error.localizedDescription)")
             return
         }
 
@@ -174,7 +174,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
             do {
                 unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
-                self.logger.error("Failed to unprotect: \(error.localizedDescription)")
+                self.logger.warning("Failed to unprotect: \(error.localizedDescription)")
                 return
             }
         } else {
@@ -219,7 +219,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
                 return handler
             }
         } catch {
-            self.logger.error("Failed to recreate audio handler")
+            self.logger.warning("Failed to recreate audio handler")
             return
         }
 
@@ -229,7 +229,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
                                            date: now,
                                            timestamp: timestamp)
         } catch {
-            self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
+            self.logger.warning("Failed to handle encoded audio: \(error.localizedDescription)")
         }
     }
 

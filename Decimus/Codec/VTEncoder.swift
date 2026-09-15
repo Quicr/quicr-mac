@@ -205,7 +205,7 @@ final class VTEncoder: VideoEncoder {
         let flushError = VTCompressionSessionCompleteFrames(encoder,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            self.logger.warning("Encoder failed to flush: \(flushError)", alert: true)
+            self.logger.warning("Encoder failed to flush: \(flushError)")
         }
 
         VTCompressionSessionInvalidate(encoder)
@@ -243,7 +243,7 @@ final class VTEncoder: VideoEncoder {
                  sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
-            self.logger.error("Encode failure: \(status)")
+            self.logger.warning("Encode failure: \(status)")
             return
         }
         guard !flags.contains(.frameDropped) else {
@@ -251,7 +251,7 @@ final class VTEncoder: VideoEncoder {
             return
         }
         guard let sample = sample else {
-            self.logger.error("Encoded sample was empty")
+            self.logger.warning("Encoded sample was empty")
             return
         }
 
@@ -260,7 +260,7 @@ final class VTEncoder: VideoEncoder {
         let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
         guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
-            self.logger.error("Failed to allocate ios buffer")
+            self.logger.warning("Failed to allocate ios buffer")
             return
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
@@ -268,7 +268,7 @@ final class VTEncoder: VideoEncoder {
             buffer = try .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
             try sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
         } catch {
-            self.logger.error("Failed to copy data buffer: \(error.localizedDescription)")
+            self.logger.warning("Failed to copy data buffer: \(error.localizedDescription)")
             return
         }
         #else
@@ -277,7 +277,7 @@ final class VTEncoder: VideoEncoder {
 
         // Rebuild absolute timestamp.
         guard let frameRefCon = frameRefCon else {
-            self.logger.error("Missing expected frameRefCon (timestamp)")
+            self.logger.warning("Missing expected frameRefCon (timestamp)")
             return
         }
         let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
@@ -290,7 +290,7 @@ final class VTEncoder: VideoEncoder {
         let bytes = TimestampSei(fps: fps).getBytes(self.seiData,
                                                     startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
-            self.logger.error("Couldn't allocate timestamp buffer")
+            self.logger.warning("Couldn't allocate timestamp buffer")
             return
         }
 

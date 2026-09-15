@@ -137,7 +137,7 @@ final class OpusPublication: AudioPublication, PublicationInstance {
                             measurement.encode(encodePassCount, timestamp: Date.now)
                         }
                     } catch {
-                        self.logger.error("Failed encode: \(error)")
+                        self.logger.warning("Failed encode: \(error)")
                     }
                 }
                 try? await Task.sleep(for: .seconds(opusWindowSize.rawValue),
@@ -216,7 +216,7 @@ final class OpusPublication: AudioPublication, PublicationInstance {
 
         guard var priority = try? self.profile.getPriority(index: 0),
               var ttl = try? self.profile.getTTL(index: 0) else {
-            self.logger.error("Bad profile")
+            self.logger.warning("Bad profile")
             return
         }
 
@@ -229,7 +229,7 @@ final class OpusPublication: AudioPublication, PublicationInstance {
                                        plaintext: data)
                 }
             } catch {
-                self.logger.error("Failed to protect: \(error.localizedDescription)")
+                self.logger.warning("Failed to protect: \(error.localizedDescription)")
                 return
             }
         } else {
