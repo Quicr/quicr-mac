@@ -165,7 +165,7 @@ struct SubscriptionConfig: Codable {
         self.keyFrameOnSubscribeUpdate = false
         self.cleanupTime = 1.5
         self.stalenessThreshold = 0.3
-        self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
+        self.joinConfig = .init(fetchUpperThreshold: 0, newGroupUpperThreshold: 5)
         self.useAnnounce = false
         self.decoderQueueSize = 2
     }
