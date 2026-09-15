@@ -14,9 +14,7 @@ struct VideoGrid: View {
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
     private var participants: [VideoParticipants.Weak<VideoParticipant>] {
-        var toDisplay = self.videoParticipants.participants
-            .filter { $0.value != nil && $0.value!.display }
-            .sorted { ($0.value?.id ?? "") < ($1.value?.id ?? "") }
+        var toDisplay = self.videoParticipants.displayParticipants
 
         // Handle remote concurrent stream count.
         if let max = self.videoParticipants.maxDisplayCount {

@@ -99,6 +99,7 @@ final class TopNHarnessParticipant {
                                            },
                                            callEnded: nil)
         let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
         participants.maxDisplayCount = self.configuration.topN
         self.onVideoParticipantsReady(participants)
         var subConfig = SubscriptionConfig()

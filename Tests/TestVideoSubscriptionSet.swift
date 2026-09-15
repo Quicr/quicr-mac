@@ -170,10 +170,14 @@ struct VideoSubscriptionSetTests {
         return .init(image: sample, fps: 30, discontinous: false)
     }
 
-    private func makeObjectReceived(timestamp: TimeInterval?) -> ObjectReceived {
+    private func makeObjectReceived(timestamp: TimeInterval?,
+                                    when: Ticks = .now,
+                                    cached: Bool = false,
+                                    usable: Bool = true,
+                                    activity: UInt8? = nil) -> ObjectReceived {
         .init(timestamp: timestamp,
-              when: .now,
-              cached: false,
+              when: when,
+              cached: cached,
               headers: .init(groupId: 0,
                              subgroupId: 0,
                              objectId: 0,
@@ -181,19 +185,129 @@ struct VideoSubscriptionSetTests {
                              status: .available,
                              priority: nil,
                              ttl: nil),
-              usable: true,
-              publishTimestamp: nil)
+              usable: usable,
+              publishTimestamp: nil,
+              activity: activity)
     }
 
     @MainActor
-    private func makeParticipant() -> VideoParticipant {
-        .init(id: "participant",
+    private func makeParticipant(id: SourceIDType = "participant") -> VideoParticipant {
+        .init(id: id,
               startDate: .now,
               subscribeDate: .now,
               participantId: .init(1),
               activeSpeakerStats: nil,
               config: .init(calculateLatency: false,
                             slidingWindowTime: 1))
+    }
+
+    @MainActor
+    @Test("Display order ranks the current activity property first")
+    func testRecentActivityDisplayOrderUsesPropertyValue() throws {
+        let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
+        let started = self.makeParticipant(id: "started")
+        let continuous = self.makeParticipant(id: "continuous")
+        let ended = self.makeParticipant(id: "ended")
+        let registrations = try [started, continuous, ended].map { try participants.register($0) }
+        [started, continuous, ended].forEach { $0.display = true }
+        let now = Ticks.now
+
+        started.received(self.makeObjectReceived(timestamp: nil,
+                                                 when: now,
+                                                 activity: AudioActivityValue.speechStart.rawValue))
+        continuous.received(self.makeObjectReceived(timestamp: nil,
+                                                    when: now + TimeInterval(1).ticks,
+                                                    activity: AudioActivityValue.continuousSpeech.rawValue))
+        ended.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now + TimeInterval(2).ticks,
+                                               activity: AudioActivityValue.speechEnd.rawValue))
+
+        #expect(participants.displayParticipants.compactMap(\.value).map(\.id) ==
+                    ["started", "continuous", "ended"])
+        withExtendedLifetime(registrations) {}
+    }
+
+    @MainActor
+    @Test("Continuous frames retain the most recent speech-start order")
+    func testRecentActivityDisplayOrderRetainsSpeechStartRecency() throws {
+        let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
+        let older = self.makeParticipant(id: "older")
+        let newer = self.makeParticipant(id: "newer")
+        let registrations = try [older, newer].map { try participants.register($0) }
+        [older, newer].forEach { $0.display = true }
+        let now = Ticks.now
+
+        older.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now,
+                                               activity: AudioActivityValue.speechStart.rawValue))
+        older.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now + TimeInterval(1).ticks,
+                                               activity: AudioActivityValue.continuousSpeech.rawValue))
+        newer.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now + TimeInterval(2).ticks,
+                                               activity: AudioActivityValue.speechStart.rawValue))
+        newer.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now + TimeInterval(3).ticks,
+                                               activity: AudioActivityValue.continuousSpeech.rawValue))
+        older.received(self.makeObjectReceived(timestamp: nil,
+                                               when: now + TimeInterval(4).ticks,
+                                               activity: AudioActivityValue.continuousSpeech.rawValue))
+
+        #expect(participants.displayParticipants.compactMap(\.value).map(\.id) == ["newer", "older"])
+        withExtendedLifetime(registrations) {}
+    }
+
+    @MainActor
+    @Test("Cached activity does not change display order")
+    func testCachedActivityDoesNotChangeDisplayOrder() throws {
+        let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
+        let active = self.makeParticipant(id: "active")
+        let cached = self.makeParticipant(id: "cached")
+        let registrations = try [active, cached].map { try participants.register($0) }
+        [active, cached].forEach { $0.display = true }
+        let now = Ticks.now
+
+        active.received(self.makeObjectReceived(timestamp: nil,
+                                                when: now,
+                                                activity: AudioActivityValue.continuousSpeech.rawValue))
+        cached.received(self.makeObjectReceived(timestamp: nil,
+                                                when: now + TimeInterval(1).ticks,
+                                                cached: true,
+                                                activity: AudioActivityValue.speechStart.rawValue))
+
+        #expect(participants.displayParticipants.compactMap(\.value).map(\.id) == ["active", "cached"])
+        withExtendedLifetime(registrations) {}
+    }
+
+    @MainActor
+    @Test("A hidden continuous speaker becomes the most recently active on return")
+    func testHiddenContinuousSpeakerReactivationUpdatesRecency() throws {
+        let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
+        let returning = self.makeParticipant(id: "returning")
+        let current = self.makeParticipant(id: "current")
+        let registrations = try [returning, current].map { try participants.register($0) }
+        let now = Ticks.now
+
+        returning.display = true
+        returning.received(self.makeObjectReceived(timestamp: nil,
+                                                   when: now,
+                                                   activity: AudioActivityValue.continuousSpeech.rawValue))
+        current.display = true
+        current.received(self.makeObjectReceived(timestamp: nil,
+                                                 when: now + TimeInterval(1).ticks,
+                                                 activity: AudioActivityValue.continuousSpeech.rawValue))
+        returning.display = false
+        returning.received(self.makeObjectReceived(timestamp: nil,
+                                                   when: now + TimeInterval(2).ticks,
+                                                   activity: AudioActivityValue.continuousSpeech.rawValue))
+        returning.display = true
+
+        #expect(participants.displayParticipants.compactMap(\.value).map(\.id) == ["returning", "current"])
+        withExtendedLifetime(registrations) {}
     }
 
     @MainActor
@@ -561,7 +675,8 @@ struct VideoSubscriptionSetTests {
                                                     priority: nil,
                                                     ttl: nil),
                                      usable: true,
-                                     publishTimestamp: nil)
+                                     publishTimestamp: nil,
+                                     activity: nil)
 
         set.receivedObject(subscription,
                            details: details)
