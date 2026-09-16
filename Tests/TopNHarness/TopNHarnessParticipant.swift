@@ -12,20 +12,20 @@ final class TopNHarnessParticipant {
         let client: QClientObjC
         let controller: MoqCallController
         let videoParticipants: VideoParticipants
-        let namespaceHandler: QSubscribeNamespaceHandler
+        let namespaceHandlers: [QSubscribeNamespaceHandler]
         let publication: SyntheticVideoPublication
     }
 
     private struct ReceiveContext {
         let controller: MoqCallController
         let subscriptionFactory: SubscriptionFactoryImpl
-        let namespaceHandler: QSubscribeNamespaceHandler
+        let namespaceHandlers: [QSubscribeNamespaceHandler]
     }
 
     let id: TopNParticipantID
     private let participantIndex: UInt16
     private let configuration: TopNHarnessConfiguration
-    private let fixture: TopNH264Fixture
+    private let fixtures: TopNH264FixtureSet
     private let recorder: TopNHarnessRecorder
     private let faultController: TopNHarnessFaultController
     private let isParticipantEligible: @MainActor (TopNParticipantID) -> Bool
@@ -38,7 +38,7 @@ final class TopNHarnessParticipant {
     init(id: TopNParticipantID,
          participantIndex: UInt16,
          configuration: TopNHarnessConfiguration,
-         fixture: TopNH264Fixture,
+         fixtures: TopNH264FixtureSet,
          recorder: TopNHarnessRecorder,
          faultController: TopNHarnessFaultController,
          isParticipantEligible: @escaping @MainActor (TopNParticipantID) -> Bool,
@@ -46,11 +46,22 @@ final class TopNHarnessParticipant {
         self.id = id
         self.participantIndex = participantIndex
         self.configuration = configuration
-        self.fixture = fixture
+        self.fixtures = fixtures
         self.recorder = recorder
         self.faultController = faultController
         self.isParticipantEligible = isParticipantEligible
         self.onVideoParticipantsReady = onVideoParticipantsReady
+    }
+
+    private func makeNamespaceHandlers() -> [QSubscribeNamespaceHandler] {
+        TopNVideoQuality.allCases.map { quality in
+            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                          maxTracksSelected: UInt64(self.configuration.topN),
+                                          timeout: self.configuration.filterTimeoutMilliseconds)
+            return QSubscribeNamespaceHandler(
+                namespacePrefix: NamespacePrefix(quality.subscribeNamespace(meetingID: self.configuration.meetingID)),
+                trackFilter: filter) { _, _, _ in }
+        }
     }
 
     func join(startingGroupId: UInt64,
@@ -107,6 +118,8 @@ final class TopNHarnessParticipant {
                                      newGroupUpperThreshold: self.configuration.joinPolicy.newGroupUpperThresholdSeconds)
         subConfig.keyFrameInterval = 5
         subConfig.simulreceive = .enable
+        subConfig.qualityHitThreshold = 1
+        subConfig.qualityMissThreshold = 1
         subConfig.enableQlog = self.configuration.enableQlog
         subConfig.stalenessThreshold = 0.3
         participants.stalenessThreshold = subConfig.stalenessThreshold
@@ -132,7 +145,8 @@ final class TopNHarnessParticipant {
                                               videoPipelineEvent: self.recorder.videoCallback(client: self.id,
                                                                                               connectionGeneration: number),
                                               videoObjectIngressInterceptor: { ingress in
-                                                guard let remote = Self.remoteParticipant(in: ingress.fullTrackName, meetingID: meetingID) else {
+                                                guard let remote = Self.remoteTrack(
+                                                        in: ingress.fullTrackName, meetingID: meetingID)?.participant else {
                                                     return .deliver
                                                 }
                                                 return faultController.ingressDecision(localParticipant: localParticipant,
@@ -140,15 +154,10 @@ final class TopNHarnessParticipant {
                                                                                        connectionGeneration: number,
                                                                                        ingress: ingress)
                                               })
-        let prefix = NamespacePrefix(["meetings.wbx.com", self.configuration.meetingID, "video"])
-        let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
-                                      maxTracksSelected: UInt64(self.configuration.topN),
-                                      timeout: self.configuration.filterTimeoutMilliseconds)
-        let namespaceHandler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
-                                                          trackFilter: filter) { _, _, _ in }
+        let namespaceHandlers = self.makeNamespaceHandlers()
         self.receiveContext = .init(controller: controller,
                                     subscriptionFactory: factory,
-                                    namespaceHandler: namespaceHandler)
+                                    namespaceHandlers: namespaceHandlers)
         var joined = false
         defer {
             if !joined {
@@ -158,42 +167,42 @@ final class TopNHarnessParticipant {
             }
         }
         try await controller.connect()
-        try controller.subscribeNamespace(namespaceHandler)
-        let publicationFactory = SyntheticVideoPublicationFactory(fixture: self.fixture,
+        for namespaceHandler in namespaceHandlers {
+            try controller.subscribeNamespace(namespaceHandler)
+        }
+        let publicationFactory = SyntheticVideoPublicationFactory(fixtures: self.fixtures,
                                                                   startingGroupId: startingGroupId,
                                                                   startingRollReason: startingRollReason,
                                                                   participant: self.id,
                                                                   connectionGeneration: number,
                                                                   faultController: self.faultController,
                                                                   onPublished: { [weak self] object in
-                                                                    guard let self else { return }
-                                                                    self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: number,
-                                                                                                     groupId: object.groupId, subgroupId: object.subgroupId,
-                                                                                                     objectId: object.objectId, actionID: object.activityActionID,
-                                                                                                     stage: .publishedObject,
-                                                                                                     details: .init(rollReason: object.rollReason?.rawValue))
+                                                                    self?.recordPublished(object, generation: number)
                                                                   },
-                                                                  onStatus: { [weak self] status in
-                                                                    guard let self else { return }
-                                                                    self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: number,
-                                                                                                     stage: .publicationStatus,
-                                                                                                     details: .init(status: String(describing: status)))
+                                                                  onStatus: { [weak self] quality, status in
+                                                                    self?.recordPublicationStatus(
+                                                                        quality, status: status, generation: number)
                                                                   })
         let publicationDetails = ManifestPublication(mediaType: "video", sourceName: "synthetic",
                                                      sourceID: "topn-\(self.id.rawValue)-video",
                                                      label: "Top-N synthetic video",
-                                                     profileSet: .init(type: "video", profiles: [
-                                                        .init(qualityProfile: "h264,width=320,height=180,fps=30,br=400",
-                                                              expiry: [5000, 5000], priorities: [2, 3],
-                                                              namespace: ["meetings.wbx.com", self.configuration.meetingID,
-                                                                          "video", self.id.rawValue], name: "h264")
-                                                     ]))
+                                                     profileSet: .init(
+                                                        type: "video",
+                                                        profiles: TopNVideoQuality.allCases.map { quality in
+                                                            .init(
+                                                                qualityProfile: quality.qualityProfile,
+                                                                expiry: [5000, 5000], priorities: [2, 3],
+                                                                namespace: quality.publicationNamespace(
+                                                                    meetingID: self.configuration.meetingID,
+                                                                    participant: self.id),
+                                                                name: "h264")
+                                                        }))
         _ = try controller.publish(details: publicationDetails,
                                    factory: publicationFactory,
                                    codecFactory: CodecFactoryImpl())
         let publication = try publicationFactory.takeCreatedPublication()
         self.generation = .init(number: number, client: client, controller: controller,
-                                videoParticipants: participants, namespaceHandler: namespaceHandler,
+                                videoParticipants: participants, namespaceHandlers: namespaceHandlers,
                                 publication: publication)
         joined = true
         publication.start()
@@ -228,48 +237,63 @@ final class TopNHarnessParticipant {
     private func acceptRemote(tfn: FullTrackName,
                               attributes: QPublishAttributes,
                               namespaceHandler _: (any MoQSubscribeNamespaceHandler)?) async -> PublishResponse {
-        let components = tfn.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
-        let remote = Self.remoteParticipant(in: tfn, meetingID: self.configuration.meetingID)
+        let remoteTrack = Self.remoteTrack(in: tfn, meetingID: self.configuration.meetingID)
+        let offeredParticipant = remoteTrack?.participant
         self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: self.generationNumber,
-                                         remoteParticipant: remote, stage: .publishOffered)
+                                         remoteParticipant: offeredParticipant, stage: .publishOffered,
+                                         details: .init(quality: remoteTrack?.quality))
         guard let receiveContext = self.receiveContext else {
-            return self.rejectRemote(remote, reason: "receive context unavailable")
+            return self.rejectRemote(offeredParticipant, reason: "receive context unavailable")
         }
-        guard let remote else {
+        guard let remoteTrack else {
             return self.rejectRemote(nil, reason: "unexpected full track name")
         }
+        let remote = remoteTrack.participant
         guard remote != self.id else {
             return self.rejectRemote(remote, reason: "self publication")
         }
         guard self.configuration.participants.contains(remote), self.isParticipantEligible(remote) else {
             return self.rejectRemote(remote, reason: "participant unavailable")
         }
-        let profile = Profile(qualityProfile: "h264,width=320,height=180,fps=30,br=400",
-                              expiry: [5000, 5000], priorities: [2, 3],
-                              namespace: components, name: "h264")
+        let profiles = TopNVideoQuality.allCases.map { quality in
+            Profile(qualityProfile: quality.qualityProfile,
+                    expiry: [5000, 5000], priorities: [2, 3],
+                    namespace: quality.publicationNamespace(
+                        meetingID: self.configuration.meetingID, participant: remote),
+                    name: "h264")
+        }
         let details = ManifestSubscription(mediaType: "video", sourceName: "synthetic",
                                            sourceID: "topn-\(remote.rawValue)-video", label: "Top-N synthetic video",
                                            participantId: ParticipantId(UInt32(self.configuration.participants.firstIndex(of: remote)! + 1)),
-                                           profileSet: .init(type: "video", profiles: [profile]))
+                                           profileSet: .init(type: "video", profiles: profiles))
         let pubDetails = MoqCallController.PublisherInitiatedDetails(trackAlias: attributes.trackAlias,
                                                                      requestId: attributes.newGroupRequestId)
-        if receiveContext.controller.getSubscriptionSet(details.sourceID) != nil {
-            try? receiveContext.controller.unsubscribeToSet(details.sourceID)
+        let set: SubscriptionSet
+        do {
+            if let existing = receiveContext.controller.getSubscriptionSet(details.sourceID) {
+                set = existing
+            } else {
+                set = try receiveContext.controller.subscribeToSet(
+                    details: details, factory: receiveContext.subscriptionFactory, subscribeType: .setOnly)
+            }
+            guard set.getHandlers()[tfn] == nil else {
+                return self.rejectRemote(remote, reason: "duplicate quality offer")
+            }
+            let profile = profiles.first { $0.namespace[3] == remoteTrack.quality.rawValue }!
+            let subscription = try receiveContext.controller.subscribe(
+                set: set, profile: profile, factory: receiveContext.subscriptionFactory,
+                publisherInitiated: pubDetails)
+            var response = attributes
+            response.filterType = .latestObject
+            response.forward = 1
+            response.isPublisherInitiated = true
+            self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: self.generationNumber,
+                                             remoteParticipant: remote, stage: .publishAccepted,
+                                             details: .init(quality: remoteTrack.quality))
+            return .accept(response, subscription)
+        } catch {
+            return self.rejectRemote(remote, reason: "subscription creation failed: \(error)")
         }
-        let set = try? receiveContext.controller.subscribeToSet(details: details,
-                                                                factory: receiveContext.subscriptionFactory,
-                                                                subscribeType: .publisherInitiated(pubDetails))
-        guard let set,
-              let subscription = receiveContext.controller.getSubscriptions(set).last else {
-            return self.rejectRemote(remote, reason: "subscription creation failed")
-        }
-        var response = attributes
-        response.filterType = .latestObject
-        response.forward = 1
-        response.isPublisherInitiated = true
-        self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: self.generationNumber,
-                                         remoteParticipant: remote, stage: .publishAccepted)
-        return .accept(response, subscription)
     }
 
     private func rejectRemote(_ remote: TopNParticipantID?, reason: String) -> PublishResponse {
@@ -279,14 +303,38 @@ final class TopNHarnessParticipant {
         return .reject
     }
 
-    nonisolated private static func remoteParticipant(in tfn: FullTrackName,
-                                                      meetingID: String) -> TopNParticipantID? {
+    private struct RemoteTrack {
+        let participant: TopNParticipantID
+        let quality: TopNVideoQuality
+    }
+
+    nonisolated private static func remoteTrack(in tfn: FullTrackName,
+                                                meetingID: String) -> RemoteTrack? {
         let components = tfn.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
-        guard components.count == 4,
+        guard components.count == 5,
               components[0] == "meetings.wbx.com",
               components[1] == meetingID,
               components[2] == "video",
+              let quality = TopNVideoQuality(rawValue: components[3]),
               String(data: tfn.name, encoding: .utf8) == "h264" else { return nil }
-        return TopNParticipantID(rawValue: components[3])
+        return .init(participant: TopNParticipantID(rawValue: components[4]), quality: quality)
+    }
+
+    nonisolated private func recordPublished(_ object: TopNPublishedObject, generation: UInt64) {
+        self.recorder.recordHarnessEvent(
+            client: self.id, connectionGeneration: generation,
+            groupId: object.groupId, subgroupId: object.subgroupId,
+            objectId: object.objectId, actionID: object.activityActionID,
+            stage: .publishedObject,
+            details: .init(rollReason: object.rollReason?.rawValue))
+    }
+
+    nonisolated private func recordPublicationStatus(_ quality: TopNVideoQuality,
+                                                     status: QPublishTrackHandlerStatus,
+                                                     generation: UInt64) {
+        self.recorder.recordHarnessEvent(
+            client: self.id, connectionGeneration: generation,
+            stage: .publicationStatus,
+            details: .init(status: "\(quality.rawValue):\(status)"))
     }
 }

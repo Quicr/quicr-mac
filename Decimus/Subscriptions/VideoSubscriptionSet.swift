@@ -20,6 +20,187 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
+struct SimulreceiveCoalescingState {
+    private static let defaultAllowance: TimeInterval = 0.006
+    private static let minimumAllowance: TimeInterval = 0.006
+    private static let maximumAllowance: TimeInterval = 0.008
+    private static let historyLimit = 60
+
+    private var decodedSpreads: [TimeInterval] = []
+    private var pendingPresentationTime: CMTime?
+    private var pendingImages: [FullTrackName: AvailableImage] = [:]
+    private var deadline: Date?
+
+    var allowance: TimeInterval {
+        guard let maximumSpread = self.decodedSpreads.max() else {
+            return Self.defaultAllowance
+        }
+        return min(Self.maximumAllowance,
+                   max(Self.minimumAllowance, maximumSpread * 1.25))
+    }
+
+    mutating func record(decodedSpread: TimeInterval) {
+        // Larger spreads mean a representation is out of phase, not that sibling decoding needs more coalescing time.
+        guard decodedSpread.isFinite,
+              decodedSpread >= 0,
+              decodedSpread <= Self.maximumAllowance else { return }
+        self.decodedSpreads.append(decodedSpread)
+        if self.decodedSpreads.count > Self.historyLimit {
+            self.decodedSpreads.removeFirst(self.decodedSpreads.count - Self.historyLimit)
+        }
+    }
+
+    mutating func candidates(from current: [FullTrackName: AvailableImage]) -> [FullTrackName: AvailableImage] {
+        if self.pendingPresentationTime == nil {
+            self.pendingPresentationTime = current.values
+                .map(\.image.presentationTimeStamp)
+                .min()
+        }
+        guard let pendingPresentationTime else { return [:] }
+        for (fullTrackName, image) in current where image.image.presentationTimeStamp == pendingPresentationTime {
+            self.pendingImages[fullTrackName] = image
+        }
+        return self.pendingImages
+    }
+
+    mutating func waitDuration(at now: Date,
+                               presentationTime: CMTime,
+                               availableQualityCount: Int,
+                               expectedQualityCount: Int,
+                               highestAvailablePristineWidth: Int32?,
+                               expectedHighestWidth: Int32?,
+                               highestQualityAdvanced: Bool) -> TimeInterval? {
+        let allQualitiesAvailable = availableQualityCount >= expectedQualityCount
+        let highestQualityAvailable = highestAvailablePristineWidth == expectedHighestWidth
+        guard expectedQualityCount > 1,
+              !allQualitiesAvailable,
+              !highestQualityAvailable,
+              !highestQualityAdvanced else {
+            self.resetPending()
+            return nil
+        }
+
+        if self.pendingPresentationTime != presentationTime || self.deadline == nil {
+            self.pendingPresentationTime = presentationTime
+            self.deadline = now.addingTimeInterval(self.allowance)
+        }
+
+        guard let deadline else { return nil }
+        let remaining = deadline.timeIntervalSince(now)
+        guard remaining > 0 else {
+            self.resetPending()
+            return nil
+        }
+        return remaining
+    }
+
+    mutating func reset() {
+        self.decodedSpreads.removeAll(keepingCapacity: true)
+        self.resetPending()
+    }
+
+    private mutating func resetPending() {
+        self.pendingPresentationTime = nil
+        self.pendingImages.removeAll(keepingCapacity: true)
+        self.deadline = nil
+    }
+}
+
+final class SimulreceiveRenderWakeup: Sendable {
+    private struct Waiter {
+        let token: UInt64
+        let continuation: CheckedContinuation<Void, Never>
+        var timeoutTask: Task<Void, Never>?
+    }
+
+    private struct State {
+        var nextToken: UInt64 = 0
+        var pendingSignal = false
+        var cancelledTokens: Set<UInt64> = []
+        var waiters: [UInt64: Waiter] = [:]
+    }
+
+    private let state = Mutex(State())
+
+    func signal() {
+        let waiters = self.state.withLock { state -> [Waiter] in
+            guard !state.waiters.isEmpty else {
+                state.pendingSignal = true
+                return []
+            }
+            let waiters = Array(state.waiters.values)
+            state.waiters.removeAll(keepingCapacity: true)
+            return waiters
+        }
+        for waiter in waiters {
+            waiter.timeoutTask?.cancel()
+            waiter.continuation.resume()
+        }
+    }
+
+    func wait(for duration: TimeInterval) async {
+        guard duration > 0 else { return }
+        let token = self.state.withLock { state in
+            state.nextToken &+= 1
+            return state.nextToken
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let resumeImmediately = self.state.withLock { state in
+                    if state.cancelledTokens.remove(token) != nil {
+                        return true
+                    }
+                    if state.pendingSignal {
+                        state.pendingSignal = false
+                        return true
+                    }
+                    state.waiters[token] = .init(token: token,
+                                                 continuation: continuation,
+                                                 timeoutTask: nil)
+                    return false
+                }
+                guard !resumeImmediately else {
+                    continuation.resume()
+                    return
+                }
+
+                let timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(duration), clock: .continuous)
+                    guard !Task.isCancelled else { return }
+                    self?.resume(token: token, cancelTimeout: false)
+                }
+                let installed = self.state.withLock { state in
+                    guard state.waiters[token] != nil else { return false }
+                    state.waiters[token]?.timeoutTask = timeoutTask
+                    return true
+                }
+                if !installed {
+                    timeoutTask.cancel()
+                }
+            }
+        } onCancel: {
+            let waiter = self.state.withLock { state -> Waiter? in
+                guard let waiter = state.waiters.removeValue(forKey: token) else {
+                    state.cancelledTokens.insert(token)
+                    return nil
+                }
+                return waiter
+            }
+            waiter?.timeoutTask?.cancel()
+            waiter?.continuation.resume()
+        }
+        self.state.withLock { _ = $0.cancelledTokens.remove(token) }
+    }
+
+    private func resume(token: UInt64, cancelTimeout: Bool) {
+        let waiter = self.state.withLock { $0.waiters.removeValue(forKey: token) }
+        if cancelTimeout {
+            waiter?.timeoutTask?.cancel()
+        }
+        waiter?.continuation.resume()
+    }
+}
+
 class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unchecked Sendable {
     private let logger = DecimusLogger(VideoSubscriptionSet.self)
 
@@ -72,6 +253,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     }
     /// Simulreceive render.
     private let renderState = Mutex(RenderState())
+    /// Wakes the render task when a decoded image becomes available.
+    private let renderWakeup = SimulreceiveRenderWakeup()
+    /// Briefly coalesces sibling qualities that decode on slightly different timelines.
+    private let coalescingState = Mutex(SimulreceiveCoalescingState())
     /// In flight decisions that should be allowed to complete.
     private let renderDecisions = DispatchGroup()
 
@@ -241,6 +426,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.qualityMisses = 0
         self.qualityHits = 0
         self.pauseMissCounts.removeAll()
+        self.coalescingState.withLock { $0.reset() }
     }
 
     /// Get or create the participant for the locked render epoch.
@@ -434,6 +620,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         guard let token else { return }
 
         // Start the simulreceive render.
+        let renderWakeup = self.renderWakeup
         let task = Task(priority: .high) { [weak self] in
             defer {
                 self?.renderState.withLock { state in
@@ -451,7 +638,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                     return
                 }
                 if duration > 0 {
-                    try? await Task.sleep(for: .seconds(duration))
+                    await renderWakeup.wait(for: duration)
                 }
             }
         }
@@ -543,7 +730,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private func makeSimulreceiveDecision(at: Ticks,
                                           epoch: UInt64) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
-        var initialChoices: [SimulreceiveItem] = []
+        var currentChoices: [SimulreceiveItem] = []
         var handlers: [FullTrackName: VideoHandler] = [:]
         for subscription in self.getHandlers().values {
             guard let subscription = subscription as? VideoSubscription,
@@ -559,10 +746,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                     lockedImage = nil
                     return
                 }
-                initialChoices.append(.init(fullTrackName: handler.fullTrackName, image: available))
+                currentChoices.append(.init(fullTrackName: handler.fullTrackName, image: available))
             }
         }
-        for choice in initialChoices {
+        for choice in currentChoices {
             self.emit(.simulreceiveCandidate(
                         presentationSeconds: choice.image.image.presentationTimeStamp.seconds),
                       fullTrackName: choice.fullTrackName,
@@ -570,6 +757,40 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                       epoch: epoch,
                       objectId: nil)
         }
+
+        let currentImages = Dictionary(uniqueKeysWithValues: currentChoices.map {
+            ($0.fullTrackName, $0.image)
+        })
+        let coalescingResult = self.coalescingState.withLock { state -> ([SimulreceiveItem], TimeInterval?) in
+            let candidates = state.candidates(from: currentImages).map {
+                SimulreceiveItem(fullTrackName: $0.key, image: $0.value)
+            }
+            guard let oldestPresentationTime = candidates.first?.image.image.presentationTimeStamp else {
+                return ([], nil)
+            }
+            let highestAvailablePristineWidth = candidates
+                .filter { !$0.image.discontinous }
+                .compactMap { $0.image.image.formatDescription?.dimensions.width }
+                .max()
+            let expectedHighestWidth = handlers.values.map(\.config.width).max()
+            let highestQualityAdvanced = currentChoices.contains { choice in
+                choice.image.image.formatDescription?.dimensions.width == expectedHighestWidth &&
+                    choice.image.image.presentationTimeStamp > oldestPresentationTime
+            }
+            let waitDuration = state.waitDuration(
+                at: at.hostDate,
+                presentationTime: oldestPresentationTime,
+                availableQualityCount: candidates.count,
+                expectedQualityCount: handlers.count,
+                highestAvailablePristineWidth: highestAvailablePristineWidth,
+                expectedHighestWidth: expectedHighestWidth,
+                highestQualityAdvanced: highestQualityAdvanced)
+            return (candidates, waitDuration)
+        }
+        if let waitDuration = coalescingResult.1 {
+            return waitDuration
+        }
+        let initialChoices = coalescingResult.0
 
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
@@ -791,26 +1012,32 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         e2eLatency = nil
                     }
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                    let rendered = try self.renderState.withLock { state in
+                    let rendered: VideoDisplayEnqueueTiming? = try self.renderState.withLock { state in
                         guard let registration = try self.getOrCreateParticipant(state: &state,
                                                                                  epoch: epoch) else {
-                            return false
+                            return nil
                         }
-                        let enqueued = try registration.withParticipant { participant in
+                        guard let timing = try registration.withParticipant({ participant in
                             if let dispatchLabel {
                                 participant.label = dispatchLabel
                             }
-                            try participant.enqueue(selectedSample,
-                                                    transform: transform,
-                                                    when: when,
-                                                    endToEndLatency: e2eLatency)
-                            return true
-                        }
-                        guard enqueued == true else { return false }
+                            return try participant.enqueue(selectedSample,
+                                                           transform: transform,
+                                                           when: when,
+                                                           endToEndLatency: e2eLatency)
+                        }) else { return nil }
                         self.mediaState.withLock { $0 = .rendered }
-                        return true
+                        return timing
                     }
-                    guard rendered else { return }
+                    guard let timing = rendered else { return }
+                    if self.granularMetrics,
+                       let measurement = self.measurement {
+                        measurement.displayEnqueueTiming(timing, timestamp: Date.now)
+                    }
+                    self.emit(.displayEnqueueTiming(timing),
+                              fullTrackName: selected.fullTrackName,
+                              handlerGeneration: handler.generation,
+                              epoch: epoch)
                     self.emit(.displayEnqueued(
                                 presentationSeconds: selectedSample.presentationTimeStamp.seconds),
                               fullTrackName: selected.fullTrackName,
@@ -883,5 +1110,24 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         assert(self.mediaState.get() == .rendered)
         #endif
         self.displayCallbacks.fire()
+    }
+}
+
+extension VideoSubscriptionSet {
+    func decodedImageAvailable(subscriptionIdentity: UUID,
+                               fullTrackName: FullTrackName,
+                               handlerGeneration: UInt64,
+                               decodedSpread: TimeInterval?) {
+        self.membership.withLock { _ in
+            guard let subscription = self.getHandlers()[fullTrackName] as? VideoSubscription,
+                  subscription.identity == subscriptionIdentity,
+                  subscription.handler.get()?.generation == handlerGeneration else { return }
+            if let decodedSpread {
+                self.coalescingState.withLock { $0.record(decodedSpread: decodedSpread) }
+            }
+            let epoch = self.renderState.withLock { $0.epoch }
+            self.startRenderTask(epoch: epoch)
+            self.renderWakeup.signal()
+        }
     }
 }

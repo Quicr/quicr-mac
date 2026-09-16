@@ -7,6 +7,139 @@ import XCTest
 @testable import QuicR
 
 final class TestTopNHarnessOracle: XCTestCase {
+    func testSimulreceiveQualitiesUseIndependentTopNNamespaces() {
+        let qualities = TopNVideoQuality.allCases
+
+        XCTAssertEqual(qualities.map(\.rawValue), ["1080p", "720p", "360p"])
+        XCTAssertEqual(qualities.map { [$0.width, $0.height] },
+                       [[1920, 1080], [1280, 720], [640, 360]])
+        XCTAssertEqual(qualities.map(\.qualityProfile), [
+            "h264,width=1920,height=1080,fps=30,br=4000",
+            "h264,width=1280,height=720,fps=30,br=2000",
+            "h264,width=640,height=360,fps=30,br=800"
+        ])
+        XCTAssertEqual(qualities.map { $0.subscribeNamespace(meetingID: "meeting") }, [
+            ["meetings.wbx.com", "meeting", "video", "1080p"],
+            ["meetings.wbx.com", "meeting", "video", "720p"],
+            ["meetings.wbx.com", "meeting", "video", "360p"]
+        ])
+        XCTAssertEqual(qualities.map {
+            $0.publicationNamespace(meetingID: "meeting", participant: .init(rawValue: "p1"))
+        }, [
+            ["meetings.wbx.com", "meeting", "video", "1080p", "p1"],
+            ["meetings.wbx.com", "meeting", "video", "720p", "p1"],
+            ["meetings.wbx.com", "meeting", "video", "360p", "p1"]
+        ])
+    }
+
+    func testDecodedImageAvailabilityRecordsQualityAndPresentationTime() throws {
+        let recorder = TopNHarnessRecorder()
+        let fullTrackName = try FullTrackName(
+            namespace: ["meetings.wbx.com", "meeting", "video", "1080p", "p1"],
+            name: "h264")
+        let presentationSeconds = 123.456
+
+        recorder.record(client: .init(rawValue: "p2"),
+                        connectionGeneration: 1,
+                        event: .init(occurredAt: .now,
+                                     fullTrackName: fullTrackName,
+                                     handlerGeneration: 2,
+                                     renderEpoch: nil,
+                                     groupId: nil,
+                                     subgroupId: nil,
+                                     objectId: nil,
+                                     kind: .simulreceiveImageAvailable(
+                                        presentationSeconds: presentationSeconds)))
+
+        let events = recorder.snapshot()
+        XCTAssertEqual(events.count, 1)
+        let event = try XCTUnwrap(events.first)
+        XCTAssertEqual(event.stage, .simulreceiveImageAvailable)
+        XCTAssertEqual(event.remoteParticipant, .init(rawValue: "p1"))
+        XCTAssertEqual(event.details?.quality, .p1080)
+        XCTAssertEqual(event.details?.presentationSeconds, presentationSeconds)
+    }
+
+    func testSimulreceiveFixtureRequiresAllThreeQualities() {
+        let emptyVersionTwoContainer = Data([0x51, 0x54, 0x48, 0x31,
+                                             0x00, 0x02, 0x00, 0x00])
+
+        XCTAssertThrowsError(try TopNH264FixtureSet.load(data: emptyVersionTwoContainer)) { error in
+            XCTAssertEqual(error as? TopNH264FixtureError,
+                           .invalid("expected 3 quality fixtures, found 0"))
+        }
+    }
+
+    func testSyntheticPublicationFactoryCreatesOneTrackPerQuality() throws {
+        let participant = TopNParticipantID(rawValue: "p1")
+        let fixtures = TopNH264FixtureSet(fixtures: Dictionary(uniqueKeysWithValues:
+                                                                TopNVideoQuality.allCases.map { quality in
+                                                                    (quality, TopNH264Fixture(fps: 30, width: quality.width,
+                                                                                              height: quality.height, accessUnits: []))
+                                                                }))
+        let profiles = TopNVideoQuality.allCases.map { quality in
+            Profile(qualityProfile: quality.qualityProfile,
+                    expiry: [5000, 5000], priorities: [2, 3],
+                    namespace: quality.publicationNamespace(meetingID: "meeting", participant: participant),
+                    name: "h264")
+        }
+        let recorder = TopNHarnessRecorder()
+        let factory = SyntheticVideoPublicationFactory(
+            fixtures: fixtures,
+            startingGroupId: 1,
+            startingRollReason: .initial,
+            participant: participant,
+            connectionGeneration: 1,
+            faultController: .init(rules: [], recorder: recorder),
+            onPublished: { _ in },
+            onStatus: { _, _ in })
+        let details = ManifestPublication(mediaType: "video", sourceName: "synthetic",
+                                          sourceID: "topn-p1-video", label: "Top-N synthetic video",
+                                          profileSet: .init(type: "video", profiles: profiles))
+
+        let publications = try factory.create(publication: details, codecFactory: CodecFactoryImpl(),
+                                              endpointId: "endpoint", relayId: "relay")
+
+        XCTAssertEqual(publications.map { $0.0.nameSpace.compactMap { String(data: $0, encoding: .utf8) } }, [
+            ["meetings.wbx.com", "meeting", "video", "1080p", "p1"],
+            ["meetings.wbx.com", "meeting", "video", "720p", "p1"],
+            ["meetings.wbx.com", "meeting", "video", "360p", "p1"]
+        ])
+        XCTAssertEqual(try factory.takeCreatedPublication().trackCount, 3)
+    }
+
+    func testDropNextIDRFaultAppliesToEveryQualityAtTheSameLocation() throws {
+        let local = TopNParticipantID(rawValue: "p2")
+        let remote = TopNParticipantID(rawValue: "p1")
+        let rule = TopNFaultRule(id: "drop-idr", kind: .dropNextIDR,
+                                 localParticipant: local, remoteParticipant: remote,
+                                 connectionGeneration: 1, locationRange: nil,
+                                 delaySeconds: nil, activity: nil, cached: nil)
+        let controller = TopNHarnessFaultController(rules: [rule], recorder: .init())
+        try controller.enable(id: rule.id)
+
+        func ingress(_ quality: TopNVideoQuality, groupId: UInt64) throws -> VideoObjectIngress {
+            .init(fullTrackName: try FullTrackName(
+                    namespace: quality.publicationNamespace(meetingID: "meeting", participant: remote),
+                    name: "h264"),
+                  groupId: groupId, subgroupId: 0, objectId: 0,
+                  payloadLength: 1, status: .available, activity: nil, cached: false)
+        }
+        func isDropped(_ decision: VideoObjectIngressDecision) -> Bool {
+            if case .drop = decision { return true }
+            return false
+        }
+
+        for quality in TopNVideoQuality.allCases {
+            XCTAssertTrue(isDropped(controller.ingressDecision(
+                                        localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
+                                        ingress: try ingress(quality, groupId: 7))))
+        }
+        XCTAssertFalse(isDropped(controller.ingressDecision(
+                                    localParticipant: local, remoteParticipant: remote, connectionGeneration: 1,
+                                    ingress: try ingress(.p1080, groupId: 8))))
+    }
+
     func testParticipantIdentifiersCannotEscapeArtifactDirectories() {
         XCTAssertTrue(TopNParticipantID(rawValue: "p1").isValidHarnessIdentifier)
         XCTAssertTrue(TopNParticipantID(rawValue: "p65535").isValidHarnessIdentifier)
@@ -24,7 +157,8 @@ final class TestTopNHarnessOracle: XCTestCase {
                        objectId: UInt64? = nil,
                        presentationSeconds: TimeInterval? = nil,
                        reason: String? = nil,
-                       displayed: Bool? = nil) -> TopNHarnessRecordedEvent {
+                       displayed: Bool? = nil,
+                       quality: TopNVideoQuality? = nil) -> TopNHarnessRecordedEvent {
         .init(ordinal: UInt64(milliseconds), elapsedMilliseconds: milliseconds,
               wallClock: .distantPast, scheduledMilliseconds: nil,
               client: subscriber, connectionGeneration: connectionGeneration,
@@ -32,8 +166,45 @@ final class TestTopNHarnessOracle: XCTestCase {
               handlerGeneration: generation, renderEpoch: 1,
               groupId: groupId, subgroupId: 0, objectId: objectId,
               stage: stage, activity: nil, actionID: nil,
-              details: .init(reason: reason, displayed: displayed,
+              details: .init(reason: reason, displayed: displayed, quality: quality,
                              presentationSeconds: presentationSeconds))
+    }
+
+    func testSimulreceiveOracleRequiresThreeCandidatesAndHighestSelection() {
+        let subscriber = TopNParticipantID(rawValue: "p2")
+        let publisher = TopNParticipantID(rawValue: "p1")
+        let candidates = TopNVideoQuality.allCases.enumerated().map { index, quality in
+            self.event(Double(100 + index), stage: .simulreceiveCandidate,
+                       subscriber: subscriber, publisher: publisher,
+                       generation: UInt64(index + 1), presentationSeconds: 10, quality: quality)
+        }
+        let selected1080 = self.event(110, stage: .simulreceiveSelected,
+                                      subscriber: subscriber, publisher: publisher,
+                                      generation: 1, presentationSeconds: 10,
+                                      displayed: true, quality: .p1080)
+        let selected720 = self.event(110, stage: .simulreceiveSelected,
+                                     subscriber: subscriber, publisher: publisher,
+                                     generation: 2, presentationSeconds: 10,
+                                     displayed: true, quality: .p720)
+
+        XCTAssertNil(TopNHarnessOracle.simulreceiveViolation(in: candidates + [selected1080], since: 0))
+        XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
+                        in: Array(candidates.dropLast()) + [selected1080], since: 0), .simulreceiveNotExercised)
+        XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
+                        in: candidates + [selected720], since: 0), .lowerQualitySelected)
+
+        let laterCandidates = TopNVideoQuality.allCases.enumerated().map { index, quality in
+            self.event(Double(120 + index), stage: .simulreceiveCandidate,
+                       subscriber: subscriber, publisher: publisher,
+                       generation: UInt64(index + 1), presentationSeconds: 11, quality: quality)
+        }
+        let laterSelected720 = self.event(130, stage: .simulreceiveSelected,
+                                          subscriber: subscriber, publisher: publisher,
+                                          generation: 2, presentationSeconds: 11,
+                                          displayed: true, quality: .p720)
+        XCTAssertEqual(TopNHarnessOracle.simulreceiveViolation(
+                        in: candidates + [selected1080] + laterCandidates + [laterSelected720], since: 0),
+                       .lowerQualitySelected)
     }
 
     func testPipelineProgressRequiresOneOrderedCausalFrame() {
@@ -262,6 +433,15 @@ final class TestTopNHarnessOracle: XCTestCase {
     func testPresentationPixelCheckRejectsBlackAndAcceptsVisibleLuma() {
         XCTAssertFalse(TopNHarnessPresentation.isVisiblyNonBlack(luma: [0, 0, 16, 16, 16]))
         XCTAssertTrue(TopNHarnessPresentation.isVisiblyNonBlack(luma: [16, 16, 64, 128, 220]))
+    }
+
+    func testPresentationRetryPolicyAllowsOnlyTransientViewConvergenceErrors() {
+        XCTAssertTrue(TopNHarnessPresentationError.invalidLayer.isRetryableBeforeDeadline)
+        XCTAssertTrue(TopNHarnessPresentationError.timebase("missing").isRetryableBeforeDeadline)
+        XCTAssertTrue(TopNHarnessPresentationError.noDisplayedPixelBuffer.isRetryableBeforeDeadline)
+        XCTAssertTrue(TopNHarnessPresentationError.blackFrame.isRetryableBeforeDeadline)
+        XCTAssertFalse(TopNHarnessPresentationError.noWindowScene.isRetryableBeforeDeadline)
+        XCTAssertFalse(TopNHarnessPresentationError.layerFailed.isRetryableBeforeDeadline)
     }
 
     func testPresentationPixelCheckHandles24BitRGBRows() throws {

@@ -18,6 +18,23 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
+protocol VideoPlayoutClock: Sendable {
+    func now() -> Ticks
+    func sleep(for duration: TimeInterval) async throws
+}
+
+struct ContinuousVideoPlayoutClock: VideoPlayoutClock {
+    func now() -> Ticks {
+        .now
+    }
+
+    func sleep(for duration: TimeInterval) async throws {
+        try await Task.sleep(for: .seconds(duration),
+                             tolerance: .seconds(duration / 2),
+                             clock: .continuous)
+    }
+}
+
 /// Information about a received object.
 struct ObjectReceived {
     /// The timestamp of the object, if available.
@@ -43,6 +60,11 @@ typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 /// A discontinuity occurred.
 typealias DiscontinuityCallback = @Sendable (_ groupId: UInt64, _ objectId: UInt64) -> Void
 
+/// Notify a subscription set that a decoded simulreceive image is ready for selection.
+typealias DecodedImageAvailableCallback = @Sendable (_ fullTrackName: FullTrackName,
+                                                     _ handlerGeneration: UInt64,
+                                                     _ decodedSpread: TimeInterval?) -> Void
+
 /// Handles decoding, jitter, and rendering of a video stream.
 final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // swiftlint:disable:this type_body_length
     /// The current configuration in use.
@@ -63,6 +85,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
+    private let playoutClock: any VideoPlayoutClock
     var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
         return result == 0 ? nil : .init(rawValue: result)
@@ -84,6 +107,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private nonisolated(unsafe) var lastObject: UInt64?
     private nonisolated(unsafe) var decodeTask: Task<(), Never>?
     private nonisolated(unsafe) var dequeueTask: Task<(), Never>?
+    private let dequeueSignals = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
     private nonisolated(unsafe) var dequeueBehaviour: VideoDequeuer?
     private nonisolated(unsafe) var lastFps: UInt16?
     private nonisolated(unsafe) var lastDimensions: CMVideoDimensions?
@@ -109,6 +133,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let jitterCalculation: RFC3550Jitter
     private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let decodedImageAvailable: DecodedImageAvailableCallback?
 
     // Wi-Fi scan jitter buffer ramping state.
     enum RampState {
@@ -162,7 +187,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          wifiDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          generation: UInt64 = 1,
-         videoPipelineEvent: VideoPipelineEventCallback? = nil) throws {
+         videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         decodedImageAvailable: DecodedImageAvailableCallback? = nil,
+         playoutClock: any VideoPlayoutClock) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -181,6 +208,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.videoBehaviour = videoBehaviour
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
+        self.playoutClock = playoutClock
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
@@ -190,6 +218,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.detector = wifiDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
+        self.decodedImageAvailable = decodedImageAvailable
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
@@ -260,6 +289,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     deinit {
         self.decodeTask?.cancel()
         self.dequeueTask?.cancel()
+        self.dequeueSignals.continuation.finish()
         if let spikeToken = self.spikeToken {
             self.detector!.removeNotifyCallback(token: spikeToken)
         }
@@ -273,6 +303,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                     ordering: .acquiringAndReleasing)
         guard exchange.exchanged else { return }
         self.decodeTask?.cancel()
+        self.dequeueSignals.continuation.finish()
         self._jitterBuffer.withLock { _ in
             self.dequeueTask?.cancel()
         }
@@ -559,6 +590,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 return
             }
             buffer.startPlaying()
+            self.dequeueSignals.continuation.yield(())
         }
     }
 
@@ -567,6 +599,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         guard let buffer = self.jitterBuffer else { return }
         buffer.pause()
         buffer.resetReadOrder()
+        self.dequeueSignals.continuation.yield(())
     }
 
     /// Pass an encoded video frame to this video handler.
@@ -597,6 +630,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             let item = try DecimusVideoFrameJitterItem(frame)
             do {
                 try jitterBuffer.write(item: item, from: details.when.hostDate)
+                self.dequeueSignals.continuation.yield(())
                 self.emit(.jitterAdmitted, groupId: details.headers.groupId,
                           subgroupId: details.headers.subgroupId, objectId: details.headers.objectId)
             } catch JitterBufferError.full {
@@ -799,75 +833,130 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private func createDequeueTask() {
         // Start the frame dequeue task.
+        let dequeueEvents = self.dequeueSignals.stream
+        let playoutClock = self.playoutClock
         self.dequeueTask = .init(priority: .high) { [weak self] in
+            var eventIterator = dequeueEvents.makeAsyncIterator()
+            var resumedFromEmpty = false
             while !Task.isCancelled {
-                let waitTime: TimeInterval
-                let now: Ticks
-                if let self = self {
-                    now = .now
-
-                    // Wait until we expect to have a frame available.
-                    let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
-                    if let pid = self.dequeueBehaviour as? PIDDequeuer {
-                        pid.currentDepth = jitterBuffer.getDepth()
-                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now.hostDate)
-                    } else {
-                        guard let duration = self.duration else {
-                            self.logger.warning("Missing duration")
-                            return
-                        }
-                        waitTime = calculateWaitTime(from: now) ?? duration
+                let waitTime: TimeInterval?
+                if let self {
+                    waitTime = self.calculateDequeueWaitTime(from: playoutClock.now())
+                    if waitTime == nil,
+                       self.jitterBuffer?.isPlaying() == true,
+                       self.jitterBuffer?.peek() as DecimusVideoFrameJitterItem? == nil {
+                        resumedFromEmpty = true
                     }
                 } else {
                     return
                 }
 
-                // Sleep without holding a strong reference.
-                if waitTime > 0 {
-                    try? await Task.sleep(for: .seconds(waitTime),
-                                          tolerance: .seconds(waitTime / 2),
-                                          clock: .continuous)
+                guard let waitTime else {
+                    guard await eventIterator.next() != nil else { return }
+                    continue
                 }
 
-                // Regain our strong reference after sleeping.
-                if let self = self {
-                    // Attempt to dequeue a frame.
-                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.hostDate) {
-                        if self.granularMetrics,
-                           let measurement = self.measurement,
-                           let time = self.calculateWaitTime(item: item, from: now) {
-                            measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
-                        }
-
-                        // Because of ordering and FETCH, it's possible the sample
-                        // does not have a format set. At the point of dequeue, we should
-                        // apply the matching group's format if we have it, so that this sample
-                        // does has a format.
-                        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
-                        let frame: DecimusVideoFrame
-                        if okay {
-                            frame = item.frame
-                        } else {
-                            guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
-                                self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
-                                continue
-                            }
-                            do {
-                                frame = try self.regen(item.frame, format: format)
-                            } catch {
-                                self.logger.warning("Failed to regen sample: \(error.localizedDescription)")
-                                return
-                            }
-                        }
-                        do {
-                            try self.decode(sample: frame, from: now.hostDate)
-                        } catch {
-                            self.logger.warning("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
-                        }
+                // Sleep without holding a strong reference.
+                if waitTime > 0 {
+                    do {
+                        try await playoutClock.sleep(for: waitTime)
+                    } catch {
+                        return
                     }
+                }
+
+                // Regain our strong reference and refresh the clock after sleeping.
+                if let self {
+                    switch self.processNextFrame(at: playoutClock.now(),
+                                                 scheduledWait: waitTime,
+                                                 resumedFromEmpty: resumedFromEmpty) {
+                    case .pending: break
+                    case .dequeued: resumedFromEmpty = false
+                    case .terminate: return
+                    }
+                } else {
+                    return
                 }
             }
         }
+    }
+
+    private func calculateDequeueWaitTime(from now: Ticks) -> TimeInterval? {
+        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+        guard jitterBuffer.isPlaying(),
+              jitterBuffer.peek() as DecimusVideoFrameJitterItem? != nil else { return nil }
+        if let pid = self.dequeueBehaviour as? PIDDequeuer {
+            pid.currentDepth = jitterBuffer.getDepth()
+            return pid.calculateWaitTime(from: now.hostDate)
+        }
+        guard let duration = self.duration else {
+            self.logger.warning("Missing duration")
+            return nil
+        }
+        return self.calculateWaitTime(from: now) ?? duration
+    }
+
+    private enum DequeueResult {
+        case pending
+        case dequeued
+        case terminate
+    }
+
+    /// Process the current head if its deadline is still due.
+    private func processNextFrame(at now: Ticks,
+                                  scheduledWait: TimeInterval,
+                                  resumedFromEmpty: Bool) -> DequeueResult {
+        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+        guard jitterBuffer.isPlaying(),
+              let head: DecimusVideoFrameJitterItem = jitterBuffer.peek() else { return .pending }
+        let deadlineDelta = self.calculateWaitTime(item: head, from: now)
+        if !(self.dequeueBehaviour is PIDDequeuer),
+           let deadlineDelta,
+           deadlineDelta > 0 {
+            return .pending
+        }
+        let bufferDepth = jitterBuffer.getDepth()
+        let timing = VideoJitterDequeueTiming(scheduledWaitSeconds: scheduledWait,
+                                              deadlineLatenessSeconds: deadlineDelta.map { max(0, -$0) },
+                                              bufferDepthSeconds: bufferDepth.isFinite ? bufferDepth : nil,
+                                              resumedFromEmpty: resumedFromEmpty)
+        guard let item: DecimusVideoFrameJitterItem = jitterBuffer.read(from: now.hostDate) else { return .pending }
+        self.emit(.jitterDequeued(timing),
+                  groupId: item.frame.groupId,
+                  objectId: item.frame.objectId)
+        if self.granularMetrics,
+           let measurement = self.measurement {
+            measurement.dequeueTiming(timing, timestamp: now.hostDate)
+        }
+        if self.granularMetrics,
+           let measurement = self.measurement,
+           let time = self.calculateWaitTime(item: item, from: now) {
+            measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
+        }
+
+        // Because of ordering and FETCH, it's possible the sample does not have a format set.
+        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
+        let frame: DecimusVideoFrame
+        if okay {
+            frame = item.frame
+        } else {
+            guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
+                self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
+                return .dequeued
+            }
+            do {
+                frame = try self.regen(item.frame, format: format)
+            } catch {
+                self.logger.warning("Failed to regen sample: \(error.localizedDescription)")
+                return .terminate
+            }
+        }
+        do {
+            try self.decode(sample: frame, from: now.hostDate)
+        } catch {
+            self.logger.warning("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
+        }
+        return .dequeued
     }
 
     /// Regenerate the frame to have the given format.
@@ -1004,28 +1093,33 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                   let registration,
                   !self.stopped.load(ordering: .acquiring) else { return }
             do {
-                let enqueued = try registration.withParticipant { participant in
-                    guard !self.stopped.load(ordering: .acquiring) else { return false }
-                    // Set the layer's start time to the first sample's timestamp minus the target depth.
-                    if !self.startTimeSet {
-                        try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
-                        self.startTimeSet = true
+                let result: (enqueued: Bool, timing: VideoDisplayEnqueueTiming?)? =
+                    try registration.withParticipant { participant in
+                        guard !self.stopped.load(ordering: .acquiring) else { return (false, nil) }
+                        // Set the layer's start time to the first sample's timestamp minus the target depth.
+                        if !self.startTimeSet {
+                            try self.setLayerStartTime(layer: participant.view.layer!,
+                                                       time: sample.presentationTimeStamp)
+                            self.startTimeSet = true
+                        }
+                        let renderTime = switchContext != nil ? Date.now : nil
+                        let timing = try participant.enqueue(sample,
+                                                             transform: orientation?.toTransform(verticalMirror!),
+                                                             when: from,
+                                                             endToEndLatency: endToEndLatency,
+                                                             switchContext: switchContext,
+                                                             renderTime: renderTime)
+                        return (true, timing)
                     }
-                    let renderTime = switchContext != nil ? Date.now : nil
-                    try participant.enqueue(sample,
-                                            transform: orientation?.toTransform(verticalMirror!),
-                                            when: from,
-                                            endToEndLatency: endToEndLatency,
-                                            switchContext: switchContext,
-                                            renderTime: renderTime)
-                    return true
-                }
-                guard enqueued == true else { return }
+                guard result?.enqueued == true,
+                      let timing = result?.timing else { return }
+                self.emit(.displayEnqueueTiming(timing))
                 self.emit(.displayEnqueued(presentationSeconds: sample.presentationTimeStamp.seconds))
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
                     measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
+                    measurement.displayEnqueueTiming(timing, timestamp: Date.now)
                 }
             } catch {
                 self.logger.warning("Could not enqueue sample: \(error)")
@@ -1191,14 +1285,18 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         if self.simulreceive != .none {
-            _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
-                                                    now: now)
             self.lastDecodedImage.withLock { image in
                 guard !self.stopped.load(ordering: .acquiring) else { return }
                 image = .init(image: sample,
                               fps: UInt(self.config.fps),
                               discontinous: sample.discontinous)
             }
+            let decodedSpread = self.variances.calculateSetVariance(
+                timestamp: sample.presentationTimeStamp.seconds,
+                now: now)
+            self.emit(.simulreceiveImageAvailable(
+                        presentationSeconds: sample.presentationTimeStamp.seconds))
+            self.decodedImageAvailable?(self.fullTrackName, self.generation, decodedSpread)
         }
 
         // Consume pending switch context and record decode time.

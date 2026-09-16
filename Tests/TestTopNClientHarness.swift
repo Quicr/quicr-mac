@@ -11,8 +11,8 @@ final class TestTopNClientHarness: XCTestCase {
         let fixturePreflight = environment["TOPN_HARNESS_FIXTURE_PREFLIGHT"]
             ?? bundle.object(forInfoDictionaryKey: "TOPN_HARNESS_FIXTURE_PREFLIGHT") as? String
         if fixturePreflight == "1" {
-            let fixture = try TopNH264Fixture.loadFromTestBundle()
-            try await TopNHarnessPreflight.validateFixture(fixture)
+            let fixtures = try TopNH264FixtureSet.loadFromTestBundle()
+            try await TopNHarnessPreflight.validateFixtures(fixtures)
             return
         }
         let configPath = environment["TOPN_HARNESS_CONFIG"]

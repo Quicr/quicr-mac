@@ -3,8 +3,9 @@
 
 import CoreMedia
 import Dispatch
-import Testing
 import Numerics
+import Synchronization
+import Testing
 @testable import QuicR
 
 extension HostTimeOffset: @retroactive Equatable {
@@ -127,6 +128,45 @@ struct TestTimeAlignable {
         #expect(waitTimeLate != nil)
         #expect(waitTimeLate!.isApproximatelyEqual(to: minDepth.advanced(by: -0.05),
                                                    absoluteTolerance: 1/1000))
+    }
+
+    @Test("New alignable receives the current offset immediately")
+    func alignNewAlignableImmediately() {
+        let first = TimeAlignableImpl()
+        let second = TimeAlignableImpl()
+        let alignables = Mutex<[TimeAlignable]>([first])
+        let alignmentPasses = Mutex(0)
+        let initialMaintenanceFinished = DispatchSemaphore(value: 0)
+        let aligner = TimeAligner(windowLength: 5,
+                                  capacity: 5) {
+            let pass = alignmentPasses.withLock { passes in
+                passes += 1
+                return passes
+            }
+            if pass == 2 {
+                initialMaintenanceFinished.signal()
+            }
+            return alignables.withLock { $0 }
+        }
+        let firstTimestamp = 1_000.0
+        let firstArrival = Ticks.now
+
+        aligner.doTimestampTimeDiff(firstTimestamp, when: firstArrival)
+        guard initialMaintenanceFinished.wait(timeout: .now() + 2) == .success else {
+            Issue.record("The initial maintenance pass did not finish")
+            return
+        }
+        guard first.timeDiff.getTimeDiff() != nil else {
+            Issue.record("The first alignable did not establish an offset")
+            return
+        }
+        #expect(second.timeDiff.getTimeDiff() == nil)
+
+        alignables.withLock { $0.append(second) }
+        aligner.doTimestampTimeDiff(firstTimestamp + 1 / 30,
+                                    when: firstArrival.addingTimeInterval(1 / 30))
+
+        #expect(second.timeDiff.getTimeDiff() == first.timeDiff.getTimeDiff())
     }
 
     @Test("Reset waits for an in-flight alignment update")

@@ -144,6 +144,11 @@ final class JitterBuffer: Sendable {
         self.play.store(true, ordering: .releasing)
     }
 
+    /// Whether frames may currently be dequeued.
+    func isPlaying() -> Bool {
+        self.playingFromStart || self.play.load(ordering: .acquiring)
+    }
+
     /// Pause playout from the buffer.
     func pause() {
         self.play.store(false, ordering: .releasing)

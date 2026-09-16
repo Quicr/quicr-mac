@@ -26,8 +26,8 @@ final class TopNHarnessCoordinator {
         let startedAt = Date.now
         let artifactDirectory = URL(fileURLWithPath: self.configuration.artifactDirectory)
         try FileManager.default.createDirectory(at: artifactDirectory, withIntermediateDirectories: true)
-        let fixture = try TopNH264Fixture.loadFromTestBundle()
-        try await TopNHarnessPreflight.validateFixture(fixture)
+        let fixtures = try TopNH264FixtureSet.loadFromTestBundle()
+        try await TopNHarnessPreflight.validateFixtures(fixtures)
         let scenario = try TopNScenarioResolver().resolve(selection: self.configuration.scenario,
                                                           participants: self.configuration.participants)
         _ = try scenario.validated(configuration: self.configuration)
@@ -46,7 +46,7 @@ final class TopNHarnessCoordinator {
                 id: participant,
                 participantIndex: participantIndex,
                 configuration: self.configuration,
-                fixture: fixture,
+                fixtures: fixtures,
                 recorder: recorder,
                 faultController: faultController,
                 isParticipantEligible: { [weak self] remote in
@@ -490,21 +490,33 @@ final class TopNHarnessCoordinator {
                 let path = events.filter { event in
                     event.client == subscriber && event.remoteParticipant == publisher
                 }
-                guard let missingStage = TopNHarnessOracle.missingRequiredStage(
-                    in: path,
-                    since: stageWindowStartMilliseconds
-                ) else { continue }
                 let currentPath = path.filter { $0.elapsedMilliseconds >= stageWindowStartMilliseconds }
-                let lastStage = currentPath.last?.stage
-                return .init(
-                    outcomeClass: missingStage == .objectReceived ? .relayConvergence : .clientMedia,
-                    message: "checkpoint \(name) missing \(missingStage.rawValue) for \(subscriber.rawValue) <- \(publisher.rawValue)",
-                    subscriber: subscriber, publisher: publisher,
-                    connectionGeneration: self.participants[subscriber]?.generationNumber,
-                    handlerGeneration: currentPath.last?.handlerGeneration,
-                    renderEpoch: currentPath.last?.renderEpoch,
-                    groupId: currentPath.last?.groupId, objectId: currentPath.last?.objectId,
-                    lastSuccessfulStage: lastStage)
+                if let missingStage = TopNHarnessOracle.missingRequiredStage(
+                    in: path, since: stageWindowStartMilliseconds) {
+                    return .init(
+                        outcomeClass: missingStage == .objectReceived ? .relayConvergence : .clientMedia,
+                        message: "checkpoint \(name) missing \(missingStage.rawValue) for " +
+                            "\(subscriber.rawValue) <- \(publisher.rawValue)",
+                        subscriber: subscriber, publisher: publisher,
+                        connectionGeneration: self.participants[subscriber]?.generationNumber,
+                        handlerGeneration: currentPath.last?.handlerGeneration,
+                        renderEpoch: currentPath.last?.renderEpoch,
+                        groupId: currentPath.last?.groupId, objectId: currentPath.last?.objectId,
+                        lastSuccessfulStage: currentPath.last?.stage)
+                }
+                if let violation = TopNHarnessOracle.simulreceiveViolation(
+                    in: path, since: stageWindowStartMilliseconds) {
+                    return .init(
+                        outcomeClass: .clientMedia,
+                        message: "checkpoint \(name) \(violation.rawValue) for " +
+                            "\(subscriber.rawValue) <- \(publisher.rawValue)",
+                        subscriber: subscriber, publisher: publisher,
+                        connectionGeneration: self.participants[subscriber]?.generationNumber,
+                        handlerGeneration: currentPath.last?.handlerGeneration,
+                        renderEpoch: currentPath.last?.renderEpoch,
+                        groupId: currentPath.last?.groupId, objectId: currentPath.last?.objectId,
+                        lastSuccessfulStage: currentPath.last?.stage)
+                }
             }
         }
         return nil

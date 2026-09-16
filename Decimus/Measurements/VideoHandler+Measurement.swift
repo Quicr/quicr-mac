@@ -72,6 +72,47 @@ extension VideoHandler {
             record(field: "delay", value: delay, timestamp: metricsTimestamp)
         }
 
+        func dequeueTiming(_ timing: VideoJitterDequeueTiming, timestamp: Date) {
+            let tags = ["resumed_from_empty": "\(timing.resumedFromEmpty)"]
+            self.record(field: "dequeueScheduledWait",
+                        value: timing.scheduledWaitSeconds,
+                        timestamp: timestamp,
+                        tags: tags)
+            if let deadlineLateness = timing.deadlineLatenessSeconds {
+                self.record(field: "dequeueDeadlineLateness",
+                            value: deadlineLateness,
+                            timestamp: timestamp,
+                            tags: tags)
+            }
+            if let bufferDepth = timing.bufferDepthSeconds {
+                self.record(field: "dequeueBufferDepth",
+                            value: bufferDepth,
+                            timestamp: timestamp,
+                            tags: tags)
+            }
+        }
+
+        func displayEnqueueTiming(_ timing: VideoDisplayEnqueueTiming, timestamp: Date) {
+            let tags = [
+                "display_immediately": "\(timing.displayImmediately)",
+                "ready_for_more_media_data": "\(timing.readyForMoreMediaData)"
+            ]
+            self.record(field: "displayFrameAge",
+                        value: timing.frameAgeSeconds,
+                        timestamp: timestamp,
+                        tags: tags)
+            self.record(field: "displayMainActorQueueDelay",
+                        value: timing.mainActorQueueDelaySeconds,
+                        timestamp: timestamp,
+                        tags: tags)
+            if let presentationLead = timing.scheduledPresentationLeadSeconds {
+                self.record(field: "displayScheduledPresentationLead",
+                            value: presentationLead,
+                            timestamp: timestamp,
+                            tags: tags)
+            }
+        }
+
         func moqTraversalTime(time: TimeInterval, metricsTimestamp: Date) {
             self.record(field: "traversalTime", value: time, timestamp: metricsTimestamp)
         }

@@ -17,6 +17,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     typealias VideoStatusCallback = @Sendable (_ subscription: VideoSubscription,
                                                _ status: QSubscribeTrackHandlerStatus) -> Void
     typealias HandlerStoppedCallback = @Sendable (_ subscription: VideoSubscription) -> Void
+    typealias DecodedImageAvailableCallback = @Sendable (_ subscriptionIdentity: UUID,
+                                                         _ fullTrackName: FullTrackName,
+                                                         _ handlerGeneration: UInt64,
+                                                         _ decodedSpread: TimeInterval?) -> Void
 
     struct JoinConfig<T: Codable>: Codable {
         var fetchUpperThreshold: T
@@ -36,6 +40,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     }
 
     private let fullTrackName: FullTrackName
+    let identity: UUID
     private let config: VideoCodecConfig
     private let participants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
@@ -73,7 +78,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let decodedImageAvailable: DecodedImageAvailableCallback?
     private let videoObjectIngressInterceptor: VideoObjectIngressInterceptor?
+    private let playoutClock: any VideoPlayoutClock
     private var paused = false
     private var stopped = false
     // TODO: Refactor so we don't need recursion / use Mutex<T>
@@ -221,12 +228,16 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          wifiScanDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         decodedImageAvailable: DecodedImageAvailableCallback? = nil,
          videoObjectIngressInterceptor: VideoObjectIngressInterceptor? = nil,
+         playoutClock: any VideoPlayoutClock = ContinuousVideoPlayoutClock(),
          publisherInitiated: Bool,
          callback: @escaping Callback,
          statusChanged: @escaping VideoStatusCallback,
          handlerStopped: @escaping HandlerStoppedCallback = { _ in }) throws {
         self.fullTrackName = try profile.getFullTrackName()
+        let identity = UUID()
+        self.identity = identity
         self.config = config
         self.participants = participants
         self.metricsSubmitter = metricsSubmitter
@@ -251,7 +262,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.wifiScanDetector = wifiScanDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
+        self.decodedImageAvailable = decodedImageAvailable
         self.videoObjectIngressInterceptor = videoObjectIngressInterceptor
+        self.playoutClock = playoutClock
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop,
@@ -273,7 +286,11 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        wifiDetector: self.wifiScanDetector,
                                        switchLatencyMeasurement: self.switchLatencyMeasurement,
                                        generation: self.handlerGeneration,
-                                       videoPipelineEvent: self.videoPipelineEvent)
+                                       videoPipelineEvent: self.videoPipelineEvent,
+                                       decodedImageAvailable: { fullTrackName, generation, spread in
+                                        decodedImageAvailable?(identity, fullTrackName, generation, spread)
+                                       },
+                                       playoutClock: self.playoutClock)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
@@ -782,6 +799,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                              mediaInterop: self.subscriptionConfig.mediaInterop,
                                              decodeBufferSize: self.subscriptionConfig.decodeQueueSize)
+            let decodedImageAvailable = self.decodedImageAvailable
+            let subscriptionIdentity = self.identity
             let newHandler = try VideoHandler(fullTrackName: self.fullTrackName,
                                               config: self.config,
                                               participants: self.participants,
@@ -799,7 +818,14 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               wifiDetector: self.wifiScanDetector,
                                               switchLatencyMeasurement: self.switchLatencyMeasurement,
                                               generation: self.handlerGeneration,
-                                              videoPipelineEvent: self.videoPipelineEvent)
+                                              videoPipelineEvent: self.videoPipelineEvent,
+                                              decodedImageAvailable: { fullTrackName, generation, spread in
+                                                decodedImageAvailable?(subscriptionIdentity,
+                                                                       fullTrackName,
+                                                                       generation,
+                                                                       spread)
+                                              },
+                                              playoutClock: self.playoutClock)
             newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
                 guard let newHandler else { return }
                 self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)
