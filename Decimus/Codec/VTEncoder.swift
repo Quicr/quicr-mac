@@ -357,9 +357,7 @@ final class VTEncoder: VideoEncoder {
         // Try and find an available hardware encoder.
         let accelerated = codecEncoders.filter {
             logger.debug("Available encoder: \($0)")
-            guard let encoderCodec = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
-            let isHardwareAccelerated = $0[kVTVideoEncoderList_IsHardwareAccelerated] != nil
-            return encoderCodec == codec && isHardwareAccelerated
+            return $0[kVTVideoEncoderList_IsHardwareAccelerated] as? Bool == true
         }
 
         // No available hardwared encoders, return default.
