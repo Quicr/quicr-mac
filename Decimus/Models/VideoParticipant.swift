@@ -311,11 +311,12 @@ class VideoParticipants {
 
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Entry] = [:]
+    @ObservationIgnored private var recentActivitySlots: [SourceIDType?] = []
     var participants: [Weak<VideoParticipant>] {
         self.weakParticipants.values.map(\.participant)
     }
     var displayParticipants: [Weak<VideoParticipant>] {
-        self.participants
+        let ranked = self.participants
             .filter { $0.value?.display == true }
             .sorted { lhs, rhs in
                 guard let lhs = lhs.value,
@@ -339,8 +340,53 @@ class VideoParticipants {
                     return lhs.id < rhs.id
                 }
             }
+
+        switch self.displayOrder {
+        case .identifier:
+            self.recentActivitySlots.removeAll()
+            return ranked
+        case .recentActivity:
+            return self.stabiliseRecentActivitySlots(ranked)
+        }
     }
     private var stalenessTask: Task<Void, Never>?
+
+    private func stabiliseRecentActivitySlots(
+        _ ranked: [Weak<VideoParticipant>]
+    ) -> [Weak<VideoParticipant>] {
+        let capacity = max(0, self.maxDisplayCount ?? ranked.count)
+        let selected = Array(ranked.prefix(capacity))
+        let selectedIdentifiers = selected.compactMap { $0.value?.id }
+        let selectedIdentifierSet = Set(selectedIdentifiers)
+
+        var slots = Array(self.recentActivitySlots.prefix(capacity))
+        slots.append(contentsOf: repeatElement(nil, count: capacity - slots.count))
+        for index in slots.indices {
+            if let identifier = slots[index],
+               selectedIdentifierSet.contains(identifier) {
+                continue
+            }
+            slots[index] = nil
+        }
+
+        var slottedIdentifiers = Set(slots.compactMap { $0 })
+        for identifier in selectedIdentifiers where !slottedIdentifiers.contains(identifier) {
+            guard let vacancy = slots.firstIndex(where: { $0 == nil }) else { break }
+            slots[vacancy] = identifier
+            slottedIdentifiers.insert(identifier)
+        }
+        self.recentActivitySlots = slots
+
+        let rankedByIdentifier = Dictionary(uniqueKeysWithValues: ranked.compactMap { participant in
+            participant.value.map { ($0.id, participant) }
+        })
+        let stableSelection = slots.compactMap { identifier in
+            identifier.flatMap { rankedByIdentifier[$0] }
+        }
+        return stableSelection + ranked.filter { participant in
+            participant.value.map { !selectedIdentifierSet.contains($0.id) } ?? false
+        }
+    }
 
     /// Perform work on participants whose registrations are still active.
     func forEachParticipant(_ body: (VideoParticipant) -> Void) {

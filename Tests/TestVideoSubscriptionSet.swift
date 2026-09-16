@@ -260,6 +260,40 @@ struct VideoSubscriptionSetTests {
     }
 
     @MainActor
+    @Test("A newly selected speaker fills the vacated slot")
+    func testRecentActivityDisplayOrderPreservesRetainedParticipantSlot() throws {
+        let participants = VideoParticipants()
+        participants.displayOrder = .recentActivity
+        participants.maxDisplayCount = 2
+        let retained = self.makeParticipant(id: "retained")
+        let departing = self.makeParticipant(id: "departing")
+        let newcomer = self.makeParticipant(id: "newcomer")
+        let registrations = try [retained, departing, newcomer].map { try participants.register($0) }
+        retained.display = true
+        departing.display = true
+        let now = Ticks.now
+
+        retained.received(self.makeObjectReceived(timestamp: nil,
+                                                  when: now,
+                                                  activity: AudioActivityValue.continuousSpeech.rawValue))
+        departing.received(self.makeObjectReceived(timestamp: nil,
+                                                   when: now,
+                                                   activity: AudioActivityValue.speechEnd.rawValue))
+        #expect(participants.displayParticipants.prefix(2).compactMap(\.value).map(\.id) ==
+                    ["retained", "departing"])
+
+        departing.display = false
+        newcomer.display = true
+        newcomer.received(self.makeObjectReceived(timestamp: nil,
+                                                  when: now + TimeInterval(1).ticks,
+                                                  activity: AudioActivityValue.speechStart.rawValue))
+
+        #expect(participants.displayParticipants.prefix(2).compactMap(\.value).map(\.id) ==
+                    ["retained", "newcomer"])
+        withExtendedLifetime(registrations) {}
+    }
+
+    @MainActor
     @Test("Cached activity does not change display order")
     func testCachedActivityDoesNotChangeDisplayOrder() throws {
         let participants = VideoParticipants()
