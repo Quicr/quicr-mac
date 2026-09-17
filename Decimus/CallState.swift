@@ -224,7 +224,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         // Recording.
         if self.recording {
             do {
-                #if canImport(ScreenCaptureKit)
+                #if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
                 let filename = "quicr_\(self.config.email)_\(self.getConfName())_\(Date.now.ISO8601Format())"
                 self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif

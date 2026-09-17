@@ -5,7 +5,7 @@ protocol AppRecorder {
     func stopCapture() async throws
 }
 
-#if canImport(ScreenCaptureKit)
+#if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
 import ScreenCaptureKit
 
 /// Records the call to a file.
