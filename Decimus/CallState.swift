@@ -75,6 +75,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var controller: MoqCallController?
     private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
     private(set) var manualActiveSpeaker: ManualActiveSpeaker?
+    private(set) var videoPipelineDebugStats: VideoPipelineDebugStats?
     private(set) var captureManager: CaptureManager?
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
     @MainActor private(set) var videoParticipants = VideoParticipants()
@@ -351,6 +352,25 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
+        let debugStats: VideoPipelineDebugStats? = switch self.config.joinType {
+        case .activeSpeaker:
+            .init()
+        default:
+            nil
+        }
+        self.videoPipelineDebugStats = debugStats
+        let videoPipelineEvent: VideoPipelineEventCallback? = if let debugStats {
+            { event in
+                switch event.kind {
+                case .objectReceived, .decoderOutput, .displayEnqueued:
+                    Task { @MainActor in debugStats.record(event) }
+                default:
+                    break
+                }
+            }
+        } else {
+            nil
+        }
         let subscriptionFactory: SubscriptionFactoryImpl?
         if self.role != .publisher {
             subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
@@ -368,7 +388,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                           sframeContext: self.receiveContext,
                                                           calculateLatency: self.showLabels,
                                                           mediaInterop: self.mediaInterop,
-                                                          switchLatencyMeasurement: self.switchLatencyMeasurement)
+                                                          switchLatencyMeasurement: self.switchLatencyMeasurement,
+                                                          videoPipelineEvent: videoPipelineEvent)
         } else {
             subscriptionFactory = nil
         }
