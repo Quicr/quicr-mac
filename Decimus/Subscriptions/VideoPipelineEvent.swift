@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
+import Observation
 
 enum VideoPipelineRejection: String, Sendable {
     case intercepted
@@ -52,6 +53,7 @@ struct VideoPipelineEvent: Sendable {
     }
 
     let occurredAt: Ticks
+    let participantId: ParticipantId
     let fullTrackName: FullTrackName
     let handlerGeneration: UInt64?
     let renderEpoch: UInt64?
@@ -62,6 +64,39 @@ struct VideoPipelineEvent: Sendable {
 }
 
 typealias VideoPipelineEventCallback = @Sendable (VideoPipelineEvent) -> Void
+
+struct VideoPipelineFrameCounts: Equatable, Sendable {
+    var received: UInt64 = 0
+    var decoded: UInt64 = 0
+    var displayed: UInt64 = 0
+
+    mutating func record(_ kind: VideoPipelineEvent.Kind) {
+        switch kind {
+        case .objectReceived:
+            self.received &+= 1
+        case .decoderOutput:
+            self.decoded &+= 1
+        case .displayEnqueued:
+            self.displayed &+= 1
+        default:
+            break
+        }
+    }
+}
+
+@Observable
+@MainActor
+final class VideoPipelineDebugStats {
+    private var countsByParticipant: [ParticipantId: VideoPipelineFrameCounts] = [:]
+
+    func record(_ event: VideoPipelineEvent) {
+        self.countsByParticipant[event.participantId, default: .init()].record(event.kind)
+    }
+
+    func counts(for participantId: ParticipantId) -> VideoPipelineFrameCounts {
+        self.countsByParticipant[participantId] ?? .init()
+    }
+}
 
 struct VideoObjectIngress: Sendable {
     let fullTrackName: FullTrackName

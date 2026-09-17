@@ -208,6 +208,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                       groupId: UInt64? = nil,
                       objectId: UInt64? = nil) {
         self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    participantId: self.participantId,
                                                     fullTrackName: fullTrackName,
                                                     handlerGeneration: handlerGeneration,
                                                     renderEpoch: epoch,
