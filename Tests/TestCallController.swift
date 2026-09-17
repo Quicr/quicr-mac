@@ -106,6 +106,44 @@ final class TestQClientObjC: XCTestCase {
 }
 
 final class TestCallController: XCTestCase {
+    func testNotReadyEndsEstablishedCall() async throws {
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+        let callEnded = Mutex(false)
+        let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) {
+            callEnded.withLock { $0 = true }
+        }
+
+        try await controller.connect()
+        controller.statusChanged(.notReady)
+
+        XCTAssertTrue(callEnded.withLock { $0 })
+    }
+
+    func testNotReadyAfterExplicitDisconnectDoesNotEndCallAgain() async throws {
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+        let callEnded = Mutex(false)
+        let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) {
+            callEnded.withLock { $0 = true }
+        }
+
+        try await controller.connect()
+        try controller.disconnect()
+        controller.statusChanged(.notReady)
+
+        XCTAssertFalse(callEnded.withLock { $0 })
+    }
 
     class MockPublicationFactory: PublicationFactory {
         typealias PublicationCreated = (MockPublication) -> Void

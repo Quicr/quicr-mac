@@ -444,7 +444,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
 
     private enum StatusAction {
         case none
-        case callEnded
+        case callEnded(QClientStatus)
         case resume(CheckedContinuation<Void, Error>, Error?)
     }
 
@@ -467,27 +467,20 @@ final class MoqCallController: QClientCallbacks, Sendable {
                 }
                 state.connected = true
                 return .resume(cont, nil)
-            case .notReady:
-                guard let cont = state.connectionContinuation else {
-                    self.logger.warning("Missing expected continuation")
-                    return .none
-                }
+            case .notReady, .internalError, .invalidParams, .clientNotConnected, .clientFailedToConnect:
+                let wasConnected = state.connected
+                let cont = state.connectionContinuation
                 state.connectionContinuation = nil
                 state.connected = false
-                return .resume(cont, MoqCallControllerError.connectionFailure(.notReady))
+                if let cont {
+                    return .resume(cont, MoqCallControllerError.connectionFailure(status))
+                }
+                return wasConnected ? .callEnded(status) : .none
             case .clientConnecting:
                 return .none
             case .clientPendingServerSetup:
                 assert(state.connectionContinuation != nil)
                 return .none
-            case .clientNotConnected:
-                state.connected = false
-                guard let cont = state.connectionContinuation else {
-                    self.logger.warning("Disconnected from relay")
-                    return .callEnded
-                }
-                state.connectionContinuation = nil
-                return .resume(cont, MoqCallControllerError.connectionFailure(.clientNotConnected))
             default:
                 self.logger.warning("Unhandled status change: \(status)")
                 return .none
@@ -497,7 +490,8 @@ final class MoqCallController: QClientCallbacks, Sendable {
         switch action {
         case .none:
             break
-        case .callEnded:
+        case .callEnded(let status):
+            self.logger.error("Call ended because the relay connection failed: \(status)")
             self.callEnded?()
         case .resume(let cont, let error):
             if let error {
