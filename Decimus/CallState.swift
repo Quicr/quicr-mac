@@ -751,6 +751,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                           quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
                                           quic_wifi_shadow_rtt_us: 0,
                                           idle_timeout_ms: 15000,
+                                          initial_max_stream_id: subConfig.maxStreamCount,
                                           congestion_control: subConfig.congestionControl.transportValue,
                                           quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
                                           quic_priority_limit: subConfig.quicPriorityLimit,

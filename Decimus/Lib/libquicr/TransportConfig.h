@@ -40,6 +40,8 @@ struct TransportConfig
     const uint32_t quic_wifi_shadow_rtt_us;
     /// QUIC idle timeout for connection(s) in milliseconds
     const uint64_t idle_timeout_ms;
+    /// Initial bidirectional and unidirectional QUIC stream limit
+    const uint64_t initial_max_stream_id;
     /// Congestion control algorithm to use
     const QCongestionControl congestion_control;
     /// QUIC LOG file location path, null terminated cstring

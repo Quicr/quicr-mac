@@ -5,6 +5,7 @@ import SwiftUI
 
 struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
+    @Binding var maxStreamCount: UInt64
     @Binding var timeQueueTTL: Int
     @Binding var chunkSize: UInt32
     @Binding var congestionControl: CongestionControl
@@ -36,6 +37,11 @@ struct TransportConfigSettings: View {
             ForEach(CongestionControl.allCases) { algorithm in
                 Text(algorithm.description)
             }
+        }
+        LabeledContent("Max Stream Count") {
+            NumberView(value: self.$maxStreamCount,
+                       formatStyle: IntegerFormatStyle<UInt64>.number.grouping(.never),
+                       name: "Count")
         }
         LabeledContent("Time Queue RX Size") {
             NumberView(value: self.$timeQueueTTL,

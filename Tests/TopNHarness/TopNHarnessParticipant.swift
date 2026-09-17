@@ -70,7 +70,8 @@ final class TopNHarnessParticipant {
                                             time_queue_init_queue_size: 150_000, time_queue_max_duration: 750_000,
                                             time_queue_bucket_interval: 1, time_queue_rx_size: 500, debug: true,
                                             quic_cwin_minimum: 8 * 1024, quic_wifi_shadow_rtt_us: 0,
-                                            idle_timeout_ms: 15_000, congestion_control: .bbr,
+                                            idle_timeout_ms: 15_000, initial_max_stream_id: 2048,
+                                            congestion_control: .bbr,
                                             quic_qlog_path: qlogPathPointer,
                                             quic_priority_limit: 0, max_connections: 1, ssl_keylog: false,
                                             socket_buffer_size: 1_000_000)
