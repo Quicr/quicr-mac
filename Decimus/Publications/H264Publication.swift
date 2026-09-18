@@ -69,7 +69,6 @@ final class H264Publication: FrameListener, PublicationInstance {
     private nonisolated(unsafe) var mediaInteropSequence: UInt64 = 0
     private nonisolated(unsafe) var currentGroupId: UInt64?
     private nonisolated(unsafe) var currentObjectId: UInt64 = 0
-    private nonisolated(unsafe) var lastEmittedVoiceActivity: (value: AudioActivityValue, when: Date)?
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -227,18 +226,6 @@ final class H264Publication: FrameListener, PublicationInstance {
         if let sentActivityValue {
             do {
                 try extensions.setHeader(.audioActivityIndicator(sentActivityValue.rawValue))
-                if publication.lastEmittedVoiceActivity?.value != sentActivityValue {
-                    let previous = publication.lastEmittedVoiceActivity
-                    let elapsed = previous.map { presentationDate.timeIntervalSince($0.when) * 1_000 }
-                    let previousValue = previous.map {
-                        "\($0.value)(\($0.value.rawValue))"
-                    } ?? "none"
-                    let elapsedText = elapsed.map { String(format: "%.1f", $0) } ?? "initial"
-                    publication.logger.debug(
-                        "[TopN VAD trace] emitted=\(sentActivityValue)(\(sentActivityValue.rawValue)) " +
-                            "previous=\(previousValue) elapsedMs=\(elapsedText)")
-                    publication.lastEmittedVoiceActivity = (sentActivityValue, presentationDate)
-                }
             } catch {
                 publication.logger.warning("Failed to set VAD header: \(error.localizedDescription)")
             }
