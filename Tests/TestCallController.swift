@@ -71,7 +71,8 @@ final class TestQClientObjC: XCTestCase {
                                         time_queue_init_queue_size: 1, time_queue_max_duration: 1,
                                         time_queue_bucket_interval: 1, time_queue_rx_size: 1, debug: false,
                                         quic_cwin_minimum: 8 * 1024, quic_wifi_shadow_rtt_us: 0,
-                                        idle_timeout_ms: 1, congestion_control: .newReno, quic_qlog_path: nil,
+                                        idle_timeout_ms: 1, initial_max_stream_id: 2048,
+                                        congestion_control: .newReno, quic_qlog_path: nil,
                                         quic_priority_limit: 0, max_connections: 1, ssl_keylog: false,
                                         socket_buffer_size: 1_000_000)
         return connectUri.withCString { uri in
@@ -106,6 +107,44 @@ final class TestQClientObjC: XCTestCase {
 }
 
 final class TestCallController: XCTestCase {
+    func testNotReadyEndsEstablishedCall() async throws {
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+        let callEnded = Mutex(false)
+        let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) {
+            callEnded.withLock { $0 = true }
+        }
+
+        try await controller.connect()
+        controller.statusChanged(.notReady)
+
+        XCTAssertTrue(callEnded.withLock { $0 })
+    }
+
+    func testNotReadyAfterExplicitDisconnectDoesNotEndCallAgain() async throws {
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+        let callEnded = Mutex(false)
+        let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) {
+            callEnded.withLock { $0 = true }
+        }
+
+        try await controller.connect()
+        try controller.disconnect()
+        controller.statusChanged(.notReady)
+
+        XCTAssertFalse(callEnded.withLock { $0 })
+    }
 
     class MockPublicationFactory: PublicationFactory {
         typealias PublicationCreated = (MockPublication) -> Void

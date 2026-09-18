@@ -88,6 +88,8 @@ struct SubscriptionConfig: Codable {
     var mediaReliability: MediaReliability
     /// QUIC CWIN setting for underlying transport.
     var quicCwinMinimumKiB: UInt64
+    /// Initial bidirectional and unidirectional QUIC stream limit.
+    var maxStreamCount: UInt64
     /// Video jitter buffer mode and configuration.
     var videoJitterBuffer: JitterBuffer.Config
     /// True to only subscribe to the highest quality in a profile set.
@@ -145,6 +147,7 @@ struct SubscriptionConfig: Codable {
         keyFrameInterval = 5
         mediaReliability = .init()
         quicCwinMinimumKiB = 8
+        maxStreamCount = 2048
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
         isSingleOrderedSub = false
         isSingleOrderedPub = false

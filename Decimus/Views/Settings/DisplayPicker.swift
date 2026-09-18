@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
-#if canImport(ScreenCaptureKit)
+#if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
 import ScreenCaptureKit
 
 private struct Display: Identifiable, CustomStringConvertible, Hashable {
@@ -26,7 +26,7 @@ struct DisplayPicker: View {
     @AppStorage(Self.displayRecordKey)
     private var displayRecord: Int = 0
 
-    #if canImport(ScreenCaptureKit)
+    #if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
     private static let noDisplay = Display()
     @State private var selectedDisplay = Self.noDisplay
     @State private var displays: [Display] = []

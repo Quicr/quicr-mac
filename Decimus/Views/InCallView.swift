@@ -188,6 +188,46 @@ struct InCallView: View {
                                             .foregroundStyle(.red)
                                     }
                                 }
+                                if let stats = self.viewModel.videoPipelineDebugStats {
+                                    let participantIds = Set(controller.getSubscriptionSets()
+                                                                .compactMap { $0 as? VideoSubscriptionSet }
+                                                                .filter { !$0.observedLiveSubscriptions.isEmpty && !$0.isPaused }
+                                                                .map(\.participantId))
+                                        .sorted()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Active Video Sets")
+                                            .font(.headline)
+                                        if participantIds.isEmpty {
+                                            Text("None")
+                                                .foregroundStyle(.secondary)
+                                        } else {
+                                            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 2) {
+                                                GridRow {
+                                                    Text("ID")
+                                                        .gridColumnAlignment(.leading)
+                                                    Text("Recv")
+                                                    Text("Dec")
+                                                    Text("Disp")
+                                                }
+                                                .foregroundStyle(.secondary)
+                                                ForEach(participantIds, id: \.self) { participantId in
+                                                    let counts = stats.counts(for: participantId)
+                                                    GridRow {
+                                                        Text("\(participantId.participantId)")
+                                                        Text("\(counts.received)")
+                                                        Text("\(counts.decoded)")
+                                                        Text("\(counts.displayed)")
+                                                    }
+                                                }
+                                            }
+                                            .font(.caption)
+                                            .monospacedDigit()
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.7)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                                 let playtime = self.viewModel.playtimeConfig.value
                                 if playtime.playtime && playtime.manualActiveSpeaker {
                                     LabeledContent("Active Speakers") {

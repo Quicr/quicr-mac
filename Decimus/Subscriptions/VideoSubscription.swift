@@ -310,6 +310,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                       subgroupId: UInt64? = nil,
                       objectId: UInt64? = nil) {
         self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    participantId: self.participantId,
                                                     fullTrackName: self.fullTrackName,
                                                     handlerGeneration: handlerGeneration ?? self.handlerGeneration,
                                                     renderEpoch: renderEpoch,

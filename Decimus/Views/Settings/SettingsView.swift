@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
-#if canImport(ScreenCaptureKit)
+#if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
 import ScreenCaptureKit
 #endif
 
@@ -220,7 +220,7 @@ struct SettingsView: View {
                 }
 
                 LabeledToggle("Verbose Logging", isOn: self.$verbose)
-                #if canImport(ScreenCaptureKit)
+                #if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
                 LabeledToggle("Record Call", isOn: self.$recordCall)
                 if self.recordCall {
                     DisplayPicker()

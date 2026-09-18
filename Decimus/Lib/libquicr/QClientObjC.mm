@@ -40,7 +40,8 @@ static quicr::TransportConfig convert(TransportConfig config) {
         .quic_priority_limit = config.quic_priority_limit,
         .max_connections = config.max_connections,
         .ssl_keylog = config.ssl_keylog,
-        .socket_buffer_size = config.socket_buffer_size
+        .socket_buffer_size = config.socket_buffer_size,
+        .initial_max_stream_id = config.initial_max_stream_id
     };
 }
 

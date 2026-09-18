@@ -248,6 +248,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                       subgroupId: UInt64? = nil,
                       objectId: UInt64? = nil) {
         self.videoPipelineEvent?(VideoPipelineEvent(occurredAt: .now,
+                                                    participantId: self.participantId,
                                                     fullTrackName: self.fullTrackName,
                                                     handlerGeneration: self.generation,
                                                     renderEpoch: nil,

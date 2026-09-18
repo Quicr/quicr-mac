@@ -75,6 +75,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var controller: MoqCallController?
     private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
     private(set) var manualActiveSpeaker: ManualActiveSpeaker?
+    private(set) var videoPipelineDebugStats: VideoPipelineDebugStats?
     private(set) var captureManager: CaptureManager?
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
     @MainActor private(set) var videoParticipants = VideoParticipants()
@@ -224,7 +225,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         // Recording.
         if self.recording {
             do {
-                #if canImport(ScreenCaptureKit)
+                #if canImport(ScreenCaptureKit) && (os(macOS) || targetEnvironment(macCatalyst))
                 let filename = "quicr_\(self.config.email)_\(self.getConfName())_\(Date.now.ISO8601Format())"
                 self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif
@@ -351,6 +352,25 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
+        let debugStats: VideoPipelineDebugStats? = switch self.config.joinType {
+        case .activeSpeaker:
+            .init()
+        default:
+            nil
+        }
+        self.videoPipelineDebugStats = debugStats
+        let videoPipelineEvent: VideoPipelineEventCallback? = if let debugStats {
+            { event in
+                switch event.kind {
+                case .objectReceived, .decoderOutput, .displayEnqueued:
+                    Task { @MainActor in debugStats.record(event) }
+                default:
+                    break
+                }
+            }
+        } else {
+            nil
+        }
         let subscriptionFactory: SubscriptionFactoryImpl?
         if self.role != .publisher {
             subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
@@ -368,7 +388,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                           sframeContext: self.receiveContext,
                                                           calculateLatency: self.showLabels,
                                                           mediaInterop: self.mediaInterop,
-                                                          switchLatencyMeasurement: self.switchLatencyMeasurement)
+                                                          switchLatencyMeasurement: self.switchLatencyMeasurement,
+                                                          videoPipelineEvent: videoPipelineEvent)
         } else {
             subscriptionFactory = nil
         }
@@ -751,6 +772,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                           quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
                                           quic_wifi_shadow_rtt_us: 0,
                                           idle_timeout_ms: 15000,
+                                          initial_max_stream_id: subConfig.maxStreamCount,
                                           congestion_control: subConfig.congestionControl.transportValue,
                                           quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
                                           quic_priority_limit: subConfig.quicPriorityLimit,
