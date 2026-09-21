@@ -10,6 +10,49 @@ struct AppSetting<Value> {
     let defaultValue: Value
 }
 
+enum VADTuningProfile: String, CaseIterable, Identifiable {
+    case current
+    case new
+    case custom
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .current: "Current"
+        case .new: "New"
+        case .custom: "Custom"
+        }
+    }
+
+    var values: Values? {
+        switch self {
+        case .current:
+            .init(timeToSpeechStart: 0.15,
+                  timeToContinuous: 0.5,
+                  timeToDropStart: 0.25,
+                  timeToDropContinuous: 0.6,
+                  vadAggressiveness: 3)
+        case .new:
+            .init(timeToSpeechStart: 0.3,
+                  timeToContinuous: 0.5,
+                  timeToDropStart: 0.25,
+                  timeToDropContinuous: 1.0,
+                  vadAggressiveness: 2)
+        case .custom:
+            nil
+        }
+    }
+
+    struct Values: Equatable {
+        let timeToSpeechStart: TimeInterval
+        let timeToContinuous: TimeInterval
+        let timeToDropStart: TimeInterval
+        let timeToDropContinuous: TimeInterval
+        let vadAggressiveness: Int
+    }
+}
+
 enum AppSettings {
     static let verbose = AppSetting(key: "verbose", defaultValue: false)
     static let recording = AppSetting(key: "recordCall", defaultValue: false)

@@ -78,6 +78,24 @@ struct SettingsView: View {
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
 
+    private var vadTuningProfile: Binding<VADTuningProfile> {
+        .init {
+            let current = VADTuningProfile.Values(timeToSpeechStart: self.demoTimeToSpeechStart,
+                                                  timeToContinuous: self.demoTimeToContinuous,
+                                                  timeToDropStart: self.demoTimeToDropStart,
+                                                  timeToDropContinuous: self.demoTimeToDropContinuous,
+                                                  vadAggressiveness: self.demoVadAggressiveness)
+            return VADTuningProfile.allCases.first { $0.values == current } ?? .custom
+        } set: { profile in
+            guard let values = profile.values else { return }
+            self.demoTimeToSpeechStart = values.timeToSpeechStart
+            self.demoTimeToContinuous = values.timeToContinuous
+            self.demoTimeToDropStart = values.timeToDropStart
+            self.demoTimeToDropContinuous = values.timeToDropContinuous
+            self.demoVadAggressiveness = values.vadAggressiveness
+        }
+    }
+
     var body: some View {
         // Reset all.
         HStack {
@@ -255,6 +273,16 @@ struct SettingsView: View {
                         #if !os(macOS)
                         .keyboardType(.decimalPad)
                     #endif
+                }
+                LabeledContent("VAD Tuning") {
+                    Picker("VAD Tuning", selection: self.vadTuningProfile) {
+                        ForEach(VADTuningProfile.allCases) { profile in
+                            Text(profile.label).tag(profile)
+                                .disabled(profile == .custom)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
                 }
                 LabeledContent("Time to Speech Start (s)") {
                     TextField("Time to Speech Start (s)", value: self.$demoTimeToSpeechStart, format: .number)
