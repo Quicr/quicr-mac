@@ -18,6 +18,16 @@ final class TestDecimusVideoFrame: XCTestCase {
         XCTAssertEqual(layer.transform.m22, 0, accuracy: 0.000_001)
     }
 
+    #if targetEnvironment(macCatalyst)
+    func testLeavesMacPreviewOrientationUnchanged() {
+        let layer = AVSampleBufferDisplayLayer()
+
+        layer.applyDevicePreviewOrientation(.portrait, mirrored: false)
+
+        XCTAssertTrue(CATransform3DIsIdentity(layer.transform))
+    }
+    #endif
+
     func testCopyConstruct() throws {
         // Setup original data.
         let count = 10

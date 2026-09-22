@@ -11,6 +11,12 @@ extension AVSampleBufferDisplayLayer {
     func applyPreviewOrientation(_ orientation: DecimusVideoRotation, mirrored: Bool) {
         self.transform = orientation.toTransform(mirrored)
     }
+
+    func applyDevicePreviewOrientation(_ orientation: DecimusVideoRotation, mirrored: Bool) {
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        self.applyPreviewOrientation(orientation, mirrored: mirrored)
+        #endif
+    }
 }
 
 class PreviewUIView: VideoUIView {
@@ -35,7 +41,7 @@ class PreviewUIView: VideoUIView {
             fatalError()
         }
         if let orientation {
-            layer.applyPreviewOrientation(orientation, mirrored: mirrored)
+            layer.applyDevicePreviewOrientation(orientation, mirrored: mirrored)
         }
         layer.sampleBufferRenderer.enqueue(sampleBuffer)
     }
