@@ -4,8 +4,20 @@
 @testable import QuicR
 import XCTest
 import CoreMedia
+import AVFoundation
 
 final class TestDecimusVideoFrame: XCTestCase {
+    func testAppliesPreviewOrientation() {
+        let layer = AVSampleBufferDisplayLayer()
+
+        layer.applyPreviewOrientation(.portrait, mirrored: false)
+
+        XCTAssertEqual(layer.transform.m11, 0, accuracy: 0.000_001)
+        XCTAssertEqual(layer.transform.m12, 1, accuracy: 0.000_001)
+        XCTAssertEqual(layer.transform.m21, -1, accuracy: 0.000_001)
+        XCTAssertEqual(layer.transform.m22, 0, accuracy: 0.000_001)
+    }
+
     func testCopyConstruct() throws {
         // Setup original data.
         let count = 10
