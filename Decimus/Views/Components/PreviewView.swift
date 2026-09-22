@@ -3,6 +3,15 @@
 
 import SwiftUI
 import AVFoundation
+#if canImport(UIKit)
+import UIKit
+#endif
+
+extension AVSampleBufferDisplayLayer {
+    func applyPreviewOrientation(_ orientation: DecimusVideoRotation, mirrored: Bool) {
+        self.transform = orientation.toTransform(mirrored)
+    }
+}
 
 class PreviewUIView: VideoUIView {
     let captureManager: CaptureManager
@@ -19,9 +28,14 @@ class PreviewUIView: VideoUIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    fileprivate func enqueue(_ sampleBuffer: CMSampleBuffer) {
+    fileprivate func enqueue(_ sampleBuffer: CMSampleBuffer,
+                             orientation: DecimusVideoRotation? = nil,
+                             mirrored: Bool = false) {
         guard let layer = self.layer as? AVSampleBufferDisplayLayer else {
             fatalError()
+        }
+        if let orientation {
+            layer.applyPreviewOrientation(orientation, mirrored: mirrored)
         }
         layer.sampleBufferRenderer.enqueue(sampleBuffer)
     }
@@ -42,7 +56,13 @@ final class PreviewFrameListener: FrameListener {
         let view = self.view
         nonisolated(unsafe) let sampleBuffer = sampleBuffer
         MainActor.assumeIsolated {
+            #if os(iOS)
+            view?.enqueue(sampleBuffer,
+                          orientation: UIDevice.current.orientation.videoOrientation,
+                          mirrored: self.device.position == .front)
+            #else
             view?.enqueue(sampleBuffer)
+            #endif
         }
     }
 }
