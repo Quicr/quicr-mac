@@ -3,6 +3,9 @@
 
 import Foundation
 import AVFoundation
+#if os(iOS) && !targetEnvironment(macCatalyst)
+import UIKit
+#endif
 
 let noCameraMessage = "No camera capability"
 let noAudioError = "No audio capability"
@@ -140,16 +143,20 @@ class PublicationFactoryImpl: PublicationFactory {
             #elseif os(tvOS) && targetEnvironment(simulator)
             throw H264PublicationError.noCamera(sourceID)
             #else
-            if #available(iOS 17.0, tvOS 17.0, macOS 13.0, *) {
-                guard let preferred = AVCaptureDevice.systemPreferredCamera else {
-                    throw H264PublicationError.noCamera(sourceID)
-                }
+            if #available(iOS 17.0, tvOS 17.0, macOS 13.0, *),
+               let preferred = AVCaptureDevice.userPreferredCamera {
+                device = preferred
+            } else if let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                                                for: .video,
+                                                                position: .front) {
+                device = frontCamera
+            } else if #available(iOS 17.0, tvOS 17.0, macOS 13.0, *),
+                      let preferred = AVCaptureDevice.systemPreferredCamera {
+                device = preferred
+            } else if let preferred = AVCaptureDevice.default(for: .video) {
                 device = preferred
             } else {
-                guard let preferred = AVCaptureDevice.default(for: .video) else {
-                    throw H264PublicationError.noCamera(sourceID)
-                }
-                device = preferred
+                throw H264PublicationError.noCamera(sourceID)
             }
             #endif
             let verticalMirror = device.position == .front
@@ -184,6 +191,13 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
                                                   appExtensionMode: self.appExtensionMode,
+                                                  orientationProvider: {
+                                                    #if os(iOS) && !targetEnvironment(macCatalyst)
+                                                    UIDevice.current.orientation.videoOrientation
+                                                    #else
+                                                    nil
+                                                    #endif
+                                                  },
                                                   sharedVoiceActivity: self.voiceActivity?.sharedVoiceActivity,
                                                   vadRollSubgroup: self.voiceActivity?.vadRollSubgroup ?? false,
                                                   sink: sink)

@@ -53,6 +53,7 @@ final class H264Publication: FrameListener, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let appExtensionMode: AppExtensionMode
+    private let orientationProvider: @Sendable () -> DecimusVideoRotation?
     private let sharedVoiceActivity: SharedVoiceActivityState?
     private let vadRollSubgroup: Bool
     private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
@@ -232,12 +233,22 @@ final class H264Publication: FrameListener, PublicationInstance {
         }
 
         // Publish.
+        let orientationData = publication.orientationData()
         var protected: Data?
         let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
             let data: Data
-            if let extradata {
-                let sampleData = Data(bytes: ptr.baseAddress!, count: ptr.count)
-                data = extradata + sampleData
+            if extradata != nil || orientationData != nil {
+                var assembled = Data(capacity: (extradata?.count ?? 0) +
+                                        (orientationData?.count ?? 0) +
+                                        ptr.count)
+                if let extradata {
+                    assembled.append(extradata)
+                }
+                if let orientationData {
+                    assembled.append(orientationData)
+                }
+                assembled.append(contentsOf: ptr)
+                data = assembled
             } else {
                 data = .init(bytesNoCopy: .init(mutating: ptr.baseAddress!),
                              count: ptr.count,
@@ -326,6 +337,7 @@ final class H264Publication: FrameListener, PublicationInstance {
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
                   appExtensionMode: AppExtensionMode,
+                  orientationProvider: @escaping @Sendable () -> DecimusVideoRotation?,
                   sharedVoiceActivity: SharedVoiceActivityState? = nil,
                   vadRollSubgroup: Bool = true,
                   sink: MoQSink) throws {
@@ -356,6 +368,7 @@ final class H264Publication: FrameListener, PublicationInstance {
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
         self.appExtensionMode = appExtensionMode
+        self.orientationProvider = orientationProvider
         self.sharedVoiceActivity = sharedVoiceActivity
         self.vadRollSubgroup = vadRollSubgroup
         self.logger.info("Registered H264 publication for namespace \(namespace)")
@@ -368,6 +381,22 @@ final class H264Publication: FrameListener, PublicationInstance {
         self.sink.setCallbacks(
             onStatus: { [weak self] status in self?.handleStatus(status) },
             onMetrics: { [weak self] metrics in self?.trackMeasurement?.record(metrics) })
+    }
+
+    private func orientationData() -> Data? {
+        guard let orientation = self.orientationProvider() else { return nil }
+        let seiData: ApplicationSeiData
+        switch self.codec?.codec {
+        case .h264:
+            seiData = ApplicationH264SEIs()
+        case .hevc:
+            seiData = ApplicationHEVCSEIs()
+        default:
+            return nil
+        }
+        return OrientationSei(orientation: orientation,
+                              verticalMirror: self.device.position == .front)
+            .getBytes(seiData, startCode: self.emitStartCodes)
     }
 
     internal func publish(groupId: UInt64,
