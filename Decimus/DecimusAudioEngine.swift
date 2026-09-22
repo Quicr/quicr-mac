@@ -33,6 +33,7 @@ class DecimusAudioEngine: AudioPlayout {
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
     private let captureAudio = Atomic(false)
+    private let inputMuted = Atomic(false)
 
     #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
@@ -252,6 +253,7 @@ class DecimusAudioEngine: AudioPlayout {
         try AVAudioSession.sharedInstance().setActive(true)
         #endif
         try engine.start()
+        self.applyInputMuteState()
         stopped = false
     }
 
@@ -297,13 +299,18 @@ class DecimusAudioEngine: AudioPlayout {
     /// Is the microphone / input device currently muted?
     /// - Returns: True if muted, or if no input device available.
     func isInputMuted() -> Bool {
-        self.inputNodePresent ? self.engine.inputNode.isVoiceProcessingInputMuted : true
+        self.inputNodePresent ? self.inputMuted.load(ordering: .acquiring) : true
     }
 
     /// Toggle mute status.
-    func toggleMute() {
-        guard self.inputNodePresent else { return }
-        self.engine.inputNode.isVoiceProcessingInputMuted.toggle()
+    /// - Returns: The new mute state.
+    @discardableResult
+    func toggleMute() -> Bool {
+        guard self.inputNodePresent else { return true }
+        let muted = !self.inputMuted.load(ordering: .acquiring)
+        self.inputMuted.store(muted, ordering: .releasing)
+        self.applyInputMuteState()
+        return muted
     }
 
     /// Register a callback for notifications of speech detection while mutex.
@@ -377,6 +384,11 @@ class DecimusAudioEngine: AudioPlayout {
                 assert(sourceOutputFormat == Self.format)
             }
         }
+    }
+
+    private func applyInputMuteState() {
+        guard self.inputNodePresent else { return }
+        self.engine.inputNode.isVoiceProcessingInputMuted = self.inputMuted.load(ordering: .acquiring)
     }
 
     private func reconfigureAndRestart() throws {

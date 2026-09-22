@@ -40,8 +40,7 @@ struct CallControls: View {
 
     private func toggleMicrophone() {
         if let engine = self.engine {
-            engine.toggleMute()
-            self.audioOn = !engine.isInputMuted()
+            self.audioOn = !engine.toggleMute()
         }
     }
 
