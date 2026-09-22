@@ -10,6 +10,8 @@ import Testing
 private final class MockEncoder: VideoEncoder, @unchecked Sendable {
     typealias WriteCallback = @Sendable (_ sample: CMSampleBuffer, _ timestamp: Date, _ forceKeyFrame: Bool) -> Void
     private let callback: WriteCallback
+    private var encodedCallback: VideoEncoder.EncodedCallback?
+    private var userData: UnsafeRawPointer?
 
     init(_ writeCallback: @escaping WriteCallback) {
         self.callback = writeCallback
@@ -17,6 +19,16 @@ private final class MockEncoder: VideoEncoder, @unchecked Sendable {
 
     func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws {
         self.callback(sample, timestamp, forceKeyFrame)
+    }
+
+    func setEncodedCallback(_ callback: @escaping VideoEncoder.EncodedCallback,
+                            userData: UnsafeRawPointer?) {
+        self.encodedCallback = callback
+        self.userData = userData
+    }
+
+    func emit(_ sample: CMSampleBuffer, timestamp: Date = .now) {
+        self.encodedCallback?(timestamp, sample, self.userData)
     }
 }
 
@@ -27,6 +39,7 @@ final class MockSink: MoQSink, @unchecked Sendable {
     let fullTrackName: FullTrackName
     var mockCanPublish = false
     var onPublish: PublishCallback?
+    var publishedData: Data?
     private var onStatus: (@Sendable (QPublishTrackHandlerStatus) -> Void)?
 
     private var mockStatus: QPublishTrackHandlerStatus = .notConnected
@@ -53,6 +66,7 @@ final class MockSink: MoQSink, @unchecked Sendable {
                        extensions: HeaderExtensions?,
                        immutableExtensions: HeaderExtensions?,
                        streamHeaderProperties: QStreamHeaderProperties?) -> QPublishObjectStatus {
+        self.publishedData = data
         self.onPublish?(headers.groupId, headers.objectId)
         return .ok
     }
@@ -84,7 +98,8 @@ private func makePublication(encoder: MockEncoder,
                              sink: MoQSink,
                              height: Int32 = 1920,
                              stagger: Bool = false,
-                             keyFrameOnUpdate: Bool = false) throws -> H264Publication {
+                             keyFrameOnUpdate: Bool = false,
+                             orientation: DecimusVideoRotation? = nil) throws -> H264Publication {
     guard let device = AVCaptureDevice.systemPreferredCamera else {
         throw TestError.noCamera
     }
@@ -93,7 +108,10 @@ private func makePublication(encoder: MockEncoder,
                                config: makeConfig(height: height),
                                metricsSubmitter: nil,
                                granularMetrics: false,
-                               encoderFactory: { _, _ in encoder },
+                               encoderFactory: { callback, userData in
+                                encoder.setEncodedCallback(callback, userData: userData)
+                                return encoder
+                               },
                                device: device,
                                endpointId: "",
                                relayId: "",
@@ -103,10 +121,52 @@ private func makePublication(encoder: MockEncoder,
                                sframeContext: nil,
                                mediaInterop: false,
                                appExtensionMode: .mutable,
+                               orientationProvider: { orientation },
                                sink: sink)
 }
 
+private func makeIDRFrame() throws -> CMSampleBuffer {
+    let fixture = try TopNH264Fixture.loadFromTestBundle()
+    var format: CMFormatDescription?
+    let buffers = try H264Utilities().depacketize(fixture.accessUnits[0].payload,
+                                                  format: &format,
+                                                  copy: true,
+                                                  seiCallback: { _ in })
+    let buffer = try XCTUnwrap(buffers?.first)
+    let sample = try CMSampleBuffer(dataBuffer: buffer,
+                                    formatDescription: try XCTUnwrap(format),
+                                    numSamples: 1,
+                                    sampleTimings: [],
+                                    sampleSizes: [buffer.dataLength])
+    sample.sampleAttachments[0][.dependsOnOthers] = false
+    return sample
+}
+
 final class TestVideoPublication: XCTestCase {
+    func testPublishesOrientationSEI() throws {
+        let encoder = MockEncoder { _, _, _ in }
+        let sink = MockSink(fullTrackName: try makeProfile().getFullTrackName())
+        let publication: H264Publication
+        do {
+            publication = try makePublication(encoder: encoder,
+                                              sink: sink,
+                                              orientation: .portraitUpsideDown)
+        } catch TestError.noCamera {
+            throw XCTSkip("Can't test without a camera")
+        }
+
+        encoder.emit(try makeIDRFrame())
+
+        let published = try XCTUnwrap(sink.publishedData)
+        var format: CMFormatDescription?
+        var parsedOrientation: OrientationSei?
+        _ = try H264Utilities().depacketize(published, format: &format, copy: true) { encoded in
+            parsedOrientation = try? OrientationSei.parse(encoded: encoded, data: ApplicationH264SEIs())
+        }
+        XCTAssertEqual(parsedOrientation?.orientation, .portraitUpsideDown)
+        XCTAssertEqual(parsedOrientation?.verticalMirror, publication.device.position == .front)
+    }
+
     func testPublicationStartDelay() throws {
         var shouldFire = false
         let mockEncoder = MockEncoder { _, _, _ in

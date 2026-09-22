@@ -74,12 +74,12 @@ enum AppSettings {
     static let demoMeetingId = AppSetting(key: "demoMeetingId", defaultValue: "demo-meeting-1")
     static let demoMaxTracksSelected = AppSetting(key: "demoMaxTracksSelected", defaultValue: 2)
     static let demoTimeout = AppSetting(key: "demoMaxTimeSelected", defaultValue: TimeInterval(0.5))
-    static let demoTimeToSpeechStart = AppSetting(key: "demoTimeToSpeechStart", defaultValue: TimeInterval(0.15))
+    static let demoTimeToSpeechStart = AppSetting(key: "demoTimeToSpeechStart", defaultValue: TimeInterval(0.3))
     static let demoTimeToContinuous = AppSetting(key: "demoTimeToContinuous", defaultValue: TimeInterval(0.5))
     static let demoTimeToDropStart = AppSetting(key: "demoTimeToDropStart", defaultValue: TimeInterval(0.25))
-    static let demoTimeToDropContinuous = AppSetting(key: "demoTimeToDropContinuous", defaultValue: TimeInterval(0.6))
+    static let demoTimeToDropContinuous = AppSetting(key: "demoTimeToDropContinuous", defaultValue: TimeInterval(1.0))
     static let demoVadRollSubgroup = AppSetting(key: "demoVadRollSubgroup", defaultValue: false)
-    static let demoVadAggressiveness = AppSetting(key: "demoVadAggressiveness", defaultValue: 3)
+    static let demoVadAggressiveness = AppSetting(key: "demoVadAggressiveness", defaultValue: 2)
 }
 
 struct AppStorageWrapper<Value: Codable> {
