@@ -186,7 +186,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     #endif
 
     // Temp fields for NAB demo.
-    private var catalogSubscription: CallbackSubscription?
     private var currentCatalog: Catalog?
     private var nabNamespaceHandlers: [NamespacePrefix: QSubscribeNamespaceHandler] = [:]
     private var nabSubscriptionsByNamespace: [NamespacePrefix: [(sourceId: SourceIDType, ftn: FullTrackName)]] = [:]
@@ -413,7 +412,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             return false
         }
 
-        // If we're NAB, we need to subscribe to the catalog track.
+        // Use the demo catalog for NAB calls.
         if self.isNAB() {
             // Clamp displayed videos to the top-N the relay delivers.
             switch self.config.joinType {
@@ -425,24 +424,10 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             default:
                 break
             }
-            do {
-                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { [weak self] result in
-                    guard let self else { return }
-                    switch result {
-                    case .success(let catalog):
-                        DispatchQueue.main.async {
-                            self.handleCatalogUpdate(catalog,
-                                                     controller: controller,
-                                                     publicationFactory: publicationFactory,
-                                                     codecFactory: CodecFactoryImpl())
-                        }
-                    case .failure(let error):
-                        self.logger.warning("Catalog parse failed: \(error.localizedDescription)")
-                    }
-                }
-            } catch {
-                self.logger.error("Failed to setup catalog track: \(error.localizedDescription)")
-            }
+            self.applyNABCatalog(Self.nabCatalog,
+                                 controller: controller,
+                                 publicationFactory: publicationFactory,
+                                 codecFactory: CodecFactoryImpl())
         }
 
         // Demo namespace subscriptions — registered before publications so the relay
@@ -500,7 +485,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                     }
                 }
             } else if self.isNAB() {
-                // NAB: Dynamic catalog updates handled in catalog callback at runtime.
+                // NAB publications are created from the embedded catalog above.
             } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
@@ -647,13 +632,46 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
     }
 
-    private func handleCatalogUpdate(_ catalog: Catalog,
-                                     controller: MoqCallController,
-                                     publicationFactory: PublicationFactory?,
-                                     codecFactory: CodecFactory) {
+    // Matches swift-msf's default msf-gen output for the NAB demo namespace.
+    static let nabCatalog = Catalog(version: 1, tracks: {
+        let prefix = ["cisco.webex.com", "nab", "v1"]
+        let publisherId = "publisher_0XCA1A109"
+        let videoTracks = [(1920, 1080, 1_500_000),
+                           (1280, 720, 1_000_000),
+                           (640, 360, 500_000)].map { width, height, bitrate in
+                            MSF.Track(name: "video",
+                                      packaging: .loc,
+                                      isLive: true,
+                                      namespace: .init(prefix + ["avc1", String(height), publisherId]),
+                                      role: .video,
+                                      renderGroup: 1,
+                                      altGroup: 1,
+                                      codec: "avc1",
+                                      framerate: 60,
+                                      bitrate: bitrate,
+                                      width: width,
+                                      height: height)
+                           }
+        let audioTrack = MSF.Track(name: "audio",
+                                   packaging: .loc,
+                                   isLive: true,
+                                   namespace: .init(prefix + ["opus", publisherId]),
+                                   role: .audio,
+                                   renderGroup: 1,
+                                   codec: "opus",
+                                   bitrate: 32_000,
+                                   samplerate: 48_000,
+                                   channelConfig: "2")
+        return videoTracks + [audioTrack]
+    }())
+
+    private func applyNABCatalog(_ catalog: Catalog,
+                                 controller: MoqCallController,
+                                 publicationFactory: PublicationFactory?,
+                                 codecFactory: CodecFactory) {
         guard self.currentCatalog != catalog else { return }
         self.currentCatalog = catalog
-        self.logger.debug("Received catalog update")
+        self.logger.debug("Applying embedded NAB catalog")
 
         // Build new namespace set from catalog tracks.
         var newNamespaces: [NamespacePrefix: MSF.Track] = [:]
@@ -833,11 +851,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             try await self.appRecorder?.stopCapture()
         } catch {
             self.logger.error("Error while stopping recording: \(error)")
-        }
-
-        if let catalogSubscription = self.catalogSubscription {
-            try? controller?.unsubscribe(catalogSubscription)
-            self.catalogSubscription = nil
         }
 
         do {
@@ -1185,49 +1198,6 @@ extension CallState {
             self.logger.info("[nab] Layout count set to \(count), filter ready (maxTracksSelected: \(filter.maxTracksSelected))")
         } else {
             self.logger.info("[nab] Layout count cleared (unlimited)")
-        }
-    }
-
-    typealias CatalogUpdate = Result<Catalog, Error>
-    typealias CatalogCallback = @Sendable (CatalogUpdate) -> Void
-    private func setupCatalogTrack(controller: MoqCallController,
-                                   callback: @escaping CatalogCallback) async throws -> CallbackSubscription {
-        return try await withCheckedThrowingContinuation { continuation in
-            let pending = Mutex<CallbackSubscription?>(nil)
-            do {
-                let catalogTrack = try FullTrackName(
-                    serialized: "cisco.2ewebex.2ecom-nab-v1-catalog-publisher_0XCA1A109--catalog")
-                let subscription = try CallbackSubscription(
-                    fullTrackName: catalogTrack,
-                    endpointId: self.config.email,
-                    relayId: self.relayId ?? "Unknown",
-                    metricsSubmitter: self.submitter,
-                    priority: 128,
-                    groupOrder: .originalPublisherOrder,
-                    filterType: .latestObject,
-                    publisherInitiated: false,
-                    deliveryTimeout: nil
-                ) { _, data, _, _ in
-                    do {
-                        let catalog = try JSONDecoder().decode(MSF.Catalog.self, from: data)
-                        callback(.success(catalog))
-                        if let sub = pending.consume() {
-                            continuation.resume(returning: sub)
-                        }
-                    } catch {
-                        if pending.consume() != nil {
-                            continuation.resume(throwing: error)
-                        } else {
-                            callback(.failure(error))
-                        }
-                    }
-                } statusCallback: { [weak self] in self?.logger.info("Catalog status update: \($0)") }
-                pending.withLock { $0 = subscription }
-                try controller.subscribe(subscription)
-            } catch {
-                pending.clear()
-                continuation.resume(throwing: error)
-            }
         }
     }
 
