@@ -9,7 +9,6 @@
 #include "quicr/session_callbacks.h"
 #include "quicr/config.h"
 
-#include <future>
 #include <mutex>
 #include <unordered_map>
 
@@ -18,7 +17,7 @@ class QClient final : public quicr::Session::ClientCallbacks
 public:
     void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override;
     void StatusChanged(const std::shared_ptr<quicr::Session>& session, quicr::Session::Status status) override;
-    quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
+    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
         const std::shared_ptr<quicr::Session>& session,
         const quicr::ServerSetupAttributes& serverSetupAttributes) override;
     void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
@@ -39,11 +38,11 @@ public:
     void CancelPendingPublishes();
 
 private:
-    using PublishReply = quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>>;
+    using PublishReply = quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>;
 
     __weak id<QClientCallbacks> _callbacks;
     std::mutex pending_publishes_mutex_;
-    std::unordered_map<uint64_t, std::shared_ptr<std::promise<PublishReply>>> pending_publishes_;
+    std::unordered_map<uint64_t, PublishReply::CompletionType> pending_publishes_;
 };
 
 
