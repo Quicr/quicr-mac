@@ -54,6 +54,7 @@ enum VADTuningProfile: String, CaseIterable, Identifiable {
 }
 
 enum AppSettings {
+    static let rendezvousTimeout = AppSetting(key: "rendezvousTimeoutSeconds", defaultValue: 30)
     static let verbose = AppSetting(key: "verbose", defaultValue: false)
     static let recording = AppSetting(key: "recordCall", defaultValue: false)
     static let mediaInterop = AppSetting(key: "mediaInterop", defaultValue: false)

@@ -87,6 +87,12 @@
     handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
 }
 
+-(void) setRendezvousTimeout:(uint32_t)timeoutMs
+{
+    assert(handlerPtr);
+    handlerPtr->SetRendezvousTimeout(std::chrono::milliseconds(timeoutMs));
+}
+
 -(void) pause
 {
     assert(handlerPtr);
@@ -212,14 +218,6 @@ void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &
     if (_callbacks) {
         const QSubscribeTrackMetrics converted = Convert(metrics);
         [_callbacks metricsSampled: converted];
-    }
-}
-
-void QSubscribeTrackHandler::StreamClosed(const std::uint64_t stream_id, const bool reset)
-{
-    quicr::SubscribeTrackHandler::StreamClosed(stream_id, reset);
-    if (_callbacks) {
-        [_callbacks streamClosed:stream_id flag:reset ? kQStreamClosedFlagReset : kQStreamClosedFlagFin];
     }
 }
 

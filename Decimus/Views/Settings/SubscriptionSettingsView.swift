@@ -14,8 +14,17 @@ struct SubscriptionSettingsView: View {
     @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
+    @AppStorage(AppSettings.rendezvousTimeout.key)
+    private var rendezvousTimeout: Int = AppSettings.rendezvousTimeout.defaultValue
+
     var body: some View {
         Section("Subscription Config") {
+            LabeledContent("Rendezvous Timeout (s)") {
+                NumberView(value: $rendezvousTimeout,
+                           formatStyle: .number.grouping(.never),
+                           name: "Timeout (s)")
+            }
+
             LabeledToggle("Show Labels",
                           isOn: self.$showLabels)
 

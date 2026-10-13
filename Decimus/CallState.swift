@@ -106,6 +106,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage("subscriptionConfig")
     private(set) var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
+    @AppStorage(AppSettings.rendezvousTimeout.key)
+    private var rendezvousTimeout: Int = AppSettings.rendezvousTimeout.defaultValue
+
     @AppStorage(PlaytimeSettingsView.defaultsKey)
     private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
@@ -800,6 +803,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             return .init(endpointUri: endpointId,
                          client: client,
                          submitter: self.submitter,
+                         rendezvousTimeoutSeconds: self.rendezvousTimeout,
                          overrideNamespace: overrideNamespace,
                          publishReceived: publishReceived) { [weak self] in
                 guard let self = self else { return }
