@@ -502,10 +502,10 @@ final class MoqCallController: QClientCallbacks, Sendable {
         }
     }
 
-    /// quicr::Client serverSetupReceived event.
+    /// quicr::Session setupReceived event.
     /// - Parameter setup: The set setup attributes received with the event.
-    func serverSetupReceived(_ setup: QServerSetupAttributes) {
-        let serverId = String(cString: setup.server_id)
+    func setupReceived(_ setup: QSetupAttributes) {
+        let serverId = String(cString: setup.endpoint_id)
         self.measurement?.setRelayId(serverId)
         self.logger.debug("Got server setup received message from: \(serverId)")
         self.state.withLock { $0.serverId = serverId }

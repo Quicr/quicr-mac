@@ -304,21 +304,13 @@ void QClient::MetricsSampled(const std::shared_ptr<quicr::Session>&, const quicr
     }
 }
 
-static QServerSetupAttributes convert(const quicr::ServerSetupAttributes& server_setup_atttributes)
-{
-    QServerSetupAttributes attributes;
-    attributes.moqt_version = server_setup_atttributes.moqt_version;
-    attributes.server_id = server_setup_atttributes.server_id.c_str();
-    return attributes;
-}
-
-quicr::Reply<void, quicr::ErrorCode> QClient::ServerSetupReceived(
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>> QClient::SetupReceived(
   const std::shared_ptr<quicr::Session>&,
-  const quicr::ServerSetupAttributes& server_setup_attributes)
+  const quicr::SetupAttributes& setup_attributes)
 {
     if (_callbacks)
     {
-        [_callbacks serverSetupReceived:convert(server_setup_attributes)];
+        [_callbacks setupReceived:QSetupAttributes { setup_attributes.endpoint_id.c_str() }];
     }
     return {};
 }
@@ -339,29 +331,27 @@ quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> QClient::Pub
           quicr::PublishErrorCode::kNotSupported, "Client callbacks are unavailable");
     }
 
-    const auto promise = std::make_shared<std::promise<PublishReply>>();
-    const auto future = std::make_shared<std::future<PublishReply>>(promise->get_future());
-    {
-        std::lock_guard lock(pending_publishes_mutex_);
-        pending_publishes_.emplace(request_id, promise);
-    }
-
-    @autoreleasepool {
-        auto locked = sub_ns_handler.lock();
-        QSubscribeNamespaceHandlerObjC* objcHandler = nil;
-        if (locked) {
-            auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
-            objcHandler = qHandler->GetObjCWrapper();
+    return PublishReply::Defer(
+      [this, request_id, publish_attributes, sub_ns_handler](PublishReply::CompletionType&& complete) {
+        {
+            std::lock_guard lock(pending_publishes_mutex_);
+            pending_publishes_.emplace(request_id, std::move(complete));
         }
-        [_callbacks publishReceived: 0
-                          requestId:request_id
-                                tfn:ftnConvert(publish_attributes.track_full_name)
-                         attributes:convert(publish_attributes)
-                       subNsHandler:objcHandler];
-    }
 
-    return quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>::Defer(
-      [future] { return future->get(); });
+        @autoreleasepool {
+            auto locked = sub_ns_handler.lock();
+            QSubscribeNamespaceHandlerObjC* objcHandler = nil;
+            if (locked) {
+                auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
+                objcHandler = qHandler->GetObjCWrapper();
+            }
+            [_callbacks publishReceived:0
+                              requestId:request_id
+                                    tfn:ftnConvert(publish_attributes.track_full_name)
+                             attributes:convert(publish_attributes)
+                           subNsHandler:objcHandler];
+        }
+      });
 }
 
 void QClient::ResolvePublish(const uint64_t request_id,
@@ -369,34 +359,34 @@ void QClient::ResolvePublish(const uint64_t request_id,
                              std::shared_ptr<quicr::SubscribeTrackHandler> handler,
                              const bool accepted)
 {
-    std::shared_ptr<std::promise<PublishReply>> promise;
+    PublishReply::CompletionType complete;
     {
         std::lock_guard lock(pending_publishes_mutex_);
         const auto it = pending_publishes_.find(request_id);
         if (it == pending_publishes_.end()) {
             return;
         }
-        promise = std::move(it->second);
+        complete = std::move(it->second);
         pending_publishes_.erase(it);
     }
 
     if (accepted) {
-        promise->set_value(quicr::PublishResponse { attributes, std::move(handler) });
+        complete(quicr::PublishResponse { attributes, std::move(handler) });
     } else {
-        promise->set_value(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
+        complete(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
           quicr::PublishErrorCode::kInternalError, "Publish rejected by application"));
     }
 }
 
 void QClient::CancelPendingPublishes()
 {
-    std::unordered_map<uint64_t, std::shared_ptr<std::promise<PublishReply>>> pending;
+    std::unordered_map<uint64_t, PublishReply::CompletionType> pending;
     {
         std::lock_guard lock(pending_publishes_mutex_);
         pending.swap(pending_publishes_);
     }
-    for (const auto& [_, promise] : pending) {
-        promise->set_value(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
+    for (const auto& [_, complete] : pending) {
+        complete(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
           quicr::PublishErrorCode::kInternalError, "Client disconnected"));
     }
 }
