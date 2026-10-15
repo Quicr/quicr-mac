@@ -87,6 +87,12 @@
     handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
 }
 
+-(void) setRendezvousTimeout:(uint32_t)timeoutMs
+{
+    assert(handlerPtr);
+    handlerPtr->SetRendezvousTimeout(std::chrono::milliseconds(timeoutMs));
+}
+
 -(void) pause
 {
     assert(handlerPtr);

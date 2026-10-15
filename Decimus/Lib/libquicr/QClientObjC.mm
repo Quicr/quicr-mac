@@ -332,25 +332,31 @@ quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> QClient::Pub
     }
 
     return PublishReply::Defer(
-      [this, request_id, publish_attributes, sub_ns_handler](PublishReply::CompletionType&& complete) {
-        {
-            std::lock_guard lock(pending_publishes_mutex_);
-            pending_publishes_.emplace(request_id, std::move(complete));
-        }
+      [this, request_id, publish_attributes, sub_ns_handler](PublishReply::CompletionType&& completion) {
+          id<QClientCallbacks> callbacks = _callbacks;
+          if (!callbacks) {
+              completion(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
+                quicr::PublishErrorCode::kNotSupported, "Client callbacks are unavailable"));
+              return;
+          }
+          {
+              std::lock_guard lock(pending_publishes_mutex_);
+              pending_publishes_.emplace(request_id, std::move(completion));
+          }
 
-        @autoreleasepool {
-            auto locked = sub_ns_handler.lock();
-            QSubscribeNamespaceHandlerObjC* objcHandler = nil;
-            if (locked) {
-                auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
-                objcHandler = qHandler->GetObjCWrapper();
-            }
-            [_callbacks publishReceived:0
-                              requestId:request_id
-                                    tfn:ftnConvert(publish_attributes.track_full_name)
-                             attributes:convert(publish_attributes)
-                           subNsHandler:objcHandler];
-        }
+          @autoreleasepool {
+              auto locked = sub_ns_handler.lock();
+              QSubscribeNamespaceHandlerObjC* objcHandler = nil;
+              if (locked) {
+                  auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
+                  objcHandler = qHandler->GetObjCWrapper();
+              }
+              [callbacks publishReceived: 0
+                               requestId:request_id
+                                     tfn:ftnConvert(publish_attributes.track_full_name)
+                              attributes:convert(publish_attributes)
+                            subNsHandler:objcHandler];
+          }
       });
 }
 
@@ -359,21 +365,21 @@ void QClient::ResolvePublish(const uint64_t request_id,
                              std::shared_ptr<quicr::SubscribeTrackHandler> handler,
                              const bool accepted)
 {
-    PublishReply::CompletionType complete;
+    PublishReply::CompletionType completion;
     {
         std::lock_guard lock(pending_publishes_mutex_);
         const auto it = pending_publishes_.find(request_id);
         if (it == pending_publishes_.end()) {
             return;
         }
-        complete = std::move(it->second);
+        completion = std::move(it->second);
         pending_publishes_.erase(it);
     }
 
     if (accepted) {
-        complete(quicr::PublishResponse { attributes, std::move(handler) });
+        completion(quicr::PublishResponse { attributes, std::move(handler) });
     } else {
-        complete(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
+        completion(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
           quicr::PublishErrorCode::kInternalError, "Publish rejected by application"));
     }
 }
@@ -385,8 +391,8 @@ void QClient::CancelPendingPublishes()
         std::lock_guard lock(pending_publishes_mutex_);
         pending.swap(pending_publishes_);
     }
-    for (const auto& [_, complete] : pending) {
-        complete(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
+    for (const auto& [_, completion] : pending) {
+        completion(quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(
           quicr::PublishErrorCode::kInternalError, "Client disconnected"));
     }
 }
