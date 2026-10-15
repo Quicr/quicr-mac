@@ -304,21 +304,13 @@ void QClient::MetricsSampled(const std::shared_ptr<quicr::Session>&, const quicr
     }
 }
 
-static QServerSetupAttributes convert(const quicr::SetupAttributes& setup_attributes)
-{
-    QServerSetupAttributes attributes;
-    attributes.moqt_version = 0;
-    attributes.server_id = setup_attributes.endpoint_id.c_str();
-    return attributes;
-}
-
 quicr::Expected<void, quicr::Error<quicr::ErrorCode>> QClient::SetupReceived(
   const std::shared_ptr<quicr::Session>&,
   const quicr::SetupAttributes& setup_attributes)
 {
     if (_callbacks)
     {
-        [_callbacks serverSetupReceived:convert(setup_attributes)];
+        [_callbacks setupReceived:QSetupAttributes { setup_attributes.endpoint_id.c_str() }];
     }
     return {};
 }

@@ -37,7 +37,7 @@ class MockClient: MoqClient {
     func connect() -> QClientStatus {
         let serverId = "test"
         serverId.withCString {
-            self.callbacks!.serverSetupReceived(.init(moqt_version: 1, server_id: $0))
+            self.callbacks!.setupReceived(.init(endpoint_id: $0))
         }
         return .ready
     }

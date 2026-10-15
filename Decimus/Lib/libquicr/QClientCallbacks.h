@@ -28,10 +28,9 @@ typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
     kQPublishNamespaceStatusSendingDone
 };
 
-typedef struct QServerSetupAttributes {
-    uint64_t moqt_version;
-    const char* _Nonnull server_id;
-} QServerSetupAttributes;
+typedef struct QSetupAttributes {
+    const char* _Nonnull endpoint_id;
+} QSetupAttributes;
 
 typedef struct QQuicConnectionMetrics {
     uint64_t cwin_congested;
@@ -62,7 +61,7 @@ typedef struct QConnectionMetrics {
 
 @protocol QClientCallbacks
 - (void) statusChanged: (QClientStatus) status;
-- (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
+- (void) setupReceived: (QSetupAttributes) setupAttributes;
 - (void) publishNamespaceStatusChanged: (NSData* _Nonnull) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
 - (void) streamClosed: (uint64_t) streamId flag: (QStreamClosedFlag) flag;
