@@ -1742,7 +1742,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/timeq/include/",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/timeq/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1822,7 +1822,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/timeq/include/",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/timeq/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;

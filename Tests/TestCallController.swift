@@ -249,6 +249,12 @@ final class TestCallController: XCTestCase {
 
     class MockSubscription: Subscription, DisplayNotification {
         var mediaState = MediaState.subscribed
+        private(set) var rendezvousTimeoutMs: UInt32?
+
+        override func setRendezvousTimeout(_ timeoutMs: UInt32) {
+            self.rendezvousTimeoutMs = timeoutMs
+            super.setRendezvousTimeout(timeoutMs)
+        }
 
         init(profile: Profile) throws {
             try super.init(fullTrackName: profile.getFullTrackName(),
@@ -383,6 +389,7 @@ final class TestCallController: XCTestCase {
         var subscribed: [QFullTrackName] = []
         var unsubscribed: [QFullTrackName] = []
         let subscribe: MockClient.SubscribeTrackCallback = {
+            XCTAssertEqual(($0 as? MockSubscription)?.rendezvousTimeoutMs, 30_000)
             subscribed.append($0.getFullTrackName())
         }
         let unsubscribe: MockClient.SubscribeTrackCallback = {
@@ -418,6 +425,29 @@ final class TestCallController: XCTestCase {
         // No sets should be left.
         sets = controller.getSubscriptionSets()
         XCTAssertEqual([], sets.map { $0.sourceId })
+    }
+
+    func testDirectSubscriptionRendezvousTimeout() async throws {
+        for (seconds, milliseconds): (Int, UInt32) in [(7, 7_000), (0, 0)] {
+            let client = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: {
+                                        XCTAssertEqual(($0 as? MockSubscription)?.rendezvousTimeoutMs, milliseconds)
+                                    },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in },
+                                    fetchCancel: { _ in })
+            let controller = MoqCallController(endpointUri: "1",
+                                               client: client,
+                                               submitter: nil,
+                                               rendezvousTimeoutSeconds: seconds) { }
+            try await controller.connect()
+            let subscription = try MockSubscription(profile: .init(qualityProfile: "h264",
+                                                                   expiry: nil,
+                                                                   priorities: nil,
+                                                                   namespace: ["namespace"]))
+            try controller.subscribe(subscription)
+        }
     }
 
     func testSubscriptionAlter() async throws {

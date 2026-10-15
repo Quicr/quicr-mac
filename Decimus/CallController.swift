@@ -57,6 +57,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
     // State.
     private let client: MoqClient
     private let endpointUri: String
+    private let rendezvousTimeoutMs: UInt32
     private let callEnded: (@Sendable () -> Void)?
     private let overrideNamespace: [String]?
     private let publishReceivedCallback: PublishReceivedCallback?
@@ -86,10 +87,13 @@ final class MoqCallController: QClientCallbacks, Sendable {
     init(endpointUri: String,
          client: MoqClient,
          submitter: MetricsSubmitter?,
+         rendezvousTimeoutSeconds: Int = AppSettings.rendezvousTimeout.defaultValue,
          overrideNamespace: [String]? = nil,
          publishReceived: PublishReceivedCallback? = nil,
          callEnded: (@Sendable () -> Void)?) {
         self.endpointUri = endpointUri
+        let seconds = max(0, min(rendezvousTimeoutSeconds, Int(UInt32.max) / 1000))
+        self.rendezvousTimeoutMs = UInt32(seconds * 1000)
         self.client = client
         self.metricsSubmitter = submitter
         self.callEnded = callEnded
@@ -370,6 +374,8 @@ final class MoqCallController: QClientCallbacks, Sendable {
         if let publisherInitiated {
             subscription.setReceivedTrackAlias(publisherInitiated.trackAlias)
             subscription.setRequestId(publisherInitiated.requestId)
+        } else {
+            subscription.setRendezvousTimeout(self.rendezvousTimeoutMs)
         }
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
@@ -383,6 +389,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
         try self.state.withLock { state in
             guard state.connected else { throw MoqCallControllerError.notConnected }
         }
+        handler.setRendezvousTimeout(self.rendezvousTimeoutMs)
         self.client.subscribeTrack(withHandler: handler)
     }
 

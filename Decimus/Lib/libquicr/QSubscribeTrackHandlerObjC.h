@@ -35,6 +35,7 @@
 -(void)supportNewGroupRequest:(bool) isSupported;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void)setDeliveryTimeout:(uint64_t) timeout;
+-(void)setRendezvousTimeout:(uint32_t) timeoutMs;
 -(void)pause;
 -(void)resume;
 -(void)setReceivedTrackAlias:(uint64_t) trackAlias;
