@@ -5,12 +5,11 @@ import SwiftUI
 
 struct RelaySettingsView: View {
     static let defaultsKey = "relayConfig1"
-    private let logger = DecimusLogger(RelaySettingsView.self)
 
     @AppStorage(Self.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
-    @State private var dnsInProgress = false
+    @State private var dnsRefreshID: UUID?
     @State private var dnsMessage: String?
 
     var body: some View {
@@ -18,7 +17,7 @@ struct RelaySettingsView: View {
             VStack {
                 HStack {
                     LabeledToggle("Use mDNS", isOn: self.$relayConfig.value.usemDNS)
-                    if self.dnsInProgress {
+                    if self.dnsRefreshID != nil {
                         ProgressView()
                     }
                 }
@@ -37,29 +36,40 @@ struct RelaySettingsView: View {
             }
         }
         .formStyle(.columns)
-        .task {
+        .task(id: self.relayConfig.value.usemDNS ? self.relayConfig.value.mDNSType : nil) {
             await self.mdnsRefresh()
-        }
-        .onChange(of: self.relayConfig.value.usemDNS) {
-            Task { await self.mdnsRefresh() }
         }
     }
 
+    @MainActor
     private func mdnsRefresh() async {
+        guard !Task.isCancelled else { return }
         guard self.relayConfig.value.usemDNS else {
-            self.dnsInProgress = false
+            self.dnsRefreshID = nil
+            self.dnsMessage = nil
             return
         }
-        self.dnsInProgress = true
-        defer { self.dnsInProgress = false }
+        let refreshID = UUID()
+        self.dnsRefreshID = refreshID
+        defer {
+            if self.dnsRefreshID == refreshID {
+                self.dnsRefreshID = nil
+            }
+        }
         do {
-            guard let lookup = try await self.mdnsLookup(self.relayConfig.value.mDNSType) else {
+            let lookup = try await self.mdnsLookup(self.relayConfig.value.mDNSType)
+            try Task.checkCancellation()
+            guard self.dnsRefreshID == refreshID else { return }
+            guard let lookup else {
                 self.dnsMessage = "mDNS had no results"
                 return
             }
             self.dnsMessage = nil
             self.relayConfig.value.address = "moq://\(lookup.0):\(lookup.1)"
+        } catch is CancellationError {
+            return
         } catch {
+            guard !Task.isCancelled, self.dnsRefreshID == refreshID else { return }
             self.dnsMessage = "mDNS Failure: \(error.localizedDescription)"
         }
     }
