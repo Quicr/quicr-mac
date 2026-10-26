@@ -254,7 +254,7 @@ struct CallControls: View {
     let showChat: Binding<Bool> = .constant(false)
     let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
     CallControls(captureManager: capture,
-                 engine: try! .init(), // swiftlint:disable:this force_try
+                 engine: nil,
                  leaving: bool,
                  showChat: showChat)
 }

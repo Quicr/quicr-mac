@@ -71,7 +71,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     private let logger = DecimusLogger(CallState.self)
 
-    let engine: DecimusAudioEngine?
+    private(set) var engine: DecimusAudioEngine?
     private(set) var controller: MoqCallController?
     private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
     private(set) var manualActiveSpeaker: ManualActiveSpeaker?
@@ -93,6 +93,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var publicationFactory: PublicationFactory?
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
+    private var isLeaving = false
     let audioStartingGroup: UInt64?
     private var sendContext: SendSFrameContext?
     private var receiveContext: SFrameContext?
@@ -199,13 +200,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
-        do {
-            self.engine = try .init()
-        } catch {
-            self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
-            self.engine = nil
-        }
-
         if influxConfig.value.submit {
             let tags: [String: String] = [
                 "relay": config.address,
@@ -225,6 +219,21 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     @MainActor
     func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length cyclomatic_complexity
+        guard !self.isLeaving, !Task.isCancelled else { return false }
+        if self.engine == nil {
+            do {
+                let engine = try await DecimusAudioEngine()
+                if self.isLeaving || Task.isCancelled {
+                    try await engine.stop()
+                    return false
+                }
+                self.engine = engine
+            } catch {
+                self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
+            }
+        }
+        guard !self.isLeaving, !Task.isCancelled else { return false }
+
         // Recording.
         if self.recording {
             do {
@@ -594,17 +603,24 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             }
         }
 
+        guard !self.isLeaving, !Task.isCancelled else { return false }
+
         // Start audio media.
         if let engine = self.engine {
             if make && self.role != .subscriber {
                 engine.setMicrophoneCapture(true)
             }
             do {
-                try engine.start()
+                try await engine.start()
+            } catch is CancellationError {
+                return false
             } catch {
                 self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
         }
+
+        // Leaving can complete while audio session activation is suspended.
+        guard !self.isLeaving, !Task.isCancelled else { return false }
 
         // Start video media.
         if let captureManager = self.captureManager,
@@ -817,6 +833,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     @MainActor
     func leave() async {
+        self.isLeaving = true
         self.videoParticipants.stopStalenessChecks()
 
         // Submit all pending metrics.
@@ -829,7 +846,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             self.logger.warning("Error while stopping camera: \(error)")
         }
         do {
-            try self.engine?.stop()
+            try await self.engine?.stop()
         } catch {
             self.logger.warning("Error while stopping audio: \(error)")
         }

@@ -11,7 +11,7 @@ protocol AudioPlayout: AnyObject {
 }
 
 /// Wrapper for app specific `AVAudioEngine` functionality.
-class DecimusAudioEngine: AudioPlayout {
+final class DecimusAudioEngine: AudioPlayout, @unchecked Sendable {
     /// The audio format the application should use.
     static let format: AVAudioFormat = .init(commonFormat: .pcmFormatFloat32,
                                              sampleRate: .opus48khz,
@@ -25,86 +25,73 @@ class DecimusAudioEngine: AudioPlayout {
     private let microphoneWriter: CircularBuffer.Writer?
 
     // The AVAudioEngine instance this AudioEngine wraps.
-    private let engine: AVAudioEngine
+    private var engine: AVAudioEngine?
+    private let sessionTransition: (@Sendable (Bool) async throws -> Void)?
+    private let notifications: NotificationCenter
     private var notificationObservers: [NSObjectProtocol] = []
     private var sink: AVAudioSinkNode?
-    private var stopped: Bool = false
-    private let elements = Mutex<[SourceIDType: AVAudioSourceNode]>([:])
+    private let control: DispatchQueue
+    private var shouldRun = false
+    private var interrupted = false
+    private var generation = UUID()
+    private var lifecycleTask: Task<Void, Never>?
+    private var elements: [SourceIDType: AVAudioSourceNode] = [:]
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
     private let captureAudio = Atomic(false)
     private let inputMuted = Atomic(false)
 
+    private lazy var reconfigure: @Sendable (Notification) -> Void = { [weak self] _ in
+        self?.control.async { [weak self] in
+            self?.requestRestart()
+        }
+    }
+
     #if !os(macOS)
-    private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
-        guard let self = self else { return }
-        self.logger.debug("AVAudioEngineConfigurationChange")
-        do {
-            try self.reconfigureAndRestart()
-        } catch {
-            self.logger.error("Failed to restart audio on config change. If you switched device, try again?")
-        }
-    }
-
-    private lazy var interupt: (Notification) -> Void = { [weak self] notification in
-        guard let self = self,
-              let info = notification.userInfo,
-              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-            return
-        }
-
-        switch type {
-        case .began:
-            // We got interupted.
-            self.logger.warning("Audio interuption")
-        case .ended:
-            // Resume.
-            guard let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
-            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-            if options.contains(.shouldResume) {
-                do {
-                    try AVAudioSession.sharedInstance().setActive(true)
-                    try self.reconfigureAndRestart()
-                    self.logger.info("Audio resumed")
-                } catch {
-                    self.logger.error("Failed to resume audio session")
-                }
-            } else {
-                self.logger.warning("Audio interuption ended, but didn't ask resume")
+    private lazy var interupt: @Sendable (Notification) -> Void = { [weak self] notification in
+        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        let optionsValue = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+        let resume = AVAudioSession.InterruptionOptions(rawValue: optionsValue).contains(.shouldResume)
+        self?.control.async { [weak self] in
+            guard let self else { return }
+            switch type {
+            case .began:
+                self.interrupted = true
+                self.generation = UUID()
+                self.engine?.stop()
+            case .ended:
+                guard resume else { return }
+                self.interrupted = false
+                self.requestRestart()
+            @unknown default:
+                break
             }
-        @unknown default:
-            self.logger.warning("Got unexpected audio interuption value")
         }
     }
 
-    private lazy var reset: (Notification) -> Void = { _ in
-        self.logger.warning("Media services reset. Report this.")
+    private lazy var reset: @Sendable (Notification) -> Void = { [weak self] _ in
+        self?.logger.warning("Media services reset. Please report this.", alert: true)
     }
 
-    private lazy var routeChange: (Notification) -> Void = { [weak self] notification in
-        guard let self = self,
-              let userInfo = notification.userInfo,
-              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-            return
-        }
-        self.logger.debug("Route change: \(reason)")
-        if reason == .routeConfigurationChange {
-            do {
-                try self.reconfigureAndRestart()
-            } catch {
-                self.logger.error("Failed to restart audio: \(error.localizedDescription)")
-            }
+    private lazy var routeChange: @Sendable (Notification) -> Void = { [weak self] notification in
+        guard let reasonValue = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              AVAudioSession.RouteChangeReason(rawValue: reasonValue) == .routeConfigurationChange else { return }
+        self?.control.async { [weak self] in
+            self?.requestRestart()
         }
     }
     #endif
 
     /// Create a new app audio engine, configuring the session, formats, I/O devices, and processing.
     /// - Throws: Any of the many possible errors during setup.
-    init() throws { // swiftlint:disable:this function_body_length
-        // Configure the session.
-        let engine = AVAudioEngine()
+    init(engine: AVAudioEngine = AVAudioEngine(), // swiftlint:disable:this function_body_length
+         notifications: NotificationCenter = .default,
+         sessionTransition: (@Sendable (Bool) async throws -> Void)? = nil) async throws {
+        let control = DispatchQueue(label: "DecimusAudioEngine.control")
+        self.control = control
+        self.notifications = notifications
+        self.sessionTransition = sessionTransition
         #if !os(macOS)
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
@@ -119,7 +106,7 @@ class DecimusAudioEngine: AudioPlayout {
                                 options: options)
 
         // Check for the presence of an input node without querying it.
-        try session.setActive(true)
+        try await Self.setSessionActive(true, on: control)
         if let availableInputs = session.availableInputs,
            availableInputs.count > 0 {
             // Should be safe to query input node now.
@@ -210,12 +197,11 @@ class DecimusAudioEngine: AudioPlayout {
         try localReconfigure()
 
         // Register interest in reconfigure events.
-        #if !os(macOS)
-        let notifications: NotificationCenter = .default
         notificationObservers.append(notifications.addObserver(forName: .AVAudioEngineConfigurationChange,
-                                                               object: nil,
+                                                               object: engine,
                                                                queue: nil,
                                                                using: reconfigure))
+        #if !os(macOS)
         notificationObservers.append(notifications.addObserver(forName: AVAudioSession.interruptionNotification,
                                                                object: AVAudioSession.sharedInstance(),
                                                                queue: nil,
@@ -234,7 +220,14 @@ class DecimusAudioEngine: AudioPlayout {
 
     deinit {
         for observer in notificationObservers {
-            NotificationCenter.default.removeObserver(observer)
+            self.notifications.removeObserver(observer)
+        }
+
+        // Drop instance reference first as DSP teardown can block.
+        let retiredEngine = Mutex(self.engine)
+        self.engine = nil
+        self.control.async(qos: .default, flags: .enforceQoS) {
+            retiredEngine.withLock { $0 = nil }
         }
     }
 
@@ -246,25 +239,67 @@ class DecimusAudioEngine: AudioPlayout {
         self.captureAudio.store(enabled, ordering: .releasing)
     }
 
-    /// Run the audio engine. It is an error to call this when already running.
-    func start() throws {
-        guard !engine.isRunning else { throw "Already running" }
-        #if !os(macOS)
-        try AVAudioSession.sharedInstance().setActive(true)
-        #endif
-        try engine.start()
-        self.applyInputMuteState()
-        stopped = false
+    private final class StartRequest: Sendable {
+        let generation = UUID()
+        let cancelled = Atomic(false)
     }
 
-    /// Stop the audio engine running.
-    func stop() throws {
-        guard engine.isRunning else { return }
-        engine.stop()
-        #if !os(macOS)
-        try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        #endif
-        stopped = true
+    /// Run the audio engine, awaiting session activation before starting I/O.
+    func start() async throws {
+        let request = StartRequest()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                control.async {
+                    guard !request.cancelled.load(ordering: .acquiring) else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    self.shouldRun = true
+                    self.interrupted = false
+                    self.generation = request.generation
+                    self.schedule(continuation: continuation) {
+                        do {
+                            try await self.startEngine(generation: request.generation)
+                        } catch {
+                            let current = try await self.onControl {
+                                guard self.generation == request.generation else { return false }
+                                self.shouldRun = false
+                                return true
+                            }
+                            if current { try? await self.setSessionActive(false) }
+                            throw error
+                        }
+                    }
+                }
+            }
+        } onCancel: {
+            request.cancelled.store(true, ordering: .releasing)
+            self.control.async {
+                guard self.generation == request.generation else { return }
+                self.requestStop()
+            }
+        }
+    }
+
+    /// Stop I/O even if Apple has already stopped the engine during a route change.
+    func stop() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            self.control.async {
+                self.requestStop(continuation: continuation)
+            }
+        }
+    }
+
+    private func requestStop(continuation: CheckedContinuation<Void, any Error>? = nil) {
+        self.shouldRun = false
+        self.generation = UUID()
+        let generation = self.generation
+        self.engine?.stop()
+        self.schedule(continuation: continuation) {
+            let current = try await self.onControl { self.generation == generation }
+            guard current else { return }
+            try await self.setSessionActive(false)
+        }
     }
 
     /// Add a source node to this engine, to be mixed with any others.
@@ -272,26 +307,30 @@ class DecimusAudioEngine: AudioPlayout {
     /// - Parameter node: The source node supplying audio.
     /// - Throws: Error if the target node has already been added.
     func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
-        engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: Self.format)
-        assert(node.numberOfOutputs == 1)
-        assert(node.outputFormat(forBus: 0) == Self.format)
-        self.logger.info("(\(identifier)) Attached node")
-        try self.elements.withLock { elements in
+        try self.control.sync {
+            guard let engine = self.engine else { throw "Audio engine unavailable" }
             guard elements[identifier] == nil else { throw "Add called for existing entry" }
-            elements[identifier] = node
+            engine.attach(node)
+            do {
+                try self.connect(node, to: engine.mainMixerNode)
+            } catch {
+                engine.detach(node)
+                throw error
+            }
+            self.elements[identifier] = node
         }
+        self.logger.info("(\(identifier)) Attached node")
     }
 
     /// Remove a previously added source node.
     /// - Parameter identifier: Identifier of the source node to remove.
     /// - Throws: Error if the source node has not beed added,
     func removePlayer(identifier: SourceIDType) throws {
-        try self.elements.withLock { elements in
+        try self.control.sync {
             guard let element = elements.removeValue(forKey: identifier) else {
                 throw "Remove called for non existent entry"
             }
-            engine.detach(element)
+            self.engine?.detach(element)
         }
         self.logger.info("(\(identifier)) Removed player node")
     }
@@ -307,10 +346,12 @@ class DecimusAudioEngine: AudioPlayout {
     @discardableResult
     func toggleMute() -> Bool {
         guard self.inputNodePresent else { return true }
-        let muted = !self.inputMuted.load(ordering: .acquiring)
-        self.inputMuted.store(muted, ordering: .releasing)
-        self.applyInputMuteState()
-        return muted
+        return self.control.sync {
+            let muted = !self.inputMuted.load(ordering: .acquiring)
+            self.inputMuted.store(muted, ordering: .releasing)
+            self.applyInputMuteState()
+            return muted
+        }
     }
 
     /// Register a callback for notifications of speech detection while mutex.
@@ -318,12 +359,16 @@ class DecimusAudioEngine: AudioPlayout {
     @available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *)
     func setMutedSpeechActivityEventListener(_ block: ((AVAudioVoiceProcessingSpeechActivityEvent) -> Void)?) throws {
         guard self.inputNodePresent else { return }
-        guard self.engine.inputNode.setMutedSpeechActivityEventListener(block) else {
-            throw "Couldn't set muted speech listener"
+        try self.control.sync {
+            guard let engine = self.engine else { return }
+            guard engine.inputNode.setMutedSpeechActivityEventListener(block) else {
+                throw "Couldn't set muted speech listener"
+            }
         }
     }
 
     private func localReconfigure() throws {
+        guard let engine = self.engine else { throw "Audio engine unavailable" }
         #if !os(macOS)
         // Reconfigure the audio session.
         let session: AVAudioSession = .sharedInstance()
@@ -342,15 +387,14 @@ class DecimusAudioEngine: AudioPlayout {
         }
         #endif
 
-        // We shouldn't be running at this point.
-        assert(!engine.isRunning)
+        guard !engine.isRunning else { throw "Cannot reconfigure a running audio engine" }
 
         // Sink for microphone output.
         if self.inputNodePresent {
             guard let sink = self.sink else {
                 throw "Sink should be present when input node present"
             }
-            engine.connect(engine.inputNode, to: sink, format: Self.format)
+            try self.connect(engine.inputNode, to: sink)
             assert(engine.inputNode.numberOfOutputs == 1)
             let inputOutputFormat = engine.inputNode.outputFormat(forBus: 0)
             self.logger.info("Connected microphone: \(inputOutputFormat)")
@@ -361,7 +405,7 @@ class DecimusAudioEngine: AudioPlayout {
 
         // Mixer for player nodes.
         if self.outputNodePresent {
-            engine.connect(engine.mainMixerNode, to: engine.outputNode, format: Self.format)
+            try self.connect(engine.mainMixerNode, to: engine.outputNode)
             assert(engine.mainMixerNode.numberOfOutputs == 1)
             let mixerOutputFormat = engine.mainMixerNode.outputFormat(forBus: 0)
             self.logger.info("Connected mixer: \(mixerOutputFormat)")
@@ -377,30 +421,129 @@ class DecimusAudioEngine: AudioPlayout {
 
         // We shouldn't need to reconnect source nodes to the mixer,
         // as the format should not have changed.
-        self.elements.withLock { elements in
-            for element in elements {
-                assert(element.value.numberOfOutputs == 1)
-                let sourceOutputFormat = element.value.outputFormat(forBus: 0)
-                assert(sourceOutputFormat == Self.format)
-            }
+        for element in self.elements.values {
+            assert(element.numberOfOutputs == 1)
+            assert(element.outputFormat(forBus: 0) == Self.format)
         }
     }
 
     private func applyInputMuteState() {
         guard self.inputNodePresent else { return }
-        self.engine.inputNode.isVoiceProcessingInputMuted = self.inputMuted.load(ordering: .acquiring)
+        self.engine?.inputNode.isVoiceProcessingInputMuted = self.inputMuted.load(ordering: .acquiring)
     }
 
-    private func reconfigureAndRestart() throws {
-        guard !self.stopped else { return }
-        if self.engine.isRunning {
-            self.engine.stop()
+    private func connect(_ source: AVAudioNode, to destination: AVAudioNode) throws {
+        guard let engine = self.engine else { throw "Audio engine unavailable" }
+        if #available(iOS 27.0, macOS 27.0, macCatalyst 27.0, tvOS 27.0, visionOS 27.0, *) {
+            try engine.connectNode(source, to: destination, format: Self.format)
+        } else {
+            try SwiftInterop.catchException {
+                engine.connect(source, to: destination, format: Self.format)
+            }
         }
+    }
 
-        // Reconfigure ourselves.
-        try self.localReconfigure()
+    // Called on control; notification callbacks never synchronously enter the engine.
+    private func requestRestart() {
+        guard self.shouldRun,
+              !self.interrupted else { return }
+        let generation = self.generation
+        self.schedule {
+            let needed = try await self.onControl {
+                self.shouldRun && !self.interrupted && self.generation == generation && self.engine?.isRunning == false
+            }
+            guard needed else { return }
+            try await self.startEngine(generation: generation)
+        }
+    }
 
-        // Restart.
-        try self.start()
+    private func startEngine(generation: UUID) async throws {
+        try await self.onControl { try self.checkStart(generation: generation) }
+        try await self.setSessionActive(true)
+        try await self.onControl {
+            try self.checkStart(generation: generation)
+            guard let engine = self.engine else { throw "Audio engine unavailable" }
+            guard !engine.isRunning else { return }
+            try self.localReconfigure()
+            try engine.start()
+            self.applyInputMuteState()
+        }
+    }
+
+    private func checkStart(generation: UUID) throws {
+        guard self.shouldRun,
+              !self.interrupted,
+              self.generation == generation else {
+            throw CancellationError()
+        }
+    }
+
+    private func setSessionActive(_ active: Bool) async throws {
+        if let sessionTransition {
+            try await sessionTransition(active)
+            return
+        }
+        try await Self.setSessionActive(active, on: control)
+    }
+
+    private static func setSessionActive(_ active: Bool, on control: DispatchQueue) async throws {
+        #if !os(macOS)
+        let session = AVAudioSession.sharedInstance()
+        if #available(iOS 27.0, macCatalyst 27.0, tvOS 27.0, visionOS 27.0, *) {
+            do {
+                let succeeded: Bool
+                if active {
+                    succeeded = try await session.activate(options: [])
+                } else {
+                    succeeded = try await session.deactivate(options: .notifyOthersOnDeactivation)
+                }
+                guard succeeded else { throw "Audio session activation/deactivation failed" }
+                return
+            } catch {
+                #if targetEnvironment(macCatalyst)
+                // Catalyst 27.0.1 exposes these APIs but returns unimpErr for both.
+                let sessionError = error as NSError
+                guard sessionError.domain == NSOSStatusErrorDomain,
+                      sessionError.code == Int(unimpErr) else { throw error }
+                #else
+                throw error
+                #endif
+            }
+        }
+        try await onQueue(control) {
+            try session.setActive(active, options: active ? [] : .notifyOthersOnDeactivation)
+        }
+        #endif
+    }
+
+    private func schedule(continuation: CheckedContinuation<Void, any Error>? = nil,
+                          operation: @escaping @Sendable () async throws -> Void) {
+        let previous = self.lifecycleTask
+        self.lifecycleTask = Task {
+            await previous?.value
+            do {
+                try await operation()
+                continuation?.resume()
+            } catch {
+                if let continuation {
+                    continuation.resume(throwing: error)
+                } else if !(error is CancellationError) {
+                    self.logger.error("Failed to restart audio: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func onControl<T: Sendable>(_ operation: @escaping @Sendable () throws -> T) async throws -> T {
+        try await Self.onQueue(control, operation: operation)
+    }
+
+    private static func onQueue<T: Sendable>(_ queue: DispatchQueue,
+                                             operation: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result { try operation() })
+            }
+        }
     }
 }
