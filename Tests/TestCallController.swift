@@ -99,7 +99,7 @@ final class TestQClientObjC: XCTestCase {
 
         client.resolvePublish(0,
                               requestId: 1,
-                              attributes: QPublishAttributes(),
+                              attributes: QPublishOkAttributes(),
                               tfn: tfn,
                               response: .init(ok: false),
                               handler: nil)
@@ -163,7 +163,7 @@ final class TestCallController: XCTestCase {
                 let ftn = try FullTrackName(namespace: profile.namespace, name: "")
                 let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                     trackMode: .stream,
-                                                    defaultPriority: 0,
+                                                    publisherPriority: 0,
                                                     defaultTTL: 0)
                 let publication = MockPublication(sink: sink)
                 self.callback(publication)
@@ -624,6 +624,58 @@ final class TestCallController: XCTestCase {
         let result = received.withLock { $0 }
         XCTAssertTrue(result.handler === nsHandler)
         XCTAssertEqual(result.tfn, tfn)
+    }
+
+    func testPublishReceivedKeepsSubscriberPrioritySeparate() async throws {
+        let resolved = expectation(description: "Publish resolved with subscriber preferences")
+        let client = MockClient(publish: { _ in },
+                                unpublish: { _ in },
+                                subscribe: { _ in },
+                                unsubscribe: { _ in },
+                                fetch: { _ in },
+                                fetchCancel: { _ in })
+        client.resolvePublishCallback = { attributes, response in
+            XCTAssertTrue(response.ok)
+            XCTAssertEqual(attributes.subscriberPriority, 7)
+            resolved.fulfill()
+        }
+        let controller = MoqCallController(endpointUri: "1",
+                                           client: client,
+                                           submitter: nil,
+                                           publishReceived: { _, attributes, _ in
+                                            XCTAssertEqual(attributes.publisherPriority, 200)
+                                            return .accept(QPublishOkAttributes(subscriberPriority: 7,
+                                                                                groupOrder: .originalPublisherOrder,
+                                                                                forward: 1,
+                                                                                newGroupRequestId: 0), nil)
+                                           }, callEnded: {})
+        try await controller.connect()
+        let tfn = try FullTrackName(namespace: ["test"], name: "video")
+        var offer = QPublishAttributes()
+        offer.publisherPriority = 200
+        client.callbacks!.publishReceived(1,
+                                          requestId: 42,
+                                          tfn: tfn,
+                                          attributes: offer,
+                                          subNsHandler: nil)
+        await fulfillment(of: [resolved], timeout: 1)
+    }
+
+    func testSubscriberPriorityBridge() throws {
+        let tfn = try FullTrackName(namespace: ["test"], name: "video")
+        let handler = QSubscribeTrackHandlerObjC(fullTrackName: tfn,
+                                                 priority: 200,
+                                                 groupOrder: .originalPublisherOrder,
+                                                 publisherInitiated: true)
+        XCTAssertEqual(handler.getSubscriberPriority(), 200)
+        handler.setSubscriberPriority(7)
+        XCTAssertEqual(handler.getSubscriberPriority(), 7)
+        let fetch = QFetchTrackHandlerObjC(fullTrackName: tfn,
+                                           priority: 19,
+                                           groupOrder: .originalPublisherOrder,
+                                           start: QLocationImpl(group: 0, object: 0),
+                                           endLocation: QFetchEndLocationImpl(group: 1, object: nil))
+        XCTAssertEqual(fetch.getSubscriberPriority(), 19)
     }
 
     func testPublishReceivedNilHandler() async throws {

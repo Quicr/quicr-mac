@@ -59,9 +59,9 @@ static quicr::TransportConfig convert(TransportConfig config) {
     return converted;
 }
 
-static quicr::PublishOkAttributes convertOk(QPublishAttributes attributes) {
+static quicr::PublishOkAttributes convertOk(QPublishOkAttributes attributes) {
     return quicr::PublishOkAttributes {
-        .subscriber_priority = attributes.priority,
+        .subscriber_priority = attributes.subscriberPriority,
         .group_order = attributes.groupOrder == kQGroupOrderOriginalPublisherOrder
             ? std::nullopt
             : std::make_optional(static_cast<quicr::messages::GroupOrder>(attributes.groupOrder)),
@@ -198,7 +198,7 @@ static quicr::PublishOkAttributes convertOk(QPublishAttributes attributes) {
 
 -(void) resolvePublish: (uint64_t) connectionHandle
              requestId: (uint64_t) requestId
-            attributes: (QPublishAttributes) attributes
+            attributes: (QPublishOkAttributes) attributes
                    tfn: (id<QFullTrackName> _Nonnull) tfn
               response: (QPublishResponse) response
                handler: (QSubscribeTrackHandlerObjC* _Nullable) handler {
@@ -249,7 +249,7 @@ static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metric
 static QPublishAttributes convert(const quicr::PublishAttributes& attributes)
 {
     QPublishAttributes converted{};
-    converted.priority = attributes.default_publisher_priority;
+    converted.publisherPriority = attributes.publisher_priority;
     converted.forward = attributes.forward;
     converted.deliveryTimeoutMs = attributes.delivery_timeout.value_or(0);
     converted.groupOrder = static_cast<QGroupOrder>(attributes.default_publisher_group_order);

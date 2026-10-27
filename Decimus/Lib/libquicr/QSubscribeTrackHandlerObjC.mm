@@ -24,9 +24,9 @@
     return static_cast<QSubscribeTrackHandlerStatus>(status);
 }
 
--(void) setPriority: (uint8_t)priority {
+-(void) setSubscriberPriority: (uint8_t)priority {
     assert(handlerPtr);
-    return handlerPtr->SetPriority(priority);
+    return handlerPtr->SetSubscriberPriority(priority);
 }
 
 -(id<QFullTrackName>) getFullTrackName {
@@ -34,9 +34,9 @@
     return ftnConvert(handlerPtr->GetFullTrackName());
 }
 
--(uint8_t) getPriority {
+-(uint8_t) getSubscriberPriority {
     assert(handlerPtr);
-    return handlerPtr->GetPriority();
+    return handlerPtr->GetSubscriberPriority();
 }
 
 -(QGroupOrder) getGroupOrder {

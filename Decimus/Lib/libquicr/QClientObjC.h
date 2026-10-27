@@ -35,6 +35,13 @@ typedef struct QSubscribeAttributes {
     bool isPublisherInitiated;
 } QSubscribeAttributes;
 
+typedef struct QPublishOkAttributes {
+    uint8_t subscriberPriority;
+    QGroupOrder groupOrder;
+    uint8_t forward;
+    uint64_t newGroupRequestId;
+} QPublishOkAttributes;
+
 typedef struct QPublishResponse {
     bool ok;
 } QPublishResponse;
@@ -56,7 +63,7 @@ NS_SWIFT_SENDABLE
 - (void)unsubscribeNamespaceWithHandler:(QSubscribeNamespaceHandlerObjC * _Nonnull)handler;
 - (void)resolvePublish: (uint64_t)connectionHandle
              requestId: (uint64_t) requestId
-            attributes: (QPublishAttributes) attributes
+            attributes: (QPublishOkAttributes) attributes
                    tfn: (id<QFullTrackName> _Nonnull) tfn
               response: (QPublishResponse) response
                handler: (QSubscribeTrackHandlerObjC* _Nullable) handler;
