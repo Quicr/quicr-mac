@@ -44,6 +44,8 @@ final class QPublishTrackHandlerSink: MoQSink {
     let handler: QPublishTrackHandlerObjC
 
     private let callbacks: PublishCallbackBox
+    private let publisherPriority: UInt8
+    private let publishObjectPriority: UInt8
 
     var fullTrackName: FullTrackName {
         .init(self.handler.getFullTrackName())
@@ -61,18 +63,23 @@ final class QPublishTrackHandlerSink: MoQSink {
     /// - Parameters:
     ///   - fullTrackName: The full track name for this publication.
     ///   - trackMode: The track mode (datagram or stream).
-    ///   - defaultPriority: Default priority for published objects.
+    ///   - publisherPriority: Default priority for published objects.
+    ///   - publishObjectPriority: Local transport scheduling priority; defaults to the publisher priority.
     ///   - defaultTTL: Default TTL for published objects.
     init(fullTrackName: QFullTrackName,
          trackMode: QTrackMode,
-         defaultPriority: UInt8,
+         publisherPriority: UInt8,
+         publishObjectPriority: UInt8? = nil,
          defaultTTL: UInt32) {
         let callbacks = PublishCallbackBox(logger: .init(QPublishTrackHandlerSink.self,
                                                          prefix: "\(fullTrackName)"))
         self.callbacks = callbacks
+        self.publisherPriority = publisherPriority
+        self.publishObjectPriority = publishObjectPriority ?? publisherPriority
         self.handler = .init(fullTrackName: fullTrackName,
                              trackMode: trackMode,
-                             defaultPriority: defaultPriority,
+                             publisherPriority: publisherPriority,
+                             publishObjectPriority: publishObjectPriority ?? publisherPriority,
                              defaultTTL: defaultTTL,
                              callbacks: callbacks)
     }
@@ -86,11 +93,20 @@ final class QPublishTrackHandlerSink: MoQSink {
                        extensions: HeaderExtensions?,
                        immutableExtensions: HeaderExtensions?,
                        streamHeaderProperties: QStreamHeaderProperties?) -> QPublishObjectStatus {
-        self.handler.publishObject(headers,
-                                   data: data,
-                                   extensions: extensions,
-                                   immutableExtensions: immutableExtensions,
-                                   streamHeaderProperties: streamHeaderProperties)
+        // Apply per-object priorities explicitly; libquicr publishes using handler priorities.
+        if let priority = headers.priority?.pointee {
+            self.handler.setPublisherPriority(priority)
+            self.handler.setPublishObjectPriority(priority)
+        }
+        defer {
+            self.handler.setPublisherPriority(self.publisherPriority)
+            self.handler.setPublishObjectPriority(self.publishObjectPriority)
+        }
+        return self.handler.publishObject(headers,
+                                          data: data,
+                                          extensions: extensions,
+                                          immutableExtensions: immutableExtensions,
+                                          streamHeaderProperties: streamHeaderProperties)
     }
 
     func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool) {

@@ -39,7 +39,7 @@ struct ClientConfig {
 
 enum PublishResponse {
     case reject
-    case accept(QPublishAttributes, Subscription?)
+    case accept(QPublishOkAttributes, Subscription?)
 }
 
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
@@ -564,7 +564,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
         guard let callback = self.publishReceivedCallback else {
             self.resolvePublish(connectionHandle: connectionHandle,
                                 requestId: requestId,
-                                attributes: attributes,
+                                attributes: .init(),
                                 tfn: ftn,
                                 response: .init(ok: false),
                                 handler: nil)
@@ -576,14 +576,14 @@ final class MoqCallController: QClientCallbacks, Sendable {
             let response = await callback(ftn, attributes, handler)
             let qResponse: QPublishResponse
             let subscription: Subscription?
-            let responseAttributes: QPublishAttributes
+            let responseAttributes: QPublishOkAttributes
             switch response {
             case .accept(let newAttributes, let newSubscription):
                 responseAttributes = newAttributes
                 subscription = newSubscription
                 qResponse = .init(ok: true)
             case .reject:
-                responseAttributes = attributes
+                responseAttributes = .init()
                 subscription = nil
                 qResponse = .init(ok: false)
             }
@@ -598,7 +598,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
 
     private func resolvePublish(connectionHandle: UInt64,
                                 requestId: UInt64,
-                                attributes: QPublishAttributes,
+                                attributes: QPublishOkAttributes,
                                 tfn: FullTrackName,
                                 response: QPublishResponse,
                                 handler: QSubscribeTrackHandlerObjC?) {

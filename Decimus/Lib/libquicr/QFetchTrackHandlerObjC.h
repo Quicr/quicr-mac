@@ -30,7 +30,7 @@
 -(id<QLocation> _Nonnull) getStartLocation;
 -(id<QFetchEndLocation> _Nonnull) getEndLocation;
 -(QSubscribeTrackHandlerStatus) getStatus;
--(uint8_t) getPriority;
+-(uint8_t) getSubscriberPriority;
 -(QGroupOrder) getGroupOrder;
 -(QFilterType) getFilterType;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;

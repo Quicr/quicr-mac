@@ -264,10 +264,10 @@ final class TopNHarnessParticipant {
               let subscription = receiveContext.controller.getSubscriptions(set).last else {
             return self.rejectRemote(remote, reason: "subscription creation failed")
         }
-        var response = attributes
-        response.filterType = .latestObject
-        response.forward = 1
-        response.isPublisherInitiated = true
+        let response = QPublishOkAttributes(subscriberPriority: subscription.getSubscriberPriority(),
+                                            groupOrder: attributes.groupOrder,
+                                            forward: 1,
+                                            newGroupRequestId: attributes.newGroupRequestId)
         self.recorder.recordHarnessEvent(client: self.id, connectionGeneration: self.generationNumber,
                                          remoteParticipant: remote, stage: .publishAccepted)
         return .accept(response, subscription)

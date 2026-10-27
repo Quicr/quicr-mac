@@ -9,7 +9,7 @@
 #import "QCommon.h"
 
 typedef struct QPublishAttributes {
-    uint8_t priority;
+    uint8_t publisherPriority;
     QGroupOrder groupOrder;
     uint64_t deliveryTimeoutMs;
     uint64_t expiresMs;

@@ -46,7 +46,7 @@ NS_SWIFT_SENDABLE
 #endif
 }
 
--(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl callbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name trackMode: (QTrackMode) track_mode publisherPriority: (uint8_t) publisherPriority publishObjectPriority: (uint8_t) publishObjectPriority defaultTTL: (uint32_t) ttl callbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
 -(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
                                 data: (NSData* _Nonnull) data
@@ -60,7 +60,8 @@ NS_SWIFT_SENDABLE
 -(void) endSubgroup: (uint64_t) groupId
          subgroupId: (uint64_t) subgroupId
           completed: (bool) completed;
--(void) setDefaultPriority: (uint8_t) priority;
+-(void) setPublisherPriority: (uint8_t) priority;
+-(void) setPublishObjectPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;
 -(void) setDefaultTrackMode: (QTrackMode) trackMode;
 -(QPublishTrackHandlerStatus) getStatus;

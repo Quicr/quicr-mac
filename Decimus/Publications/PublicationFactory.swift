@@ -173,7 +173,7 @@ class PublicationFactoryImpl: PublicationFactory {
             let sink = QPublishTrackHandlerSink(
                 fullTrackName: try profile.getFullTrackName(),
                 trackMode: self.reliability.video ? .stream : .datagram,
-                defaultPriority: try profile.getPriority(index: 0),
+                publisherPriority: try profile.getPriority(index: 0),
                 defaultTTL: UInt32(try profile.getTTL(index: 0))
             )
 
@@ -212,7 +212,7 @@ class PublicationFactoryImpl: PublicationFactory {
             }
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: self.reliability.audio ? .stream : .datagram,
-                                                defaultPriority: try profile.getPriority(index: 0),
+                                                publisherPriority: try profile.getPriority(index: 0),
                                                 defaultTTL: UInt32(try profile.getTTL(index: 0)))
             return try OpusPublication(profile: profile,
                                        participantId: self.participantId,
@@ -233,7 +233,7 @@ class PublicationFactoryImpl: PublicationFactory {
         case .text:
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: .stream,
-                                                defaultPriority: try profile.getPriority(index: 0),
+                                                publisherPriority: try profile.getPriority(index: 0),
                                                 defaultTTL: UInt32(try profile.getTTL(index: 0)))
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,

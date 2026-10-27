@@ -50,7 +50,7 @@ final class SyntheticVideoPublicationFactory: PublicationFactory, @unchecked Sen
         let fullTrackName = try profile.getFullTrackName()
         let sink = QPublishTrackHandlerSink(fullTrackName: fullTrackName,
                                             trackMode: .stream,
-                                            defaultPriority: try profile.getPriority(index: 0),
+                                            publisherPriority: try profile.getPriority(index: 0),
                                             defaultTTL: UInt32(try profile.getTTL(index: 0)))
         let publication = SyntheticVideoPublication(profile: profile,
                                                     fixture: self.fixture,

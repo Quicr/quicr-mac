@@ -14,7 +14,8 @@ class QPublishTrackHandler : public quicr::PublishTrackHandler
 public:
     QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                          quicr::TrackMode track_mode,
-                         std::uint8_t default_priority,
+                         std::uint8_t publisher_priority,
+                         std::uint8_t publish_object_priority,
                          std::uint32_t default_ttl,
                          std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
