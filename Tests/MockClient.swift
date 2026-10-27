@@ -16,6 +16,7 @@ class MockClient: MoqClient {
     private let subscribeNamespace: SubscribeNamespaceCallback
     private let fetch: FetchTrackCallback
     private let fetchCancel: FetchTrackCallback
+    var resolvePublishCallback: ((QPublishOkAttributes, QPublishResponse) -> Void)?
     private(set) var callbacks: QClientCallbacks?
 
     init(publish: @escaping PublishTrackCallback,
@@ -86,9 +87,11 @@ class MockClient: MoqClient {
 
     func resolvePublish(_ connectionHandle: UInt64,
                         requestId: UInt64,
-                        attributes: QPublishAttributes,
+                        attributes: QPublishOkAttributes,
                         tfn: any QFullTrackName,
                         response: QPublishResponse,
-                        handler: QSubscribeTrackHandlerObjC?) {}
+                        handler: QSubscribeTrackHandlerObjC?) {
+        self.resolvePublishCallback?(attributes, response)
+    }
 }
 // swiftlint:enable force_cast

@@ -982,37 +982,20 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             // Create the handler and accept.
             let subscription = self.demoCreateHandler(fullTrackName: track,
                                                       trackAlias: attributes.trackAlias,
-                                                      priority: attributes.priority,
                                                       groupOrder: attributes.groupOrder)
-            let responseAttributes = QPublishAttributes(priority: attributes.priority,
-                                                        groupOrder: attributes.groupOrder,
-                                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
-                                                        expiresMs: attributes.expiresMs,
-                                                        filterType: .latestObject,
-                                                        forward: 1, // TODO: Forward?
-                                                        newGroupRequestId: attributes.newGroupRequestId,
-                                                        isPublisherInitiated: true,
-                                                        startGroupId: attributes.startGroupId,
-                                                        startObjectId: attributes.startObjectId,
-                                                        trackAlias: attributes.trackAlias,
-                                                        dynamicGroups: attributes.dynamicGroups)
+            let responseAttributes = QPublishOkAttributes(subscriberPriority: subscription?.getSubscriberPriority() ?? 128,
+                                                          groupOrder: attributes.groupOrder,
+                                                          forward: 1,
+                                                          newGroupRequestId: attributes.newGroupRequestId)
             return .accept(responseAttributes, subscription)
         }
 
         if self.isNAB() {
             let subscription = self.nabCreateHandler(fullTrackName: track)
-            let responseAttributes = QPublishAttributes(priority: attributes.priority,
-                                                        groupOrder: attributes.groupOrder,
-                                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
-                                                        expiresMs: attributes.expiresMs,
-                                                        filterType: .latestObject,
-                                                        forward: 1,
-                                                        newGroupRequestId: attributes.newGroupRequestId,
-                                                        isPublisherInitiated: true,
-                                                        startGroupId: attributes.startGroupId,
-                                                        startObjectId: attributes.startObjectId,
-                                                        trackAlias: attributes.trackAlias,
-                                                        dynamicGroups: attributes.dynamicGroups)
+            let responseAttributes = QPublishOkAttributes(subscriberPriority: subscription?.getSubscriberPriority() ?? 128,
+                                                          groupOrder: attributes.groupOrder,
+                                                          forward: 1,
+                                                          newGroupRequestId: attributes.newGroupRequestId)
             return .accept(responseAttributes, subscription)
         }
 
@@ -1027,7 +1010,6 @@ extension CallState {
     /// Create a subscription handler for an accepted demo track via the namespace handler's CreateHandler.
     func demoCreateHandler(fullTrackName: FullTrackName,
                            trackAlias: UInt64,
-                           priority: UInt8,
                            groupOrder: QGroupOrder) -> Subscription? {
         guard let factory = self.subscriptionFactory,
               let controller = self.controller,

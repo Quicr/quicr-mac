@@ -8,11 +8,11 @@
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl callbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode publisherPriority: (uint8_t) publisherPriority publishObjectPriority: (uint8_t) publishObjectPriority defaultTTL: (uint32_t) ttl callbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     quicr::TrackMode moqTrackMode = (quicr::TrackMode)track_mode;
-    handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, priority, ttl);
+    handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, publisherPriority, publishObjectPriority, ttl);
     handlerPtr->SetCallbacks(callbacks);
     return self;
 }
@@ -62,12 +62,12 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 
     return quicr::ObjectHeaders {
         .group_id = objectHeaders.groupId,
-        .subgroup_id = objectHeaders.subgroupId,
         .object_id = objectHeaders.objectId,
-        .priority = priority,
-        .ttl = ttl,
+        .subgroup_id = objectHeaders.subgroupId,
         .payload_length = objectHeaders.payloadLength,
         .status = static_cast<quicr::ObjectStatus>(objectHeaders.status),
+        .priority = priority,
+        .ttl = ttl,
         .extensions = from(extensions),
         .immutable_extensions = from(immutable_extensions),
     };
@@ -117,9 +117,14 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     handlerPtr->EndSubgroup(groupId, subgroupId, completed);
 }
 
--(void) setDefaultPriority: (uint8_t) priority {
+-(void) setPublisherPriority: (uint8_t) priority {
     assert(handlerPtr);
-    handlerPtr->SetDefaultPriority(priority);
+    handlerPtr->SetPublisherPriority(priority);
+}
+
+-(void) setPublishObjectPriority: (uint8_t) priority {
+    assert(handlerPtr);
+    handlerPtr->SetPublishObjectPriority(priority);
 }
 
 -(void) setDefaultTtl: (uint32_t) ttl {
@@ -152,9 +157,10 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 
 QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                                            quicr::TrackMode track_mode,
-                                           std::uint8_t default_priority,
+                                           std::uint8_t publisher_priority,
+                                           std::uint8_t publish_object_priority,
                                            std::uint32_t default_ttl,
-                                           std::optional<quicr::messages::StreamHeaderProperties> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
+                                           std::optional<quicr::messages::StreamHeaderProperties> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, publisher_priority, publish_object_priority, default_ttl, stream_mode)
 {
 }
 
