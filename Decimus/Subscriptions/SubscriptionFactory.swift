@@ -426,6 +426,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          },
                                          handlerStopped: { [weak set] subscription in
                                             set?.handlerStopped(subscription)
+                                         },
+                                         onDecodedImage: { [weak set] in
+                                            set?.wakeSimulreceive()
                                          })
         } else if config is AudioCodecConfig {
             guard set is ObservableSubscriptionSet else {

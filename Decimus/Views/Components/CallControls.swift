@@ -127,8 +127,7 @@ struct CallControls: View {
                                         .foregroundColor(.gray)
                                     Text(microphone.localizedName).tag(microphone)
                                 }
-                            })
-                            .aspectRatio(contentMode: .fill)
+                            }).scaledToFill()
                     }
                 })
                 .onChange(of: self.selectedMicrophone) {

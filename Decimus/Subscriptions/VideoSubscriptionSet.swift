@@ -18,6 +18,7 @@ struct AvailableImage {
     let image: CMSampleBuffer
     let fps: UInt
     let discontinous: Bool
+    let arrivedAt: Ticks
 }
 
 class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unchecked Sendable {
@@ -33,7 +34,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private var lastTime: CMTime?
     private var qualityMisses = 0
     private var qualityHits = 0
-    private var last: FullTrackName?
     private var lastImage: AvailableImage?
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
@@ -58,6 +58,27 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private let lastTimestampReceived = Atomic(Int64.zero)
     private let config: Config
     private let videoPipelineEvent: VideoPipelineEventCallback?
+    private var lastDecisionTimestamp: CMTime?
+    private var lastUpgradeTimestamp: CMTime?
+
+    /// Tracked available images.
+    struct DecodedQuality {
+        let width: Int32
+        let generation: UInt64
+        let timestamp: CMTime?
+        let arrivedAt: Ticks
+    }
+    private var decodedQualities: [FullTrackName: DecodedQuality] = [:]
+
+    /// Commands for the render task.
+    enum RenderDecision {
+        // End the render task.
+        case stop
+        // Immediately re-run the render task.
+        case again
+        // Sleep the render task until.
+        case wait(until: Ticks?)
+    }
 
     /// State for simulreceive rendering.
     private struct RenderState {
@@ -69,6 +90,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         var token: UInt64?
         /// The current simulreceive rendering task.
         var task: Task<Void, Never>?
+        /// Async stream for decode image wakeups
+        var wakeup: AsyncStream<Void>.Continuation?
+        /// Task used to sleep render task until some time later.
+        var deadlineTask: Task<Void, Never>?
     }
     /// Simulreceive render.
     private let renderState = Mutex(RenderState())
@@ -222,6 +247,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.cleanupTask?.cancel()
         self.renderState.withLock { state in
             state.task?.cancel()
+            state.deadlineTask?.cancel()
+            state.wakeup?.finish()
             state.token = nil
             state.task = nil
         }
@@ -232,16 +259,22 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         self.renderState.withLock { state in
             state.epoch += 1
             state.task?.cancel()
+            state.deadlineTask?.cancel()
+            state.deadlineTask = nil
+            state.wakeup?.finish()
+            state.wakeup = nil
             state.token = nil
             state.task = nil
         }
         self.renderDecisions.wait()
-        self.last = nil
         self.lastImage = nil
         self.lastHighlight = nil
         self.qualityMisses = 0
         self.qualityHits = 0
         self.pauseMissCounts.removeAll()
+        self.decodedQualities.removeAll()
+        self.lastDecisionTimestamp = nil
+        self.lastUpgradeTimestamp = nil
     }
 
     /// Get or create the participant for the locked render epoch.
@@ -423,36 +456,51 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
+    /// Wakeup simulreceive as a new image is available for consideration.
+    func wakeSimulreceive() {
+        _ = self.renderState.withLock { $0.wakeup?.yield(()) }
+    }
+
     private func startRenderTask(epoch: UInt64) {
-        // Check we're valid to start.
-        let token = self.renderState.withLock { state -> UInt64? in
-            guard state.epoch == epoch,
-                  state.token == nil else { return nil }
+        // swiftlint:disable:next large_tuple
+        let started = self.renderState.withLock { state -> (UInt64,
+                                                            AsyncStream<Void>,
+                                                            AsyncStream<Void>.Continuation)? in
+            guard state.epoch == epoch, state.token == nil else { return nil }
+            let (wakeups, continuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
             state.nextToken &+= 1
             state.token = state.nextToken
-            return state.nextToken
+            state.wakeup = continuation
+            return (state.nextToken, wakeups, continuation)
         }
-        guard let token else { return }
+        guard let (token, wakeups, continuation) = started else { return }
+        continuation.yield(())
 
-        // Start the simulreceive render.
         let task = Task(priority: .high) { [weak self] in
             defer {
+                continuation.finish()
                 self?.renderState.withLock { state in
                     guard state.token == token else { return }
+                    state.deadlineTask?.cancel()
+                    state.deadlineTask = nil
+                    state.wakeup = nil
                     state.token = nil
                     state.task = nil
                 }
             }
-            while !Task.isCancelled {
-                let duration: TimeInterval
-                if let self {
-                    guard let next = self.renderStep(token: token, epoch: epoch) else { return }
-                    duration = next
-                } else {
-                    return
-                }
-                if duration > 0 {
-                    try? await Task.sleep(for: .seconds(duration))
+            for await _ in wakeups {
+                while !Task.isCancelled {
+                    let now = Ticks.now
+                    guard let decision = self?.renderStep(token: token, epoch: epoch, from: now) else { return }
+                    switch decision {
+                    case .stop:
+                        return
+                    case .again:
+                        continue
+                    case .wait(let deadline):
+                        self?.scheduleDeadline(deadline, token: token, epoch: epoch, from: now)
+                    }
+                    break
                 }
             }
         }
@@ -462,16 +510,39 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             state.task = task
             return true
         }
-        if !installed {
-            task.cancel()
+        if !installed { task.cancel() }
+    }
+
+    /// Wake the render task up at the given deadline.
+    private func scheduleDeadline(_ deadline: Ticks?, token: UInt64, epoch: UInt64, from: Ticks) {
+        self.renderState.withLock { state in
+            guard state.token == token,
+                  state.epoch == epoch else { return }
+            state.deadlineTask?.cancel()
+            state.deadlineTask = nil
+            guard let deadline,
+                  let continuation = state.wakeup else { return }
+            state.deadlineTask = Task {
+                let wait = deadline.timeIntervalSince(from)
+                if wait > 0 {
+                    do {
+                        try await Task.sleep(for: .seconds(wait))
+                    } catch {
+                        return
+                    }
+                }
+                guard !Task.isCancelled else { return }
+                continuation.yield(())
+            }
         }
     }
 
     /// Make one simulreceive decision.
     /// - Parameter token: Which render task this is for.
     /// - Parameter epoch: Which lifetime epoch this is for.
-    /// - Returns: How long to wait before the next decision.
-    private func renderStep(token: UInt64, epoch: UInt64) -> TimeInterval? {
+    /// - Parameter from: The current time we're making the decision at.
+    /// - Returns: Whether to continue, await a signal/deadline, or stop.
+    private func renderStep(token: UInt64, epoch: UInt64, from: Ticks) -> RenderDecision {
         let owned = self.renderState.withLock { state in
             guard state.token == token,
                   state.epoch == epoch,
@@ -479,14 +550,14 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             self.renderDecisions.enter()
             return true
         }
-        guard owned else { return nil }
+        guard owned else { return .stop }
         defer { self.renderDecisions.leave() }
-        guard !self.getHandlers().isEmpty else { return nil }
+        guard !self.getHandlers().isEmpty else { return .stop }
         do {
-            return try self.makeSimulreceiveDecision(at: Ticks.now, epoch: epoch)
+            return try self.makeSimulreceiveDecision(at: from, epoch: epoch)
         } catch {
             self.logger.warning("Simulreceive failure: \(error.localizedDescription)")
-            return nil
+            return .stop
         }
     }
 
@@ -535,14 +606,52 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
     }
 
-    private static func highestFps(_ handlers: [FullTrackName: VideoHandler]) -> UInt16 {
-        handlers.values.reduce(1) { max($0, $1.config.fps) }
+    // TODO: These tolerances could be observed from decode jitter.
+    /// How long should we wait for more qualities of this time to arrive.
+    static func qualityDeadline(choices: [SimulreceiveItem],
+                                qualities: [FullTrackName: DecodedQuality],
+                                now: Ticks,
+                                grace: TimeInterval = 0.010,
+                                recent: TimeInterval = 0.100) -> Ticks? {
+        // The oldest timestamp we have.
+        guard let oldest = choices.map({ $0.image.image.presentationTimeStamp }).min() else { return nil }
+        // Get all choices for this timestamp.
+        let matching = choices.filter { $0.image.image.presentationTimeStamp == oldest }
+        // All pristine choices for this timestamp.
+        let pristine = matching.filter { !$0.image.discontinous }
+        // Best possible is highest resolution.
+        let bestWidth = (pristine.isEmpty ? matching : pristine).map {
+            $0.image.image.formatDescription!.dimensions.width
+        }.max()!
+
+        // Are we missing things we want?
+        let present = Set(matching.map(\.fullTrackName))
+        let missingBetter = qualities.contains { track, quality in
+            guard !present.contains(track),
+                  now.timeIntervalSince(quality.arrivedAt) <= recent,
+                  quality.width > bestWidth || pristine.isEmpty else { return false }
+
+            // If this quality doesn't provide a decoded image yet, give it a chance.
+            guard let timestamp = quality.timestamp else { return true }
+
+            // Only wait if we've not overrun or not too far behind.
+            let lag = CMTimeSubtract(oldest, timestamp).seconds
+            return lag >= 0 && lag <= recent
+        }
+
+        // Can't improve, don't wait.
+        guard missingBetter else { return nil }
+
+        // How long should we wait.
+        let firstArrival = matching.map(\.image.arrivedAt).min()!
+        let deadline = firstArrival + grace.ticks
+        return deadline > now ? deadline : nil
     }
 
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision(at: Ticks,
-                                          epoch: UInt64) throws -> TimeInterval {
+                                          epoch: UInt64) throws -> RenderDecision {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
         var handlers: [FullTrackName: VideoHandler] = [:]
@@ -552,11 +661,23 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 continue
             }
             handlers[handler.fullTrackName] = handler
+            if self.decodedQualities[handler.fullTrackName]?.generation != handler.generation {
+                self.decodedQualities[handler.fullTrackName] = .init(width: Int32(handler.config.width),
+                                                                     generation: handler.generation,
+                                                                     timestamp: nil,
+                                                                     arrivedAt: at)
+            }
             handler.lastDecodedImage.withLock { lockedImage in
                 guard let available = lockedImage else { return }
-                if let lastTime = self.lastImage?.image.presentationTimeStamp,
-                   available.image.presentationTimeStamp <= lastTime {
-                    // This would be backwards in time, so we'll never use it.
+                self.decodedQualities[handler.fullTrackName] = .init(
+                    width: available.image.formatDescription!.dimensions.width,
+                    generation: handler.generation,
+                    timestamp: available.image.presentationTimeStamp,
+                    arrivedAt: available.arrivedAt)
+                let timestamp = available.image.presentationTimeStamp
+                let alreadyDisplayed = self.lastImage.map { timestamp <= $0.image.presentationTimeStamp } ?? false
+                let superseded = self.lastDecisionTimestamp.map { timestamp < $0 } ?? false
+                if alreadyDisplayed || superseded {
                     lockedImage = nil
                     return
                 }
@@ -572,22 +693,25 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                       objectId: nil)
         }
 
+        // Should we wait for any more qualities for this timestamp?
+        self.decodedQualities = self.decodedQualities.filter { handlers[$0.key] != nil }
+        let oldest = initialChoices.map { $0.image.image.presentationTimeStamp }.min()
+        if oldest != self.lastDecisionTimestamp,
+           let deadline = Self.qualityDeadline(choices: initialChoices,
+                                               qualities: self.decodedQualities,
+                                               now: at) {
+            return .wait(until: deadline)
+        }
+
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
         let decisionTime = self.measurement == nil ? nil : at.hostDate
         let decision = Self.makeSimulreceiveDecision(choices: &choices)
+        guard let decision else { return .wait(until: nil) }
 
-        guard let decision = decision else {
-            // Wait for next.
-            let duration: TimeInterval
-            if let lastNamespace = self.last,
-               let handler = handlers[lastNamespace] {
-                duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
-            } else {
-                duration = 1 / TimeInterval(Self.highestFps(handlers))
-            }
-            return duration
-        }
+        let timestamp = choices.first!.image.image.presentationTimeStamp
+        let newTimestamp = self.lastDecisionTimestamp.map { timestamp > $0 } ?? true
+        self.lastDecisionTimestamp = timestamp
 
         // Consume all images from our shortlist.
         for choice in choices {
@@ -622,12 +746,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             }
         }
 
-        if wouldStepDown {
+        if wouldStepDown && newTimestamp {
             self.qualityMisses += 1
         }
 
-        if wouldStepUp {
+        if wouldStepUp && newTimestamp {
             self.qualityHits += 1
+            self.lastUpgradeTimestamp = timestamp
         }
 
         // For step-up, continue rendering current quality during threshold period, if available.
@@ -636,7 +761,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
            let lastImage = self.lastImage {
             let lastWidth = lastImage.image.formatDescription!.dimensions.width
             if let currentQualityChoice = initialChoices.first(where: {
-                $0.image.image.formatDescription!.dimensions.width == lastWidth
+                $0.image.image.formatDescription!.dimensions.width == lastWidth &&
+                    $0.image.image.presentationTimeStamp == selected.image.image.presentationTimeStamp
             }) {
                 selected = currentQualityChoice
                 wouldStepUp = false
@@ -678,7 +804,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
 
         let stepDown = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
         let stepUp = wouldStepUp && self.qualityHits < self.config.qualityHitThreshold
-        let qualitySkip = stepDown || stepUp || continuingCurrentQuality
+        let qualitySkip = stepDown || stepUp
         if let measurement = self.measurement,
            self.granularMetrics {
             var report: [VideoSubscriptionSet.SimulreceiveChoiceReport] = []
@@ -724,27 +850,20 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         }
 
         if qualitySkip {
-            self.emit(.simulreceiveSelected(
-                        displayed: false,
-                        presentationSeconds: selectedSample.presentationTimeStamp.seconds),
+            self.emit(.simulreceiveSelected(displayed: false,
+                                            presentationSeconds: selectedSample.presentationTimeStamp.seconds),
                       fullTrackName: selected.fullTrackName,
                       handlerGeneration: handler.generation,
                       epoch: epoch)
-            // We only want to change in quality if we've missed a few hits.
-            if let duration = handler.calculateWaitTime(from: at) {
-                return duration
-            }
-            if selectedSample.duration.isValid {
-                return selectedSample.duration.seconds
-            }
-            return 1 / TimeInterval(Self.highestFps(handlers))
+            return .again
         }
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
-        self.qualityHits = 0
+        if !continuingCurrentQuality && (wouldStepUp || self.lastUpgradeTimestamp != selectedSample.presentationTimeStamp) {
+            self.qualityHits = 0
+        }
         self.pauseMissCounts[handler.fullTrackName] = 0
-        self.last = handler.fullTrackName
         self.lastImage = selected.image
 
         if self.simulreceive == .enable {
@@ -843,14 +962,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
             }
         }
 
-        // Wait until we have expect to have the next frame available.
-        if let duration = handler.calculateWaitTime(from: at) {
-            return duration
-        }
-        if selectedSample.duration.isValid {
-            return selectedSample.duration.seconds
-        }
-        return 1 / TimeInterval(Self.highestFps(handlers))
+        return .again
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length

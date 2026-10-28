@@ -73,6 +73,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let videoPipelineEvent: VideoPipelineEventCallback?
+    private let onDecodedImage: @Sendable () -> Void
     private let videoObjectIngressInterceptor: VideoObjectIngressInterceptor?
     private var paused = false
     private var stopped = false
@@ -225,7 +226,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          publisherInitiated: Bool,
          callback: @escaping Callback,
          statusChanged: @escaping VideoStatusCallback,
-         handlerStopped: @escaping HandlerStoppedCallback = { _ in }) throws {
+         handlerStopped: @escaping HandlerStoppedCallback = { _ in },
+         onDecodedImage: @escaping @Sendable () -> Void = {}) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config
         self.participants = participants
@@ -251,6 +253,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.wifiScanDetector = wifiScanDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
+        self.onDecodedImage = onDecodedImage
         self.videoObjectIngressInterceptor = videoObjectIngressInterceptor
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
@@ -273,7 +276,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        wifiDetector: self.wifiScanDetector,
                                        switchLatencyMeasurement: self.switchLatencyMeasurement,
                                        generation: self.handlerGeneration,
-                                       videoPipelineEvent: self.videoPipelineEvent)
+                                       videoPipelineEvent: self.videoPipelineEvent,
+                                       onDecodedImage: self.onDecodedImage)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
@@ -800,7 +804,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               wifiDetector: self.wifiScanDetector,
                                               switchLatencyMeasurement: self.switchLatencyMeasurement,
                                               generation: self.handlerGeneration,
-                                              videoPipelineEvent: self.videoPipelineEvent)
+                                              videoPipelineEvent: self.videoPipelineEvent,
+                                              onDecodedImage: self.onDecodedImage)
             newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
                 guard let newHandler else { return }
                 self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)
