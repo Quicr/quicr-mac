@@ -78,6 +78,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     let lastDecodedImage = Mutex<AvailableImage?>(nil)
+    private let onDecodedImage: @Sendable () -> Void
 
     // All these are thread safe in practise.
     private nonisolated(unsafe) var lastGroup: UInt64?
@@ -162,7 +163,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          wifiDetector: WiFiScanDetector?,
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          generation: UInt64 = 1,
-         videoPipelineEvent: VideoPipelineEventCallback? = nil) throws {
+         videoPipelineEvent: VideoPipelineEventCallback? = nil,
+         onDecodedImage: @escaping @Sendable () -> Void = {}) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -190,6 +192,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.detector = wifiDetector
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.videoPipelineEvent = videoPipelineEvent
+        self.onDecodedImage = onDecodedImage
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
@@ -1177,7 +1180,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
         // Calculate / report E2E latency.
         let endToEndLatency: TimeInterval?
-        let now = Date.now
+        let nowTicks = Ticks.now
+        let now = nowTicks.hostDate
         if self.handlerConfig.calculateLatency {
             let presentationTime = sample.presentationTimeStamp.seconds
             let presentationDate = Date(timeIntervalSince1970: presentationTime)
@@ -1194,11 +1198,16 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         if self.simulreceive != .none {
             _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                     now: now)
-            self.lastDecodedImage.withLock { image in
-                guard !self.stopped.load(ordering: .acquiring) else { return }
+            let stored = self.lastDecodedImage.withLock { image -> Bool in
+                guard !self.stopped.load(ordering: .acquiring) else { return false }
                 image = .init(image: sample,
                               fps: UInt(self.config.fps),
-                              discontinous: sample.discontinous)
+                              discontinous: sample.discontinous,
+                              arrivedAt: nowTicks)
+                return true
+            }
+            if stored {
+                self.onDecodedImage()
             }
         }
 

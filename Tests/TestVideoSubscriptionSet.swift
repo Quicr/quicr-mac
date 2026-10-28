@@ -29,7 +29,8 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                                presentationTimeStamp: timing?[0] ?? .init(value: 1, timescale: 1),
                                                                                decodeTimeStamp: .invalid)),
                                           fps: 30,
-                                          discontinous: discontinous[0])
+                                          discontinous: discontinous[0],
+                                          arrivedAt: .now)
         let highest = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["1"], name: ""), image: highestImage)
 
         let mediumBuffer = try testImage(width: 1280, height: 960)
@@ -39,7 +40,8 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                               presentationTimeStamp: timing?[1] ?? .init(value: 1, timescale: 1),
                                                                               decodeTimeStamp: .invalid)),
                                          fps: 30,
-                                         discontinous: discontinous[1])
+                                         discontinous: discontinous[1],
+                                         arrivedAt: .now)
         let medium = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["2"], name: ""), image: mediumImage)
 
         let lowerBuffer = try testImage(width: 1280, height: 960)
@@ -49,10 +51,58 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                              presentationTimeStamp: timing?[2] ?? .init(value: 1, timescale: 1),
                                                                              decodeTimeStamp: .invalid)),
                                         fps: 30,
-                                        discontinous: discontinous[2])
+                                        discontinous: discontinous[2],
+                                        arrivedAt: .now)
         let lower = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["3"], name: ""), image: lowerImage)
 
         return [highest, medium, lower]
+    }
+
+    func testQualityGraceWaitsForActiveHigherQuality() throws {
+        let now = Ticks.now
+        let all = try getQualities(discontinous: [false, false, false])
+        let lower = VideoSubscriptionSet.SimulreceiveItem(
+            fullTrackName: all[1].fullTrackName,
+            image: .init(image: all[1].image.image, fps: 30, discontinous: false, arrivedAt: now))
+        let higher = all[0]
+        let qualities: [FullTrackName: VideoSubscriptionSet.DecodedQuality] = [
+            higher.fullTrackName: .init(width: 1920, generation: 0,
+                                        timestamp: .init(value: 29, timescale: 30), arrivedAt: now)
+        ]
+        let deadline = VideoSubscriptionSet.qualityDeadline(choices: [lower], qualities: qualities, now: now)
+        XCTAssertEqual(deadline, now + TimeInterval(0.010).ticks)
+        XCTAssertNil(VideoSubscriptionSet.qualityDeadline(choices: [lower, higher], qualities: qualities, now: now))
+        XCTAssertNil(VideoSubscriptionSet.qualityDeadline(choices: [lower], qualities: qualities,
+                                                          now: now + TimeInterval(0.011).ticks))
+        XCTAssertEqual(VideoSubscriptionSet.qualityDeadline(choices: [lower], qualities: qualities,
+                                                            now: now + TimeInterval(0.005).ticks), deadline)
+    }
+
+    func testQualityGraceDoesNotWaitForAdvancedOrInactiveQuality() throws {
+        let now = Ticks.now
+        let all = try getQualities(discontinous: [false, false, false])
+        let lower = VideoSubscriptionSet.SimulreceiveItem(
+            fullTrackName: all[1].fullTrackName,
+            image: .init(image: all[1].image.image, fps: 30, discontinous: false, arrivedAt: now))
+        let higher = all[0].fullTrackName
+        let advanced: [FullTrackName: VideoSubscriptionSet.DecodedQuality] = [
+            higher: .init(width: 1920, generation: 0, timestamp: .init(value: 31, timescale: 30), arrivedAt: now)
+        ]
+        XCTAssertNil(VideoSubscriptionSet.qualityDeadline(choices: [lower], qualities: advanced, now: now))
+        let inactive: [FullTrackName: VideoSubscriptionSet.DecodedQuality] = [
+            higher: .init(width: 1920, generation: 0, timestamp: .init(value: 29, timescale: 30), arrivedAt: now)
+        ]
+        XCTAssertNil(VideoSubscriptionSet.qualityDeadline(choices: [lower], qualities: inactive,
+                                                          now: now + TimeInterval(0.2).ticks))
+    }
+
+    func testHighestQualityDoesNotWaitForLowerQualities() throws {
+        let now = Ticks.now
+        let all = try getQualities(discontinous: [false, false, false])
+        let qualities: [FullTrackName: VideoSubscriptionSet.DecodedQuality] = [
+            all[1].fullTrackName: .init(width: 1280, generation: 0, timestamp: nil, arrivedAt: now)
+        ]
+        XCTAssertNil(VideoSubscriptionSet.qualityDeadline(choices: [all[0]], qualities: qualities, now: now))
     }
 
     func testOnlyConsiderOldest() throws {
@@ -151,10 +201,11 @@ struct VideoSubscriptionSetTests {
     static let futureTimestamp = Self.now.hostDate.addingTimeInterval(10).timeIntervalSince1970
 
     private func makeAvailableImage(presentationTime: CMTime = .init(value: 1, timescale: 1),
-                                    duration: CMTime = .init(seconds: 5, preferredTimescale: 1_000)) throws -> AvailableImage {
+                                    duration: CMTime = .init(seconds: 5, preferredTimescale: 1_000),
+                                    width: Int = 640) throws -> AvailableImage {
         var imageBuffer: CVPixelBuffer?
         let result = CVPixelBufferCreate(kCFAllocatorDefault,
-                                         640,
+                                         width,
                                          480,
                                          kCMPixelFormat_24RGB,
                                          nil,
@@ -167,7 +218,7 @@ struct VideoSubscriptionSetTests {
                                         sampleTiming: .init(duration: duration,
                                                             presentationTimeStamp: presentationTime,
                                                             decodeTimeStamp: .invalid))
-        return .init(image: sample, fps: 30, discontinous: false)
+        return .init(image: sample, fps: 30, discontinous: false, arrivedAt: .now)
     }
 
     private func makeObjectReceived(timestamp: TimeInterval?,
@@ -345,7 +396,9 @@ struct VideoSubscriptionSetTests {
     }
 
     @MainActor
-    private func makeSimulreceiveSet(participants: VideoParticipants) throws -> VideoSubscriptionSet {
+    private func makeSimulreceiveSet(participants: VideoParticipants,
+                                     qualityHitThreshold: Int = 1,
+                                     videoPipelineEvent: VideoPipelineEventCallback? = nil) throws -> VideoSubscriptionSet {
         try VideoSubscriptionSet(subscription: .init(mediaType: "",
                                                      sourceName: "",
                                                      sourceID: "participant",
@@ -373,7 +426,8 @@ struct VideoSubscriptionSetTests {
                                  cleanupTime: 10,
                                  slidingWindowTime: 10,
                                  config: .init(calculateLatency: false,
-                                               qualityHitThreshold: 1))
+                                               qualityHitThreshold: qualityHitThreshold),
+                                 videoPipelineEvent: videoPipelineEvent)
     }
 
     @MainActor
@@ -461,6 +515,116 @@ struct VideoSubscriptionSetTests {
         }
 
         #expect(releasedSet == nil)
+    }
+
+    @MainActor
+    @Test("Decoded-image signals wake an idle renderer without another received object")
+    func testDecodedImageWakesIdleRenderer() async throws {
+        let participants = VideoParticipants()
+        let set = try self.makeSimulreceiveSet(participants: participants)
+        let displays = Mutex(0)
+        set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
+        let subscription = try await self.makeVideoSubscription(participants: participants)
+        try set.addHandler(subscription)
+        let current = subscription.handler.get()
+        let handler = try #require(current)
+        set.receivedObject(subscription, details: self.makeObjectReceived(timestamp: 1))
+        // Let the renderer reach the no-image wait state.
+        for _ in 0..<100 { await Task.yield() }
+        let first = try self.makeAvailableImage(presentationTime: .init(value: 1, timescale: 1))
+        handler.lastDecodedImage.withLock { $0 = first }
+        set.wakeSimulreceive()
+        for _ in 0..<200 where displays.get() < 1 { try await Task.sleep(for: .milliseconds(1)) }
+        #expect(displays.get() == 1)
+        let second = try self.makeAvailableImage(presentationTime: .init(value: 2, timescale: 1))
+        handler.lastDecodedImage.withLock { $0 = second }
+        // Coalesced signals must not display the same timestamp twice.
+        for _ in 0..<10 { set.wakeSimulreceive() }
+        for _ in 0..<200 where displays.get() < 2 { try await Task.sleep(for: .milliseconds(1)) }
+        #expect(displays.get() == 2)
+        _ = set.removeHandler(FullTrackName(subscription.getFullTrackName()))
+    }
+
+    @MainActor
+    @Test("A quality grace deadline displays the fallback without another decoded frame")
+    func testQualityDeadlineWakesRenderer() async throws {
+        let participants = VideoParticipants()
+        let set = try self.makeSimulreceiveSet(participants: participants)
+        let displays = Mutex(0)
+        set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
+        let low = try await self.makeVideoSubscription(participants: participants, namespace: ["low"])
+        let high = try await self.makeVideoSubscription(participants: participants, namespace: ["high"])
+        try set.addHandler(low)
+        try set.addHandler(high)
+        let lowCurrent = low.handler.get()
+        let highCurrent = high.handler.get()
+        let lowHandler = try #require(lowCurrent)
+        let highHandler = try #require(highCurrent)
+        let initialLow = try self.makeAvailableImage(width: 640)
+        let initialHigh = try self.makeAvailableImage(width: 1280)
+        lowHandler.lastDecodedImage.withLock { $0 = initialLow }
+        highHandler.lastDecodedImage.withLock { $0 = initialHigh }
+        set.receivedObject(low, details: self.makeObjectReceived(timestamp: 1))
+        for _ in 0..<200 where displays.get() < 1 { try await Task.sleep(for: .milliseconds(1)) }
+        try #require(displays.get() == 1)
+
+        let next = try self.makeAvailableImage(presentationTime: .init(value: 31, timescale: 30), width: 640)
+        lowHandler.lastDecodedImage.withLock { $0 = next }
+        set.wakeSimulreceive()
+        for _ in 0..<200 where displays.get() < 2 { try await Task.sleep(for: .milliseconds(1)) }
+        #expect(displays.get() == 2)
+        #expect(Ticks.now.timeIntervalSince(next.arrivedAt) >= 0.010)
+        _ = set.removeHandler(FullTrackName(low.getFullTrackName()))
+        _ = set.removeHandler(FullTrackName(high.getFullTrackName()))
+    }
+
+    @MainActor
+    @Test("Late current-quality frames remain renderable during an upgrade")
+    func testLateCurrentQualityDuringUpgrade() async throws {
+        let participants = VideoParticipants()
+        let tracks = Mutex<[FullTrackName]>([])
+        let set = try self.makeSimulreceiveSet(participants: participants, qualityHitThreshold: 3,
+                                               videoPipelineEvent: { event in
+                                                if case .displayEnqueued = event.kind {
+                                                    tracks.withLock { $0.append(event.fullTrackName) }
+                                                }
+                                               })
+        let displays = Mutex(0)
+        set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
+        let low = try await self.makeVideoSubscription(participants: participants, namespace: ["low"])
+        let high = try await self.makeVideoSubscription(participants: participants, namespace: ["high"])
+        try set.addHandler(low)
+        try set.addHandler(high)
+        let lowCurrent = low.handler.get()
+        let highCurrent = high.handler.get()
+        let lowHandler = try #require(lowCurrent)
+        let highHandler = try #require(highCurrent)
+        let first = try self.makeAvailableImage(width: 640)
+        lowHandler.lastDecodedImage.withLock { $0 = first }
+        set.receivedObject(low, details: self.makeObjectReceived(timestamp: 1))
+        for _ in 0..<200 where displays.get() < 1 { try await Task.sleep(for: .milliseconds(1)) }
+        try #require(displays.get() == 1)
+
+        for frame in 1...3 {
+            let pts = CMTime(value: Int64(30 + frame), timescale: 30)
+            let higher = try self.makeAvailableImage(presentationTime: pts, width: 1280)
+            highHandler.lastDecodedImage.withLock { $0 = higher }
+            for _ in 0..<10 { set.wakeSimulreceive() }
+            // Allow the higher-quality decision to run before the current-quality image arrives.
+            try await Task.sleep(for: .milliseconds(15))
+            if frame < 3 { #expect(displays.get() == frame) }
+            let lower = try self.makeAvailableImage(presentationTime: pts, width: 640)
+            lowHandler.lastDecodedImage.withLock { $0 = lower }
+            set.wakeSimulreceive()
+            for _ in 0..<200 where displays.get() < frame + 1 { try await Task.sleep(for: .milliseconds(1)) }
+            #expect(displays.get() == frame + 1)
+        }
+        #expect(tracks.get() == [FullTrackName(low.getFullTrackName()),
+                                 FullTrackName(low.getFullTrackName()),
+                                 FullTrackName(low.getFullTrackName()),
+                                 FullTrackName(high.getFullTrackName())])
+        _ = set.removeHandler(FullTrackName(low.getFullTrackName()))
+        _ = set.removeHandler(FullTrackName(high.getFullTrackName()))
     }
 
     @MainActor

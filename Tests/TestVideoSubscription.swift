@@ -86,7 +86,8 @@ struct TestVideoSubscription {
                           simulreceive: SimulreceiveMode = .none,
                           statusChanged: VideoSubscription.VideoStatusCallback? = nil,
                           handlerStopped: VideoSubscription.HandlerStoppedCallback? = nil,
-                          videoPipelineEvent: VideoPipelineEventCallback? = nil) async throws -> VideoSubscription {
+                          videoPipelineEvent: VideoPipelineEventCallback? = nil,
+                          onDecodedImage: @escaping @Sendable () -> Void = {}) async throws -> VideoSubscription {
         let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
@@ -135,7 +136,8 @@ struct TestVideoSubscription {
                                                  },
                                                  handlerStopped: { subscription in
                                                     handlerStopped?(subscription)
-                                                 })
+                                                 },
+                                                 onDecodedImage: onDecodedImage)
         // Simulate the subscribe OK that would set this in production.
         subscription.supportNewGroupRequest(true)
         return subscription
