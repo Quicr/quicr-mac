@@ -806,9 +806,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 let waitTime: TimeInterval
-                let now: Ticks
                 if let self = self {
-                    now = .now
+                    let now = Ticks.now
 
                     // Wait until we expect to have a frame available.
                     let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
@@ -835,6 +834,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
                 // Regain our strong reference after sleeping.
                 if let self = self {
+                    let now = Ticks.now
                     // Attempt to dequeue a frame.
                     if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.hostDate) {
                         if self.granularMetrics,
