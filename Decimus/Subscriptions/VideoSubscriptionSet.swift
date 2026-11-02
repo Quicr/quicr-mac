@@ -896,20 +896,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                 guard let self else { return }
 
                 do {
-                    let e2eLatency: TimeInterval?
-                    if self.config.calculateLatency {
-                        let now = Date.now
-                        let presentationTime = selectedSample.presentationTimeStamp.seconds
-                        let presentationDate = Date(timeIntervalSince1970: presentationTime)
-                        let age = now.timeIntervalSince(presentationDate)
-                        if self.granularMetrics,
-                           let measurement = measurement {
-                            measurement.age(age, timestamp: now)
-                        }
-                        e2eLatency = age
-                    } else {
-                        e2eLatency = nil
-                    }
+                    let now = Date.now
+                    let presentationTime = selectedSample.presentationTimeStamp.seconds
+                    let presentationDate = Date(timeIntervalSince1970: presentationTime)
+                    let age = now.timeIntervalSince(presentationDate)
+                    let e2eLatency = self.config.calculateLatency ? age : nil
                     let transform = handler.orientation?.toTransform(handler.verticalMirror)
                     let rendered = try self.renderState.withLock { state in
                         guard let registration = try self.getOrCreateParticipant(state: &state,
@@ -931,6 +922,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                         return true
                     }
                     guard rendered else { return }
+                    if self.granularMetrics,
+                       let measurement = measurement {
+                        measurement.age(age, timestamp: now)
+                    }
                     self.emit(.displayEnqueued(
                                 presentationSeconds: selectedSample.presentationTimeStamp.seconds),
                               fullTrackName: selected.fullTrackName,

@@ -34,6 +34,9 @@ final class JitterBuffer: Sendable {
         var window: TimeInterval = 5
         /// Dynamically adjust target depth.
         var adaptive: Bool = true
+        /// Adapt to the peak lateness of recent objects instead of RFC 3550 jitter.
+        /// `minDepth` is then only the initial target.
+        var peakHold: Bool = false
         /// WiFi spike prediction.
         var spikePrediction: Bool = false
     }

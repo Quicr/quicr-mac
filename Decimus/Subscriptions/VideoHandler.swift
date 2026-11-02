@@ -109,6 +109,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let detector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let jitterCalculation: RFC3550Jitter
+    private let peakHoldDepth: Mutex<PeakHoldDepth>
     private let videoPipelineEvent: VideoPipelineEventCallback?
 
     // Wi-Fi scan jitter buffer ramping state.
@@ -196,6 +197,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
+        self.peakHoldDepth = .init(.init(initial: jitterBufferConfig.minDepth))
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config, decodeBufferSize: handlerConfig.decodeBufferSize)
@@ -485,15 +487,26 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
             let presentationInterval = presentationTimestamp.seconds
 
-            // Drive base target depth from smoothed RFC3550 jitter.
             if self.jitterBufferConfig.adaptive {
-                self.jitterCalculation.record(timestamp: presentationInterval, arrival: when.hostDate)
-                let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
-                if let jitterBuffer = self.jitterBuffer {
-                    let existing = jitterBuffer.getBaseTargetDepth()
-                    let change = (newTarget - existing) / existing
-                    if change > 0 || change < -0.1 {
-                        jitterBuffer.setBaseTargetDepth(newTarget)
+                if self.jitterBufferConfig.peakHold {
+                    // Drive base target depth from how late live objects arrive
+                    // relative to the aligned timeline that playout is scheduled from.
+                    if !cached,
+                       let offset = self.timeDiff.getTimeDiff() {
+                        let lateness = when.timeIntervalSince(offset.toReceiverHost(presentationInterval))
+                        let target = self.peakHoldDepth.withLock { $0.update(lateness: lateness, arrival: when) }
+                        self.jitterBuffer?.setBaseTargetDepth(target)
+                    }
+                } else {
+                    // Drive base target depth from smoothed RFC3550 jitter.
+                    self.jitterCalculation.record(timestamp: presentationInterval, arrival: when.hostDate)
+                    let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
+                    if let jitterBuffer = self.jitterBuffer {
+                        let existing = jitterBuffer.getBaseTargetDepth()
+                        let change = (newTarget - existing) / existing
+                        if change > 0 || change < -0.1 {
+                            jitterBuffer.setBaseTargetDepth(newTarget)
+                        }
                     }
                 }
             }

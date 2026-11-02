@@ -210,7 +210,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             let tags: [String: String] = [
                 "relay": config.address,
                 "email": config.email,
-                "conference": self.getConfName()
+                "conference": self.getConfName(),
+                "videoPeakHold": "\(self.subscriptionConfig.value.videoJitterBuffer.peakHold)"
             ]
             self.doMetrics(tags)
         }

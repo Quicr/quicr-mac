@@ -57,6 +57,10 @@ struct SubscriptionSettingsView: View {
             }
             LabeledToggle("Adaptive Jitter Buffer",
                           isOn: self.$subscriptionConfig.value.videoJitterBuffer.adaptive)
+            if self.subscriptionConfig.value.videoJitterBuffer.adaptive {
+                LabeledToggle("Peak-hold Adaptation",
+                              isOn: self.$subscriptionConfig.value.videoJitterBuffer.peakHold)
+            }
             LabeledContent("Decoder max queue size") {
                 TextField("Decoder max queue size",
                           value: self.$subscriptionConfig.value.decoderQueueSize,
