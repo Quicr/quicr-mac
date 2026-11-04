@@ -171,10 +171,11 @@ struct AudioHandlerTests {
     @Test("Large gap clears playout via the reader and preserves buffered future packets")
     func largeGapRecoveryPreservesFuturePackets() async throws {
         let decoder = RecordingAudioDecoder(format: try self.makeFormat())
+        let measurement = OpusSubscription.OpusSubscriptionMeasurement(namespace: "large-gap-test")
         let handler = try AudioHandler(identifier: "large-gap-test",
                                        engine: StubPlayout(),
                                        decoder: decoder,
-                                       measurement: nil,
+                                       measurement: measurement,
                                        metricsSubmitter: nil,
                                        config: .init(jitterDepth: 0,
                                                      jitterMax: 1,
@@ -209,6 +210,10 @@ struct AudioHandlerTests {
                                                                          lastUsedSequence: 1,
                                                                          playoutBuffer: endpoints.writer))
         #expect(decoder.resetCount == 1)
+        let points = measurement.drain()[nil] ?? []
+        #expect(points.count == 1)
+        #expect(points.first?.fieldName == "packetsUnavailableAtDequeue")
+        #expect((points.first?.value as? UInt64) == 98)
 
         // Recovery is not complete, and no post-gap audio may be queued, until the reader has acted.
         #expect(!endpoints.writer.isClearAcknowledged(clearGeneration))
@@ -240,6 +245,52 @@ struct AudioHandlerTests {
             lastUsedSequence = item.sequenceNumber
         }
         #expect(decoder.resetCount == 1)
+    }
+
+    @Test("Dequeue counts unresolved gaps, excluding startup and recovered reordering")
+    func unavailablePacketsAtDequeue() throws {
+        let decoder = RecordingAudioDecoder(format: try self.makeFormat())
+        let measurement = OpusSubscription.OpusSubscriptionMeasurement(namespace: "dequeue-test")
+        let handler = try AudioHandler(identifier: "dequeue-test",
+                                       engine: StubPlayout(),
+                                       decoder: decoder,
+                                       measurement: measurement,
+                                       metricsSubmitter: nil,
+                                       config: .init(jitterDepth: 0,
+                                                     jitterMax: 1,
+                                                     opusWindowSize: .twentyMs,
+                                                     granularMetrics: true,
+                                                     useNewJitterBuffer: true,
+                                                     maxPlcThreshold: 3,
+                                                     playoutBufferTime: 0,
+                                                     slidingWindowTime: 1,
+                                                     adaptive: false))
+        let jitterBuffer = try self.makeJitterBuffer()
+        handler.jitterBuffer = jitterBuffer
+        let endpoints = try self.makeEndpoints(format: decoder.decodedFormat)
+        let now = Date.now
+        for sequence in [UInt64(100), 102, 101, 105, 107] {
+            try jitterBuffer.write(item: EncodedAudioItem(sequenceNumber: sequence), from: now)
+        }
+        var lastUsedSequence: UInt64?
+        for expected in [UInt64(100), 101, 102, 105, 107] {
+            let item: EncodedAudioItem = try #require(jitterBuffer.read(from: now))
+            #expect(item.sequenceNumber == expected)
+            #expect(handler.checkForDiscontinuity(item,
+                                                  window: .twentyMs,
+                                                  when: now,
+                                                  lastUsedSequence: lastUsedSequence,
+                                                  playoutBuffer: endpoints.writer) == nil)
+            lastUsedSequence = item.sequenceNumber
+            let points = measurement.drain()[now] ?? []
+            if expected <= 102 {
+                #expect(points.isEmpty)
+            } else {
+                #expect(points.count == 1)
+                #expect(points.first?.fieldName == "packetsUnavailableAtDequeue")
+                #expect((points.first?.value as? UInt64) == (expected == 105 ? 2 : 3))
+            }
+        }
     }
 
     // CMBufferQueue's callbacks erase the concrete item type.

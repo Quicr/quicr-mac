@@ -742,8 +742,12 @@ class AudioHandler: TimeAlignable {
             return nil
         }
 
-        // Are we within the generation threshold?
         let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
+        self.logger.warning("Audio unavailable at dequeue: \(packetsToGenerate) packets")
+        self.measurement?.packetsUnavailableAtDequeue(count: packetsToGenerate,
+                                                      timestamp: self.granularMetrics ? when : nil)
+
+        // Are we within the generation threshold?
         guard packetsToGenerate <= self.config.maxPlcThreshold else {
             self.logger.warning("Discontinuity too large: \(packetsToGenerate)")
             // Only the already decoded audio is stale. Packets queued behind the gap are still due
