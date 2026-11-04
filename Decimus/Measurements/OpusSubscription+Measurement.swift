@@ -11,7 +11,7 @@ extension OpusSubscription {
         let tags: [String: String]
         private let frames = Atomic<UInt64>(0)
         private let bytes = Atomic<UInt64>(0)
-        private let missing = Atomic<UInt64>(0)
+        private let unavailableAtDequeue = Atomic<UInt64>(0)
         private let dropped = Atomic<UInt64>(0)
         private let playoutFullCount = Atomic<UInt64>(0)
         private let playoutClearDroppedCount = Atomic<UInt64>(0)
@@ -31,9 +31,9 @@ extension OpusSubscription {
             record(field: "receivedBytes", value: val as AnyObject, timestamp: timestamp)
         }
 
-        func missingSeq(missingCount: UInt64, timestamp: Date?) {
-            let val = missing.wrappingAdd(missingCount, ordering: .relaxed).newValue
-            record(field: "missingSeqs", value: val as AnyObject, timestamp: timestamp)
+        func packetsUnavailableAtDequeue(count: UInt64, timestamp: Date?) {
+            let val = unavailableAtDequeue.wrappingAdd(count, ordering: .relaxed).newValue
+            record(field: "packetsUnavailableAtDequeue", value: val as AnyObject, timestamp: timestamp)
         }
 
         func framesUnderrun(underrun: UInt64, timestamp: Date?) {

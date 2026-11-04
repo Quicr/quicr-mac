@@ -15,7 +15,6 @@ class OpusSubscription: Subscription, @unchecked Sendable {
     private let engine: DecimusAudioEngine
     private let measurement: OpusSubscriptionMeasurement?
     private let granularMetrics: Bool
-    private var seq: UInt64 = 0
     private let handler: Mutex<AudioHandler?>
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
@@ -181,17 +180,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
             unprotected = data
         }
 
-        // TODO: Handle sequence rollover.
-        if sequence > self.seq {
-            let missing = sequence - self.seq - 1
-            let currentSeq = self.seq
-            measurement?.receivedBytes(received: UInt(data.count), timestamp: date)
-            if missing > 0 {
-                self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
-                measurement?.missingSeq(missingCount: UInt64(missing), timestamp: date)
-            }
-            self.seq = sequence
-        }
+        self.measurement?.receivedBytes(received: UInt(data.count), timestamp: date)
 
         // Do we need to create the handler?
         let handler: AudioHandler

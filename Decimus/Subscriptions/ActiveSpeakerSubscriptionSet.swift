@@ -17,7 +17,6 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
     /// Per-client measurement registration for subscription-level metrics.
     private var measurements: [ParticipantId: OpusSubscription.OpusSubscriptionMeasurement] = [:]
     /// Per-client last seen sequence for missing-sequence metrics.
-    private var lastSequences: [ParticipantId: UInt64] = [:]
 
     private let audioHandlerConfig: AudioHandler.Config
 
@@ -106,16 +105,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
         // Per participant subscription metrics
         let sequence = headers.groupId
         let metricsDate = self.audioHandlerConfig.granularMetrics ? now.hostDate : nil
-        let lastSequence = self.lastSequences[participantId] ?? 0
-        if sequence > lastSequence {
-            let missing = sequence - lastSequence - 1
-            measurement?.receivedBytes(received: UInt(data.count), timestamp: metricsDate)
-            if missing > 0 {
-                measurement?.missingSeq(missingCount: UInt64(missing),
-                                        timestamp: metricsDate)
-            }
-            self.lastSequences[participantId] = sequence
-        }
+        measurement?.receivedBytes(received: UInt(data.count), timestamp: metricsDate)
 
         // Decode the LOC here.
         guard let captureTimestampExtension = try? immutableExtensions.getHeader(.captureTimestamp),
