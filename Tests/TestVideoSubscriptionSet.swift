@@ -432,6 +432,7 @@ struct VideoSubscriptionSetTests {
 
     @MainActor
     private func makeVideoSubscription(participants: VideoParticipants,
+                                       timeline: PlayoutTimeline,
                                        namespace: [String] = ["0"],
                                        cleanupTime: TimeInterval = 1.5,
                                        statusChanged: VideoSubscription.VideoStatusCallback? = nil,
@@ -444,6 +445,7 @@ struct VideoSubscriptionSetTests {
                                                                   callback: callback,
                                                                   cleanupTime: cleanupTime,
                                                                   participants: participants,
+                                                                  timeline: timeline,
                                                                   simulreceive: .enable,
                                                                   statusChanged: statusChanged,
                                                                   handlerStopped: handlerStopped)
@@ -457,6 +459,7 @@ struct VideoSubscriptionSetTests {
         let deferred = Mutex<(VideoSubscription, ObjectReceived)?>(nil)
         let subscription = try await self.makeVideoSubscription(
             participants: participants,
+            timeline: set.timeline,
             statusChanged: { source, status in
                 guard status == .notSubscribed else { return }
                 _ = set.removeHandler(source)
@@ -474,7 +477,7 @@ struct VideoSubscriptionSetTests {
         let callback = try #require(captured)
         _ = set.removeHandler(resolvedFullTrackName)
 
-        let replacement = try await self.makeVideoSubscription(participants: participants)
+        let replacement = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline)
         try set.addHandler(replacement)
         set.receivedObject(callback.0, details: callback.1)
         subscription.statusChanged(.notSubscribed)
@@ -489,7 +492,7 @@ struct VideoSubscriptionSetTests {
     func testSleepingRenderTaskDoesNotRetainSet() async throws {
         let participants = VideoParticipants()
         var set: VideoSubscriptionSet? = try self.makeSimulreceiveSet(participants: participants)
-        let subscription = try await self.makeVideoSubscription(participants: participants)
+        let subscription = try await self.makeVideoSubscription(participants: participants, timeline: set!.timeline)
         try set!.addHandler(subscription)
         let currentHandler = subscription.handler.get()
         let handler = try #require(currentHandler)
@@ -524,7 +527,7 @@ struct VideoSubscriptionSetTests {
         let set = try self.makeSimulreceiveSet(participants: participants)
         let displays = Mutex(0)
         set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
-        let subscription = try await self.makeVideoSubscription(participants: participants)
+        let subscription = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline)
         try set.addHandler(subscription)
         let current = subscription.handler.get()
         let handler = try #require(current)
@@ -552,8 +555,8 @@ struct VideoSubscriptionSetTests {
         let set = try self.makeSimulreceiveSet(participants: participants)
         let displays = Mutex(0)
         set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
-        let low = try await self.makeVideoSubscription(participants: participants, namespace: ["low"])
-        let high = try await self.makeVideoSubscription(participants: participants, namespace: ["high"])
+        let low = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline, namespace: ["low"])
+        let high = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline, namespace: ["high"])
         try set.addHandler(low)
         try set.addHandler(high)
         let lowCurrent = low.handler.get()
@@ -591,8 +594,8 @@ struct VideoSubscriptionSetTests {
                                                })
         let displays = Mutex(0)
         set.registerDisplayCallback { _ in displays.withLock { $0 += 1 } }
-        let low = try await self.makeVideoSubscription(participants: participants, namespace: ["low"])
-        let high = try await self.makeVideoSubscription(participants: participants, namespace: ["high"])
+        let low = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline, namespace: ["low"])
+        let high = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline, namespace: ["high"])
         try set.addHandler(low)
         try set.addHandler(high)
         let lowCurrent = low.handler.get()
@@ -638,6 +641,7 @@ struct VideoSubscriptionSetTests {
         }
         let subscription = try await self.makeVideoSubscription(
             participants: participants,
+            timeline: set.timeline,
             cleanupTime: 0.2,
             handlerStopped: { [weak set] subscription in
                 set?.handlerStopped(subscription)
@@ -692,8 +696,10 @@ struct VideoSubscriptionSetTests {
             displayCount.withLock { $0 += 1 }
         }
         let subscription = try await self.makeVideoSubscription(participants: participants,
+                                                                timeline: set.timeline,
                                                                 namespace: ["removed"])
         let remaining = try await self.makeVideoSubscription(participants: participants,
+                                                             timeline: set.timeline,
                                                              namespace: ["remaining"])
         try set.addHandler(subscription)
         try set.addHandler(remaining)
@@ -767,6 +773,7 @@ struct VideoSubscriptionSetTests {
         #expect(participants.participants.compactMap(\.value).isEmpty)
 
         let replacement = try await self.makeVideoSubscription(participants: participants,
+                                                               timeline: set.timeline,
                                                                namespace: ["remaining"])
         try set.addHandler(replacement)
         let currentReplacementHandler = replacement.handler.get()
@@ -860,7 +867,7 @@ struct VideoSubscriptionSetTests {
                                            slidingWindowTime: 10,
                                            config: .init(calculateLatency: false,
                                                          qualityHitThreshold: 1))
-        let subscription = try await self.makeVideoSubscription(participants: participants)
+        let subscription = try await self.makeVideoSubscription(participants: participants, timeline: set.timeline)
         try set.addHandler(subscription)
         let details = ObjectReceived(timestamp: timestamp,
                                      when: Self.now,

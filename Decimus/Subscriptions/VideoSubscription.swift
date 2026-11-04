@@ -43,7 +43,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
-    private let variances: VarianceCalculator
+    private let timeline: PlayoutTimeline
     private let callback: Callback
     private let videoStatusChanged: VideoStatusCallback
     private let onHandlerStopped: HandlerStoppedCallback
@@ -208,7 +208,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         variances: VarianceCalculator,
+         timeline: PlayoutTimeline,
          endpointId: String,
          relayId: String,
          participantId: ParticipantId,
@@ -236,7 +236,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
-        self.variances = variances
+        self.timeline = timeline
         self.callback = callback
         self.videoStatusChanged = statusChanged
         self.onHandlerStopped = handlerStopped
@@ -267,7 +267,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                        granularMetrics: granularMetrics,
                                        jitterBufferConfig: jitterBufferConfig,
                                        simulreceive: simulreceive,
-                                       variances: variances,
+                                       timeline: timeline,
                                        participantId: participantId,
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
@@ -795,7 +795,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               granularMetrics: self.granularMetrics,
                                               jitterBufferConfig: self.jitterBufferConfig,
                                               simulreceive: self.simulreceive,
-                                              variances: self.variances,
+                                              timeline: self.timeline,
                                               participantId: self.participantId,
                                               subscribeDate: self.creationDate,
                                               joinDate: self.joinDate,

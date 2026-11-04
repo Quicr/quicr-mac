@@ -53,7 +53,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private let _jitterBuffer = Mutex<JitterBuffer?>(nil)
     var jitterBuffer: JitterBuffer? { self._jitterBuffer.get() }
-    let timeDiff = TimeDiff()
+    var timeDiff: TimeDiff { self.timeline.timeDiff }
 
     private let logger: DecimusLogger
     private let decoder: VTDecoder?
@@ -92,7 +92,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private nonisolated(unsafe) var lastReceived: Ticks?
     nonisolated(unsafe) var description = "VideoHandler"
 
-    private let variances: VarianceCalculator
+    private let timeline: PlayoutTimeline
 
     private struct Callbacks {
         var callbacks: [Int: ObjectReceivedCallback] = [:]
@@ -109,7 +109,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let detector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let jitterCalculation: RFC3550Jitter
-    private let peakHoldDepth: Mutex<PeakHoldDepth>
     private let videoPipelineEvent: VideoPipelineEventCallback?
 
     // Wi-Fi scan jitter buffer ramping state.
@@ -145,6 +144,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
+    ///     - timeline: Playout timeline shared with any sibling streams.
     ///     - handlerConfig: Configuration for this handler.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
     init(fullTrackName: FullTrackName,
@@ -155,7 +155,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         variances: VarianceCalculator,
+         timeline: PlayoutTimeline,
          participantId: ParticipantId,
          subscribeDate: Date,
          joinDate: Date,
@@ -186,7 +186,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
-        self.variances = variances
+        self.timeline = timeline
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.handlerConfig = handlerConfig
@@ -197,7 +197,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
-        self.peakHoldDepth = .init(.init(initial: jitterBufferConfig.minDepth))
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config, decodeBufferSize: handlerConfig.decodeBufferSize)
@@ -489,12 +488,13 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
             if self.jitterBufferConfig.adaptive {
                 if self.jitterBufferConfig.peakHold {
-                    // Drive base target depth from how late live objects arrive
-                    // relative to the aligned timeline that playout is scheduled from.
+                    // Drive from set aware lateness.
                     if !cached,
                        let offset = self.timeDiff.getTimeDiff() {
                         let lateness = when.timeIntervalSince(offset.toReceiverHost(presentationInterval))
-                        let target = self.peakHoldDepth.withLock { $0.update(lateness: lateness, arrival: when) }
+                        let target = self.timeline.depth.update(timestamp: presentationInterval,
+                                                                lateness: lateness,
+                                                                arrival: when)
                         self.jitterBuffer?.setBaseTargetDepth(target)
                     }
                 } else {
@@ -1209,8 +1209,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         if self.simulreceive != .none {
-            _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
-                                                    now: now)
+            _ = self.timeline.decodedVariances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
+                                                                    now: now)
             let stored = self.lastDecodedImage.withLock { image -> Bool in
                 guard !self.stopped.load(ordering: .acquiring) else { return false }
                 image = .init(image: sample,

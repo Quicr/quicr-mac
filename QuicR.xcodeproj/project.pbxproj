@@ -78,6 +78,7 @@
 		9B28072B2F67EB2F00A8CE36 /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B28072A2F67EB2E00A8CE36 /* Location.swift */; };
 		9B299DD43098C1370087B315 /* PeakHoldDepth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B299DD33098C1370087B315 /* PeakHoldDepth.swift */; };
 		9B299DD63098C14C0087B315 /* TestPeakHoldDepth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B299DD53098C14C0087B315 /* TestPeakHoldDepth.swift */; };
+		9B299DD83098C1370087B315 /* PlayoutTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B299DD73098C1370087B315 /* PlayoutTimeline.swift */; };
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
 		9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
@@ -352,6 +353,7 @@
 		9B28072A2F67EB2E00A8CE36 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
 		9B299DD33098C1370087B315 /* PeakHoldDepth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeakHoldDepth.swift; sourceTree = "<group>"; };
 		9B299DD53098C14C0087B315 /* TestPeakHoldDepth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPeakHoldDepth.swift; sourceTree = "<group>"; };
+		9B299DD73098C1370087B315 /* PlayoutTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayoutTimeline.swift; sourceTree = "<group>"; };
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
 		9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackFetch.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
@@ -876,6 +878,7 @@
 				9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */,
 				9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */,
 				9B299DD33098C1370087B315 /* PeakHoldDepth.swift */,
+				9B299DD73098C1370087B315 /* PlayoutTimeline.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -1431,6 +1434,7 @@
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
 				9B299DD43098C1370087B315 /* PeakHoldDepth.swift in Sources */,
+				9B299DD83098C1370087B315 /* PlayoutTimeline.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */,

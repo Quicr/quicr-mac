@@ -44,7 +44,7 @@ struct HostTimeOffset {
     }
 }
 
-struct TimeDiff: ~Copyable {
+final class TimeDiff: Sendable {
     private let atomicPair = Atomic<WordPair>(.init(first: 0, second: 0))
 
     /// Set the difference in time between incoming stream timestamps and wall clock.
@@ -75,13 +75,13 @@ final class TimeAligner {
     private let hostTimeWindow: Mutex<[HostTimeOffset]>
     private let windowLength: TimeInterval
     private var windowMaintenance: Task<(), Never>?
-    typealias GetAlignables = () -> [TimeAlignable]
-    private let getAlignables: GetAlignables
+    typealias GetTimeDiffs = () -> [TimeDiff]
+    private let getTimeDiffs: GetTimeDiffs
 
-    init(windowLength: TimeInterval, capacity: Int, alignables: @escaping GetAlignables) {
+    init(windowLength: TimeInterval, capacity: Int, timeDiffs: @escaping GetTimeDiffs) {
         self.hostTimeWindow = .init([])
         self.windowLength = windowLength
-        self.getAlignables = alignables
+        self.getTimeDiffs = timeDiffs
     }
 
     func reset() {
@@ -122,8 +122,8 @@ final class TimeAligner {
                 return lhsDiff < rhsDiff
             }) else { return }
 
-            for alignable in self.getAlignables() {
-                alignable.timeDiff.setTimeDiff(diff: hostEntry)
+            for timeDiff in self.getTimeDiffs() {
+                timeDiff.setTimeDiff(diff: hostEntry)
             }
         }
     }

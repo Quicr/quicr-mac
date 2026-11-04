@@ -97,7 +97,7 @@ struct TestTimeAlignable {
         let now = Ticks.now
         let item = JitterItemImpl(sequenceNumber: 0, timestamp: now)
         let aligner = TimeAligner(windowLength: 5,
-                                  capacity: 5) { [alignable] }
+                                  capacity: 5) { [alignable.timeDiff] }
         aligner.doTimestampTimeDiff(item.timestamp.seconds, when: now, force: true)
         try alignable.jitterBuffer!.write(item: item, from: now.hostDate)
 
@@ -140,7 +140,7 @@ struct TestTimeAlignable {
                                   capacity: 5) { [alignable] in
             alignmentEntered.signal()
             releaseAlignment.wait()
-            return [alignable]
+            return [alignable.timeDiff]
         }
         let alignmentTask = Task.detached {
             aligner.doTimestampTimeDiff(10, when: .now, force: true)

@@ -82,6 +82,7 @@ struct TestVideoSubscription {
                           jitterBufferConfig: JitterBuffer.Config = .init(),
                           cleanupTime: TimeInterval = 1.5,
                           participants: VideoParticipants? = nil,
+                          timeline: PlayoutTimeline? = nil,
                           activeSpeakerStats: ActiveSpeakerStats? = nil,
                           simulreceive: SimulreceiveMode = .none,
                           statusChanged: VideoSubscription.VideoStatusCallback? = nil,
@@ -89,6 +90,8 @@ struct TestVideoSubscription {
                           videoPipelineEvent: VideoPipelineEventCallback? = nil,
                           onDecodedImage: @escaping @Sendable () -> Void = {}) async throws -> VideoSubscription {
         let participants = participants ?? .init()
+        let timeline = try timeline ?? .init(depth: .init(initial: jitterBufferConfig.minDepth),
+                                             decodedVariances: .init(expectedOccurrences: 0))
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -110,7 +113,7 @@ struct TestVideoSubscription {
                                                  granularMetrics: true,
                                                  jitterBufferConfig: jitterBufferConfig,
                                                  simulreceive: simulreceive,
-                                                 variances: .init(expectedOccurrences: 0),
+                                                 timeline: timeline,
                                                  endpointId: "",
                                                  relayId: "",
                                                  participantId: .init(1),

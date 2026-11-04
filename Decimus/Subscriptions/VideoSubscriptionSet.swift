@@ -48,13 +48,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
     private let variances: VarianceCalculator
-    let decodedVariances: VarianceCalculator
+    let timeline: PlayoutTimeline
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipantRegistration?>(nil)
     private let membership = Mutex<Void>(())
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private var timeAligner: TimeAligner?
+    private let timeAligner: TimeAligner
     private let lastTimestampReceived = Atomic(Int64.zero)
     private let config: Config
     private let videoPipelineEvent: VideoPipelineEventCallback?
@@ -158,10 +158,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
                                    submitter: self.granularMetrics ? metricsSubmitter : nil,
                                    source: subscription.sourceID,
                                    stage: "SubscribedObject")
-        self.decodedVariances = try .init(expectedOccurrences: profiles.count,
-                                          submitter: self.granularMetrics ? metricsSubmitter : nil,
-                                          source: subscription.sourceID,
-                                          stage: "Decoded")
+        self.timeline = try .init(depth: .init(initial: jitterBufferConfig.minDepth),
+                                  decodedVariances: .init(expectedOccurrences: profiles.count,
+                                                          submitter: self.granularMetrics ? metricsSubmitter : nil,
+                                                          source: subscription.sourceID,
+                                                          stage: "Decoded"))
 
         let subscribeDate = Date.now
         self.subscribeDate = subscribeDate
@@ -188,18 +189,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
         let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
 
+        // Align contained subscriptions to the same time line.
+        self.timeAligner = .init(windowLength: slidingWindowTime,
+                                 capacity: Int(capacityGuess)) { [timeDiff = self.timeline.timeDiff] in [timeDiff] }
+
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
-
-        // Prepare for aligning contained subscriptions to the same time line.
-        self.timeAligner = .init(windowLength: slidingWindowTime,
-                                 capacity: Int(capacityGuess)) { [weak self] in
-            guard let self = self else { return [] }
-            return self.getHandlers().compactMap { sub in
-                let sub = sub.value as! VideoSubscription // swiftlint:disable:this force_cast
-                return sub.handler.get()
-            }
-        }
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -318,7 +313,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
     private func suspendRendering() {
         self.drainRenderTask()
         self.removeParticipant()
-        self.timeAligner?.reset()
+        self.timeAligner.reset()
         self.lastTimestampReceived.store(.zero, ordering: .releasing)
         self.mediaState.withLock { $0 = .subscribed }
     }
@@ -434,7 +429,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unc
         if let timestamp = details.timestamp {
             // Set the timestamp diff using the min value from recent live objects.
             if !details.cached {
-                self.timeAligner!.doTimestampTimeDiff(timestamp, when: details.when)
+                self.timeAligner.doTimestampTimeDiff(timestamp, when: details.when)
             }
 
             // Calculate switching set arrival variance.

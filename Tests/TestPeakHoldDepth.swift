@@ -46,16 +46,65 @@ struct TestPeakHoldDepth {
         #expect(depth.update(lateness: 2, arrival: self.arrival(0.5)) == 0.5)
     }
 
-    @Test("Saved configurations without the opt-in decode with it disabled, and the opt-in persists")
+    @Test("The opt-in defaults to disabled and persists")
     func configurationPersistence() throws {
         var config = JitterBuffer.Config()
         config.minDepth = 0.1
-        let existing = try JSONDecoder().decode(JitterBuffer.Config.self, from: JSONEncoder().encode(config))
-        #expect(!existing.peakHold)
-        #expect(existing.minDepth == 0.1)
+        let disabled = try JSONDecoder().decode(JitterBuffer.Config.self, from: JSONEncoder().encode(config))
+        #expect(!disabled.peakHold)
+        #expect(disabled.minDepth == 0.1)
 
         config.peakHold = true
         let enabled = try JSONDecoder().decode(JitterBuffer.Config.self, from: JSONEncoder().encode(config))
         #expect(enabled.peakHold)
+    }
+}
+
+struct TestSharedPeakHoldDepth {
+    private let frame: TimeInterval = 1.0 / 30
+
+    private func makeDepth() -> SharedPeakHoldDepth {
+        .init(initial: 0.03, allowance: 0.1)
+    }
+
+    private func arrival(_ seconds: TimeInterval) -> Ticks {
+        (1000 + seconds).ticks
+    }
+
+    @Test("Every layer receives the target needed by the latest layer")
+    func layersShareTarget() {
+        let depth = self.makeDepth()
+        _ = depth.update(timestamp: 0, lateness: 0.05, arrival: self.arrival(0.05))
+        let raised = depth.update(timestamp: 0, lateness: 0.12, arrival: self.arrival(0.12))
+        #expect(raised.isApproximatelyEqual(to: 0.13, absoluteTolerance: 1e-9))
+        let sibling = depth.update(timestamp: self.frame, lateness: 0.05, arrival: self.arrival(self.frame + 0.05))
+        #expect(sibling == raised)
+    }
+
+    @Test("Later layers extend the target by no more than the allowance")
+    func allowanceLimitsLaterLayers() {
+        let depth = self.makeDepth()
+        _ = depth.update(timestamp: 0, lateness: 0.05, arrival: self.arrival(0.05))
+        let late = depth.update(timestamp: 0, lateness: 0.4, arrival: self.arrival(0.4))
+        #expect(late.isApproximatelyEqual(to: 0.16, absoluteTolerance: 1e-9))
+    }
+
+    @Test("Objects from a lagging layer do not count as first arrivals")
+    func laggingLayerIsNotFirst() {
+        let depth = self.makeDepth()
+        _ = depth.update(timestamp: 0, lateness: 0.05, arrival: self.arrival(0.05))
+        _ = depth.update(timestamp: self.frame, lateness: 0.05, arrival: self.arrival(self.frame + 0.05))
+        let lagging = depth.update(timestamp: 0, lateness: 0.35, arrival: self.arrival(0.35))
+        #expect(lagging.isApproximatelyEqual(to: 0.16, absoluteTolerance: 1e-9))
+    }
+
+    @Test("A stall on every layer raises the target fully")
+    func stallOnAllLayers() {
+        let depth = self.makeDepth()
+        _ = depth.update(timestamp: 0, lateness: 0.05, arrival: self.arrival(0.05))
+        let stalled = depth.update(timestamp: self.frame, lateness: 0.3, arrival: self.arrival(self.frame + 0.3))
+        #expect(stalled.isApproximatelyEqual(to: 0.31, absoluteTolerance: 1e-9))
+        let sibling = depth.update(timestamp: self.frame, lateness: 0.32, arrival: self.arrival(self.frame + 0.32))
+        #expect(sibling.isApproximatelyEqual(to: 0.33, absoluteTolerance: 1e-9))
     }
 }

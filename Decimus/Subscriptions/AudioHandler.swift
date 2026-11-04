@@ -195,9 +195,8 @@ class AudioHandler: TimeAlignable {
         let slidingWindowLength: TimeInterval = self.config.slidingWindowTime
         let capacity = Int(slidingWindowLength * (1.0 / self.config.opusWindowSize.rawValue))
         self.timeAligner = .init(windowLength: slidingWindowLength,
-                                 capacity: capacity) { [weak self] in
-            guard let self = self else { return [] }
-            return [self]
+                                 capacity: capacity) { [timeDiff = self.timeDiff] in
+            [timeDiff]
         }
         self.createDequeueTask(playoutBuffer: playoutBuffer.writer)
         // Create the player node.

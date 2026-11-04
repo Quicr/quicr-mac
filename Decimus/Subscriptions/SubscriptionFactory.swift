@@ -398,7 +398,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: subConfig.videoJitterBuffer,
                                          simulreceive: subConfig.simulreceive,
-                                         variances: set.decodedVariances,
+                                         timeline: set.timeline,
                                          endpointId: endpointId,
                                          relayId: relayId,
                                          participantId: set.participantId,
