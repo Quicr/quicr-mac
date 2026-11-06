@@ -43,6 +43,8 @@ class MockClient: MoqClient {
         return .ready
     }
 
+    func migrateLocalNetworkPath(_ localAddress: Data, interfaceIndex: UInt32) throws {}
+
     func disconnect() -> QClientStatus {
         .disconnecting
     }

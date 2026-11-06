@@ -50,6 +50,9 @@ NS_SWIFT_SENDABLE
 @protocol MoqClient
 - (QClientStatus)connect;
 - (QClientStatus)disconnect;
+- (BOOL)migrateLocalNetworkPath:(NSData * _Nonnull) localAddress
+                 interfaceIndex:(uint32_t) interfaceIndex
+                          error:(NSError * _Nullable * _Nullable) error;
 - (void)publishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
 - (void)unpublishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
 - (void)publishNamespace:(NSData * _Nonnull)trackNamespace;

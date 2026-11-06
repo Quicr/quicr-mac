@@ -7,6 +7,9 @@
 #include <memory>
 #include <iostream>
 #include <map>
+#include <netinet/in.h>
+#include <cstring>
+#include <stdexcept>
 #include "TransportConfig.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 
@@ -95,7 +98,9 @@ static quicr::PublishOkAttributes convertOk(QPublishOkAttributes attributes) {
         return kQClientStatusClientFailedToConnect;
     }
 
-    qClientPtr = session;
+    @synchronized (self) {
+        qClientPtr = session;
+    }
 
     return static_cast<QClientStatus>(qClientPtr->GetStatus());
 }
@@ -103,11 +108,45 @@ static quicr::PublishOkAttributes convertOk(QPublishOkAttributes attributes) {
 -(QClientStatus) disconnect
 {
     assert(qClientPtr);
-    qClientPtr->Disconnect();
-    qClientPtr.reset();
+    @synchronized (self) {
+        qClientPtr->Disconnect();
+        qClientPtr.reset();
+    }
     qClientCallbacks->CancelPendingPublishes();
 
     return kQClientStatusDisconnecting;
+}
+
+-(BOOL)migrateLocalNetworkPath:(NSData *)localAddress
+                interfaceIndex:(uint32_t)interfaceIndex
+                         error:(NSError **)error
+{
+    try {
+        sockaddr_storage address{};
+        if (localAddress.length != sizeof(sockaddr_in) && localAddress.length != sizeof(sockaddr_in6)) {
+            throw std::invalid_argument("Expected an IPv4 or IPv6 socket address");
+        }
+        std::memcpy(&address, localAddress.bytes, localAddress.length);
+        const size_t expected = address.ss_family == AF_INET ? sizeof(sockaddr_in) :
+                                address.ss_family == AF_INET6 ? sizeof(sockaddr_in6) : 0;
+        if (expected != localAddress.length || address.ss_len != expected) {
+            throw std::invalid_argument("Invalid local socket address family or length");
+        }
+        std::shared_ptr<quicr::Session> session;
+        @synchronized (self) {
+            session = qClientPtr;
+        }
+        if (session) {
+            session->MigrateLocalNetworkPath(address, interfaceIndex);
+        }
+        return true;
+    } catch (const std::exception& exception) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"QuicR.LocalNetworkPathMigration" code:1
+                                    userInfo:@{NSLocalizedDescriptionKey: @(exception.what())}];
+        }
+        return false;
+    }
 }
 
 -(void)publishTrackWithHandler: (QPublishTrackHandlerObjC*) trackHandler

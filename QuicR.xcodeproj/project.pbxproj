@@ -196,6 +196,7 @@
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
 		AA00000000000001DEADBEEF /* TestMeasurementBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000002DEADBEEF /* TestMeasurementBase.swift */; };
+		AABBCCDD0011223344556601 /* NetworkPathMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344556602 /* NetworkPathMigration.swift */; };
 		C846BBF77F11749F7A281C5D /* resample_48khz.c in Sources */ = {isa = PBXBuildFile; fileRef = 2CB401E36AE21B4ECB2FA9AA /* resample_48khz.c */; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		D93D36E9E8C84C1037532E21 /* division_operations.c in Sources */ = {isa = PBXBuildFile; fileRef = ED03C25A748DF48E13133AF9 /* division_operations.c */; };
@@ -491,6 +492,7 @@
 		A1B2C3D72F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerObjC.h; sourceTree = "<group>"; };
 		A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeNamespaceHandlerObjC.mm; sourceTree = "<group>"; };
 		AA00000000000002DEADBEEF /* TestMeasurementBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementBase.swift; sourceTree = "<group>"; };
+		AABBCCDD0011223344556602 /* NetworkPathMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPathMigration.swift; sourceTree = "<group>"; };
 		B54AB57D964D11659C8C84E7 /* get_scaling_square.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = get_scaling_square.c; sourceTree = "<group>"; };
 		C48F68299B97B123CC0EF038 /* vad_filterbank.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vad_filterbank.c; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -857,6 +859,7 @@
 				9BA27FCB297D7271007013B2 /* Preview Content */,
 				9BA27FC5297D7270007013B2 /* DecimusApp.swift */,
 				9B165A1429840B610017079F /* CallController.swift */,
+				AABBCCDD0011223344556602 /* NetworkPathMigration.swift */,
 				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
 				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
@@ -1272,7 +1275,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1455,6 +1458,7 @@
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
+				AABBCCDD0011223344556601 /* NetworkPathMigration.swift in Sources */,
 				9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* VideoSubscriptionSet.swift in Sources */,
 				9B379A2A2DF31B2800BB060A /* TextPublication.swift in Sources */,
@@ -1516,7 +1520,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1548,7 +1552,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1722,7 +1726,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1802,7 +1806,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

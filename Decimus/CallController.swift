@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Synchronization
+import Network
 
 /// Possible errors raised by MoqCallController.
 enum MoqCallControllerError: Error {
@@ -55,6 +56,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
     private let logger = DecimusLogger(MoqCallController.self)
 
     // State.
+    private let networkPathMonitor = NWPathMonitor()
     private let client: MoqClient
     private let endpointUri: String
     private let rendezvousTimeoutMs: UInt32
@@ -68,6 +70,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
         var publications: [FullTrackName: any PublicationInstance] = [:]
         var subscriptions: [SourceIDType: SubscriptionSet] = [:]
         var namespaceHandlers: [NamespacePrefix: any MoQSubscribeNamespaceHandler] = [:]
+        var networkPathMigration = NetworkPathMigrationState()
         var connected = false
         var serverId: String?
     }
@@ -109,6 +112,7 @@ final class MoqCallController: QClientCallbacks, Sendable {
     }
 
     deinit {
+        self.networkPathMonitor.cancel()
         self.logger.debug("Deinit")
     }
 
@@ -144,11 +148,40 @@ final class MoqCallController: QClientCallbacks, Sendable {
                 }?.resume(throwing: MoqCallControllerError.connectionFailure(status))
             }
         }
+        self.networkPathMonitor.pathUpdateHandler = { [weak self] path in
+            self?.networkPathChanged(path)
+        }
+        self.networkPathMonitor.start(queue: DispatchQueue(label: "QuicR.NetworkPathMigration"))
+    }
+
+    private func networkPathChanged(_ path: NWPath) {
+        let addresses = NetworkPathAddress.candidates(for: path)
+        let shouldMigrate = self.state.withLock { state in
+            guard state.connected else { return false }
+            return state.networkPathMigration.update(addresses)
+        }
+        guard shouldMigrate else { return }
+        for address in addresses {
+            do {
+                try withUnsafeBytes(of: address.address) { bytes in
+                    try self.client.migrateLocalNetworkPath(Data(bytes.prefix(Int(address.address.ss_len))),
+                                                            interfaceIndex: address.interfaceIndex)
+                }
+                let interface = path.availableInterfaces.first { $0.index == Int(address.interfaceIndex) }
+                self.logger.notice("Requested QUIC path migration on \(interface?.name ?? String(address.interfaceIndex))")
+                return
+            } catch {
+                // A candidate with a different address family from the existing peer is rejected synchronously.
+                self.logger.debug("QUIC path migration candidate rejected: \(error)")
+            }
+        }
+        self.logger.warning("No local address accepted for QUIC path migration")
     }
 
     /// Disconnect from the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
+        self.networkPathMonitor.cancel()
         let state = self.state.withLock { state in
             let copy = state
             state.namespaceHandlers.removeAll()

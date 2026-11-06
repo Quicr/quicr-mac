@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
+import Darwin
 import Synchronization
 @testable import QuicR
 
@@ -83,6 +84,29 @@ final class TestQClientObjC: XCTestCase {
                                           metricsSampleMs: 0))
             }
         }
+    }
+
+    func testMigrationWithoutSessionIsBestEffort() throws {
+        let client = self.makeClient(connectUri: "moq://127.0.0.1:33435")
+        var ipv4 = sockaddr_in()
+        ipv4.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        ipv4.sin_family = sa_family_t(AF_INET)
+        try withUnsafeBytes(of: &ipv4) {
+            try client.migrateLocalNetworkPath(Data($0), interfaceIndex: 0)
+        }
+        var ipv6 = sockaddr_in6()
+        ipv6.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+        ipv6.sin6_family = sa_family_t(AF_INET6)
+        try withUnsafeBytes(of: &ipv6) {
+            try client.migrateLocalNetworkPath(Data($0), interfaceIndex: 0)
+        }
+    }
+
+    func testMigrationRejectsMalformedAddress() {
+        let client = self.makeClient(connectUri: "moq://127.0.0.1:33435")
+        XCTAssertThrowsError(try client.migrateLocalNetworkPath(Data(), interfaceIndex: 0))
+        XCTAssertThrowsError(try client.migrateLocalNetworkPath(Data(repeating: 0, count: 16),
+                                                                interfaceIndex: 0))
     }
 
     func testConnectFailureReturnsStatus() {
@@ -792,5 +816,50 @@ final class TestCallController: XCTestCase {
         //                                           granularMetrics: false,
         //                                           callEnded: {})
         //        controller.metricsSampled(.init())
+    }
+}
+
+final class TestNetworkPathMigration: XCTestCase {
+    private let wifi = TestNetworkPathMigration.makeAddress(1, interfaceIndex: 1)
+    private let ethernet = TestNetworkPathMigration.makeAddress(2, interfaceIndex: 2)
+
+    private static func makeAddress(_ value: UInt32, interfaceIndex: UInt32) -> NetworkPathAddress {
+        var ipv4 = sockaddr_in()
+        ipv4.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        ipv4.sin_family = sa_family_t(AF_INET)
+        ipv4.sin_addr.s_addr = value
+        var storage = sockaddr_storage()
+        withUnsafeMutableBytes(of: &storage) { destination in
+            withUnsafeBytes(of: ipv4) { destination.copyBytes(from: $0) }
+        }
+        return .init(address: storage, interfaceIndex: interfaceIndex)
+    }
+
+    func testInitialAndRepeatedPathDoNotMigrate() {
+        var state = NetworkPathMigrationState()
+        XCTAssertFalse(state.update([wifi]))
+        XCTAssertFalse(state.update([wifi]))
+    }
+
+    func testInterfaceAndAddressChangesMigrate() {
+        var state = NetworkPathMigrationState()
+        XCTAssertFalse(state.update([wifi]))
+        XCTAssertTrue(state.update([ethernet]))
+        XCTAssertFalse(state.update([ethernet]))
+        XCTAssertTrue(state.update([Self.makeAddress(3, interfaceIndex: 2)]))
+    }
+
+    func testRecoveryToSameAddressMigrates() {
+        var state = NetworkPathMigrationState()
+        XCTAssertFalse(state.update([wifi]))
+        XCTAssertFalse(state.update([]))
+        XCTAssertFalse(state.update([]))
+        XCTAssertTrue(state.update([wifi]))
+    }
+
+    func testInitialUnavailablePathThenRecoveryMigrates() {
+        var state = NetworkPathMigrationState()
+        XCTAssertFalse(state.update([]))
+        XCTAssertTrue(state.update([wifi]))
     }
 }
