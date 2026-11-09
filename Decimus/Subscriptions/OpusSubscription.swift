@@ -148,7 +148,7 @@ class OpusSubscription: Subscription, @unchecked Sendable {
         }
 
         let sequence: UInt64
-        let timestamp: Date
+        let timestamp: TimeInterval
         do {
             let (seq, time) = try self.parseExtensionHeaders(effectiveExtensions)
             sequence = seq ?? objectHeaders.groupId
@@ -222,16 +222,16 @@ class OpusSubscription: Subscription, @unchecked Sendable {
         }
     }
 
-    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, Date) {
+    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, TimeInterval) {
         let sequence: UInt64?
-        let timestamp: Date
+        let timestamp: TimeInterval
         if self.config.mediaInterop {
             guard let data = try? extensions.getHeader(.audioOpusBitstreamData),
                   case .audioOpusBitstreamData(let metadata) = data else {
                 throw "Missing expected interop extension"
             }
             sequence = metadata.seqId.value
-            timestamp = .init(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+            timestamp = TimeInterval(metadata.wallClock.value) / 1000
         } else {
             if let data = try? extensions.getHeader(.sequenceNumber),
                case .sequenceNumber(let seq) = data {
@@ -241,11 +241,10 @@ class OpusSubscription: Subscription, @unchecked Sendable {
             }
 
             // Timestamp.
-            guard let data = try? extensions.getHeader(.captureTimestamp),
-                  case .captureTimestamp(let captureTimestamp) = data else {
+            guard let captureTimestamp = try extensions.getTimestamp() else {
                 throw "Bad timestamp header"
             }
-            timestamp = captureTimestamp
+            timestamp = captureTimestamp.seconds
         }
         return (sequence, timestamp)
     }

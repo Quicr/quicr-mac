@@ -59,6 +59,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: VideoHandlerMeasurement?
+    // Once media time is seen, wall-clock age cannot be inferred for this handler.
+    private let timestampsAreWallClock = Atomic<Bool>(true)
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
@@ -453,13 +455,15 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 }
 
                 // Timestamp.
-                guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
-                      case .captureTimestamp(let timestamp) = presentationTimestampData else {
+                guard let timestamp = try extensions.getTimestamp() else {
                     self.logger.warning("Video needs LOC timestamp set")
                     return
                 }
-                presentationTimestamp = .init(value: .init(timestamp.timeIntervalSince1970 * microsecondsPerSecond),
-                                              timescale: CMTimeScale(microsecondsPerSecond))
+                if !timestamp.isWallClock {
+                    self.timestampsAreWallClock.store(false, ordering: .releasing)
+                }
+                presentationTimestamp = .init(seconds: timestamp.seconds,
+                                              preferredTimescale: CMTimeScale(microsecondsPerSecond))
             }
 
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
@@ -645,6 +649,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? details.when.hostDate : nil
             if let now = now,
+               self.timestampsAreWallClock.load(ordering: .acquiring),
                let presentationTime = frame.samples.first?.presentationTimeStamp {
                 let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
                 let age = now.timeIntervalSince(presentationDate)
@@ -954,6 +959,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                     throw error
                 }
                 if self.granularMetrics,
+                   self.timestampsAreWallClock.load(ordering: .acquiring),
                    let measurement = self.measurement {
                     let written = Date.now
                     let presentationTime = sampleBuffer.presentationTimeStamp
@@ -1186,7 +1192,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         let endToEndLatency: TimeInterval?
         let nowTicks = Ticks.now
         let now = nowTicks.hostDate
-        if self.handlerConfig.calculateLatency {
+        if self.handlerConfig.calculateLatency && self.timestampsAreWallClock.load(ordering: .acquiring) {
             let presentationTime = sample.presentationTimeStamp.seconds
             let presentationDate = Date(timeIntervalSince1970: presentationTime)
             let age = now.timeIntervalSince(presentationDate)

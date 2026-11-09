@@ -108,8 +108,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
         measurement?.receivedBytes(received: UInt(data.count), timestamp: metricsDate)
 
         // Decode the LOC here.
-        guard let captureTimestampExtension = try? immutableExtensions.getHeader(.captureTimestamp),
-              case .captureTimestamp(let captureTimestamp) = captureTimestampExtension else {
+        guard let captureTimestamp = try? immutableExtensions.getTimestamp() else {
             self.logger.warning("Missing capture timestamp extension")
             return
         }
@@ -118,7 +117,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendab
             try media.submitEncodedAudio(data: data,
                                          sequence: sequence,
                                          date: now,
-                                         timestamp: captureTimestamp)
+                                         timestamp: captureTimestamp.seconds)
         } catch {
             self.logger.warning("Failed to handle audio: \(error.localizedDescription)")
         }

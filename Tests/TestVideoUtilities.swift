@@ -147,7 +147,7 @@ extension TestVideoUtilities {
                                                                 seiCallback: { _ in }))
         let config = try XCTUnwrap(H264Utilities.extractAVCCAtom(from: XCTUnwrap(format)))
 
-        for annexB in [false, true] {
+        for (annexB, timescale) in [(false, UInt64?.none), (true, nil), (false, 90_000)] {
             var payload = Data()
             for buffer in buffers {
                 var bytes = Data(count: buffer.dataLength)
@@ -177,10 +177,18 @@ extension TestVideoUtilities {
                                                                 decodeBufferSize: 1),
                                            wifiDetector: nil,
                                            videoPipelineEvent: { event in
-                                            if case .decoderOutput = event.kind { decoded.fulfill() }
+                                            if case .decoderOutput(let seconds) = event.kind {
+                                                if timescale != nil { XCTAssertEqual(seconds, 1.5) }
+                                                decoded.fulfill()
+                                            }
                                            })
             var headers = HeaderExtensions()
-            try headers.setHeader(.captureTimestamp(.now))
+            if let timescale {
+                try headers.setHeader(.timestamp(135_000))
+                try headers.setHeader(.timescale(timescale))
+            } else {
+                try headers.setHeader(.captureTimestamp(.now))
+            }
             try headers.setHeader(.videoConfig(config))
             handler.objectReceived(.init(groupId: 0, subgroupId: 0, objectId: 0,
                                          payloadLength: UInt64(payload.count), status: .available,

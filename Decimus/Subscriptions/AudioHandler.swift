@@ -207,7 +207,7 @@ class AudioHandler: TimeAlignable {
         return buffer
     }
 
-    func submitEncodedAudio(data: Data, sequence: UInt64, date: Ticks, timestamp: Date) throws {
+    func submitEncodedAudio(data: Data, sequence: UInt64, date: Ticks, timestamp: TimeInterval) throws {
         if self.config.useNewJitterBuffer {
             let jitterBuffer: JitterBuffer
             if let existing = self.jitterBuffer {
@@ -223,11 +223,11 @@ class AudioHandler: TimeAlignable {
             }
 
             // Set the timestamp diff from the first recveived object.
-            self.timeAligner!.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: date)
+            self.timeAligner!.doTimestampTimeDiff(timestamp, when: date)
 
             // Jitter calculation.
             if self.config.adaptive {
-                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date.hostDate)
+                self.jitterCalculation.record(timestamp: timestamp, arrival: date.hostDate)
                 let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
                                     (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
                 if let jitterBuffer = self.jitterBuffer {
@@ -244,8 +244,7 @@ class AudioHandler: TimeAlignable {
             guard self.playing.load(ordering: .acquiring) else { return }
 
             // Emplace this encoded data into the jitter buffer.
-            let usSinceEpoch = timestamp.timeIntervalSince1970 * microsecondsPerSecond
-            let timestamp = CMTime(value: CMTimeValue(usSinceEpoch), timescale: CMTimeScale(microsecondsPerSecond))
+            let timestamp = CMTime(seconds: timestamp, preferredTimescale: CMTimeScale(microsecondsPerSecond))
             let item = AudioJitterItem(data: data, sequenceNumber: sequence, timestamp: timestamp)
             do {
                 try jitterBuffer.write(item: item, from: date.hostDate)

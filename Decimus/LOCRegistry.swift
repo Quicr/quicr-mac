@@ -29,6 +29,11 @@ extension HeaderExtensions {
             data = frameMarking
         case .audioLevel(let level):
             data = Data([level])
+        case .timestamp(let ticks):
+            data = withUnsafeBytes(of: ticks) { Data($0) }
+        case .timescale(let timescale):
+            guard timescale > 0 else { throw "Timescale must be positive" }
+            data = withUnsafeBytes(of: timescale) { Data($0) }
         case .captureTimestamp(let date):
             let microseconds = UInt64(date.timeIntervalSince1970 * microsecondsPerSecond)
             data = withUnsafeBytes(of: microseconds) { Data($0) }
@@ -111,13 +116,42 @@ extension HeaderExtensions {
             }
             return .audioLevel(audioLevel)
 
-        case .captureTimestamp:
-            guard let timestampUs = data.parseInteger() as? UInt64 else {
-                throw "Bad timestamp"
+        case .timescale:
+            guard let value = data.parseInteger(),
+                  let timescale = UInt64(exactly: value),
+                  timescale > 0 else {
+                throw "Bad timescale"
             }
-            let interval = TimeInterval(timestampUs) / microsecondsPerSecond
-            return .captureTimestamp(.init(timeIntervalSince1970: interval))
+            return .timescale(timescale)
+
+        case .captureTimestamp:
+            guard let timestamp = try self.getTimestamp(),
+                  timestamp.isWallClock else {
+                throw "Timestamp is not wall-clock time"
+            }
+            return .captureTimestamp(.init(timeIntervalSince1970: timestamp.seconds))
         }
+    }
+
+    /// LOC timestamps are Unix microseconds unless an explicit Timescale selects media time.
+    func getTimestamp() throws -> LOCTimestamp? {
+        guard let data = self[MediaTypeHeaderExtensionValue.captureTimestamp.rawValue]?.first else {
+            return nil
+        }
+        guard let value = data.parseInteger(), let ticks = UInt64(exactly: value) else {
+            throw "Bad timestamp"
+        }
+        let timescale: UInt64?
+        switch try self.getHeader(.timescale) {
+        case .timescale(let value): timescale = value
+        default: timescale = nil
+        }
+        let seconds = TimeInterval(ticks) / TimeInterval(timescale ?? 1_000_000)
+        guard seconds < TimeInterval(UInt.max) / 1_000_000_000,
+              CMTime(seconds: seconds, preferredTimescale: 1_000_000).isNumeric else {
+            throw "Timestamp is outside the supported media time range"
+        }
+        return .init(seconds: seconds, isWallClock: timescale == nil)
     }
 
     enum HeaderType {
@@ -141,6 +175,11 @@ extension HeaderExtensions {
         }
         return .value(parsed)
     }
+}
+
+struct LOCTimestamp {
+    let seconds: TimeInterval
+    let isWallClock: Bool
 }
 
 extension Data {
@@ -322,6 +361,7 @@ enum MediaTypeHeaderExtensionValue {
 
     // LOC draft-ietf-moq-loc-05, Section 6.1.
     case captureTimestamp
+    case timescale
     case videoConfig
     case videoFrameMarking
     case audioLevel
@@ -335,6 +375,7 @@ enum MediaTypeHeaderExtensionValue {
         case .utf8Text: 0x11
         case .audioAACLCMPEG4BitstreamData: 0x13
         case .captureTimestamp: 0x10
+        case .timescale: 0x08
         case .videoFrameMarking: 0x09
         case .audioLevel: 0x0C
         }
@@ -352,6 +393,8 @@ enum MediaTypeHeaderExtension {
 
     // LOC Types.
     case captureTimestamp(Date)
+    case timestamp(UInt64)
+    case timescale(UInt64)
     case videoConfig(Data)
     case videoFrameMarking(Data) // TODO: Implement FrameMarking structure.
     case audioLevel(UInt8)
@@ -370,8 +413,10 @@ enum MediaTypeHeaderExtension {
             MediaTypeHeaderExtensionValue.utf8Text
         case .audioAACLCMPEG4BitstreamData:
             MediaTypeHeaderExtensionValue.audioAACLCMPEG4BitstreamData
-        case .captureTimestamp:
+        case .captureTimestamp, .timestamp:
             MediaTypeHeaderExtensionValue.captureTimestamp
+        case .timescale:
+            MediaTypeHeaderExtensionValue.timescale
         case .videoConfig:
             MediaTypeHeaderExtensionValue.videoConfig
         case .videoFrameMarking:
