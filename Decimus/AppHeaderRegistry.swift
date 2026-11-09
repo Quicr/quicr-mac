@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 enum AppHeadersRegistry: UInt64 {
-    case sequenceNumber = 4
-    case energyLevel = 6
-    case participantId = 8
-    case publishTimestamp = 10
-    case audioActivityIndicator = 12
+    case sequenceNumber = 0x3800
+    case participantId = 0x3804
+    case publishTimestamp = 0x3806
+    case audioActivityIndicator = 0x3808
 
     var nsKey: NSNumber {
         .init(value: self.rawValue)
@@ -15,7 +14,6 @@ enum AppHeadersRegistry: UInt64 {
 
 enum AppHeaders {
     case sequenceNumber(UInt64)
-    case energyLevel(UInt8)
     case participantId(ParticipantId)
     case publishTimestamp(Date)
     case audioActivityIndicator(UInt8)
@@ -23,7 +21,6 @@ enum AppHeaders {
     var value: AppHeadersRegistry {
         switch self {
         case .sequenceNumber: .sequenceNumber
-        case .energyLevel: .energyLevel
         case .participantId: .participantId
         case .publishTimestamp: .publishTimestamp
         case .audioActivityIndicator: .audioActivityIndicator
@@ -35,9 +32,6 @@ extension HeaderExtensions {
     func getHeader(_ appHeader: AppHeadersRegistry) throws -> AppHeaders? {
         guard let dataArray = self[appHeader.nsKey], let data = dataArray.first else { return nil }
         switch appHeader {
-        case .energyLevel:
-            guard let first = data.first else { throw "Invalid" }
-            return .energyLevel(first)
         case .participantId:
             guard let int = data.parseInteger() else { throw "Invalid" }
             return .participantId(.init(UInt32(int)))
@@ -55,8 +49,6 @@ extension HeaderExtensions {
 
     mutating func setHeader(_ key: AppHeaders) throws {
         let data = switch key {
-        case .energyLevel(let level):
-            Data([level])
         case .participantId(let id):
             withUnsafeBytes(of: id.aggregate) { Data($0) }
         case .sequenceNumber(let number):

@@ -197,8 +197,8 @@ final class OpusPublication: AudioPublication, PublicationInstance {
         } else {
             mask = 0b00000000
         }
-        let energyLevelValue = adjusted | mask
-        try? extensions.setHeader(.energyLevel(energyLevelValue))
+        let audioLevelValue = adjusted | mask
+        try extensions.setHeader(.audioLevel(audioLevelValue))
         try? extensions.setHeader(.participantId(self.participantId))
         return extensions
     }
