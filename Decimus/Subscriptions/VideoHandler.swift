@@ -425,7 +425,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             return
         }
 
-        let encoded: Data
+        let videoConfig: Data?
         let presentationTimestamp: CMTime
         do {
             if self.handlerConfig.mediaInterop {
@@ -438,7 +438,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 presentationTimestamp = .init(value: CMTimeValue(metadata.ptsTimestamp.value),
                                               timescale: CMTimeScale(metadata.timebase.value))
 
-                let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
+                videoConfig = switch try extensions.getHeader(.videoH264AVCCExtradata) {
                 case .videoH264AVCCExtradata(let data):
                     data
                 case nil:
@@ -446,17 +446,11 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 default:
                     throw "Bad header extension"
                 }
-
-                if let extradata {
-                    // Extradata needs to be extracted from AVCC record.
-                    let parameterSets = try H264Utilities.extractParameterSetsFromAVCC(extradata)
-                    encoded = parameterSets + data
-                } else {
-                    encoded = data
-                }
             } else {
-                // Data.
-                encoded = data
+                videoConfig = switch try extensions.getHeader(.videoConfig) {
+                case .videoConfig(let config): config
+                default: nil
+                }
 
                 // Timestamp.
                 guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
@@ -469,7 +463,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             }
 
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
-                                                   data: encoded,
+                                                   data: data,
+                                                   videoConfig: videoConfig,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
                                                    presentation: presentationTimestamp) else {
@@ -1079,6 +1074,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private func depacketize(fullTrackName: FullTrackName,
                              data: Data,
+                             videoConfig: Data?,
                              groupId: UInt64,
                              objectId: UInt64,
                              presentation: CMTime) throws -> DecimusVideoFrame? {
@@ -1105,6 +1101,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         // Depacketize.
         var extractedFormat: CMFormatDescription?
         var seis: [ApplicationSEI] = []
+        if self.config.codec == .h264,
+           let videoConfig {
+            let parameterSets = try H264Utilities.extractParameterSetsFromAVCC(videoConfig)
+            _ = try helpers.utilities.depacketize(parameterSets,
+                                                  format: &extractedFormat,
+                                                  copy: false,
+                                                  seiCallback: { _ in })
+        }
         let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
             do {
                 let parser = ApplicationSeiParser(helpers.seiData)
