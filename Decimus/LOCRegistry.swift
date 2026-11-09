@@ -105,12 +105,11 @@ extension HeaderExtensions {
             return .videoFrameMarking(data)
 
         case .audioLevel:
-            guard data.count == 1,
-                  let audioLevel = data.first,
-                  audioLevel < 128 else {
+            guard let value = data.parseInteger(),
+                  let audioLevel = UInt8(exactly: value) else {
                 throw "Bad audio level"
             }
-            return .audioLevel(UInt8(audioLevel))
+            return .audioLevel(audioLevel)
 
         case .captureTimestamp:
             guard let timestampUs = data.parseInteger() as? UInt64 else {
@@ -312,20 +311,34 @@ enum MediaType: VarInt {
     case audioAACLCMPEG4 = 0x3
 }
 
-enum MediaTypeHeaderExtensionValue: NSNumber {
+enum MediaTypeHeaderExtensionValue {
     // MoQMI.
-    case mediaType = 0x0A
-    case videoH264AVCCMetadata = 0x15
-    case videoH264AVCCExtradata = 0x0D
-    case audioOpusBitstreamData = 0x0F
-    case utf8Text = 0x11
-    case audioAACLCMPEG4BitstreamData = 0x13
+    case mediaType
+    case videoH264AVCCMetadata
+    case videoH264AVCCExtradata
+    case audioOpusBitstreamData
+    case utf8Text
+    case audioAACLCMPEG4BitstreamData
 
-    // LOC.
-    case captureTimestamp = 2
-    case videoConfig = 16
-    case videoFrameMarking = 4
-    case audioLevel = 6
+    // LOC draft-ietf-moq-loc-05, Section 6.1.
+    case captureTimestamp
+    case videoConfig
+    case videoFrameMarking
+    case audioLevel
+
+    var rawValue: NSNumber {
+        switch self {
+        case .mediaType: 0x0A
+        case .videoH264AVCCMetadata: 0x15
+        case .videoH264AVCCExtradata, .videoConfig: 0x0D
+        case .audioOpusBitstreamData: 0x0F
+        case .utf8Text: 0x11
+        case .audioAACLCMPEG4BitstreamData: 0x13
+        case .captureTimestamp: 0x10
+        case .videoFrameMarking: 0x09
+        case .audioLevel: 0x0C
+        }
+    }
 }
 
 enum MediaTypeHeaderExtension {
