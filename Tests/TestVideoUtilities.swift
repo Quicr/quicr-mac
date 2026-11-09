@@ -135,3 +135,59 @@ final class TestVideoUtilities: XCTestCase {
         }
     }
 }
+
+extension TestVideoUtilities {
+    @MainActor
+    func testLOCVideoConfigReception() async throws {
+        let fixture = try TopNH264Fixture.loadFromTestBundle()
+        var format: CMFormatDescription?
+        let buffers = try XCTUnwrap(H264Utilities().depacketize(fixture.accessUnits[0].payload,
+                                                                format: &format,
+                                                                copy: true,
+                                                                seiCallback: { _ in }))
+        let config = try XCTUnwrap(H264Utilities.extractAVCCAtom(from: XCTUnwrap(format)))
+
+        for annexB in [false, true] {
+            var payload = Data()
+            for buffer in buffers {
+                var bytes = Data(count: buffer.dataLength)
+                try bytes.withUnsafeMutableBytes { try buffer.copyDataBytes(to: $0) }
+                if annexB {
+                    bytes.replaceSubrange(0..<4, with: H264Utilities.naluStartCode)
+                }
+                payload.append(bytes)
+            }
+            let decoded = expectation(description: "Decode LOC header config, Annex B: \(annexB)")
+            let handler = try VideoHandler(fullTrackName: .init(namespace: ["loc-test"], name: "video"),
+                                           config: .init(codec: .h264, bitrate: 1_000_000, fps: fixture.fps,
+                                                         width: Int32(fixture.width), height: Int32(fixture.height),
+                                                         bitrateType: .average),
+                                           participants: .init(),
+                                           metricsSubmitter: nil,
+                                           videoBehaviour: .freeze,
+                                           granularMetrics: false,
+                                           jitterBufferConfig: .init(),
+                                           simulreceive: .none,
+                                           variances: .init(expectedOccurrences: 0),
+                                           participantId: .init(1),
+                                           subscribeDate: .now,
+                                           joinDate: .now,
+                                           activeSpeakerStats: nil,
+                                           handlerConfig: .init(calculateLatency: false, mediaInterop: false,
+                                                                decodeBufferSize: 1),
+                                           wifiDetector: nil,
+                                           videoPipelineEvent: { event in
+                                            if case .decoderOutput = event.kind { decoded.fulfill() }
+                                           })
+            var headers = HeaderExtensions()
+            try headers.setHeader(.captureTimestamp(.now))
+            try headers.setHeader(.videoConfig(config))
+            handler.objectReceived(.init(groupId: 0, subgroupId: 0, objectId: 0,
+                                         payloadLength: UInt64(payload.count), status: .available,
+                                         priority: nil, ttl: nil),
+                                   data: payload, extensions: headers, when: .now, cached: false, drop: false)
+            await fulfillment(of: [decoded], timeout: 5)
+            handler.stop()
+        }
+    }
+}
