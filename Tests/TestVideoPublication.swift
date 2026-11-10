@@ -130,7 +130,6 @@ private func makeIDRFrame() throws -> CMSampleBuffer {
     var format: CMFormatDescription?
     let buffers = try H264Utilities().depacketize(fixture.accessUnits[0].payload,
                                                   format: &format,
-                                                  copy: true,
                                                   seiCallback: { _ in })
     let buffer = try XCTUnwrap(buffers?.first)
     let sample = try CMSampleBuffer(dataBuffer: buffer,
@@ -160,7 +159,7 @@ final class TestVideoPublication: XCTestCase {
         let published = try XCTUnwrap(sink.publishedData)
         var format: CMFormatDescription?
         var parsedOrientation: OrientationSei?
-        _ = try H264Utilities().depacketize(published, format: &format, copy: true) { encoded in
+        _ = try H264Utilities().depacketize(published, format: &format) { encoded in
             parsedOrientation = try? OrientationSei.parse(encoded: encoded, data: ApplicationH264SEIs())
         }
         XCTAssertEqual(parsedOrientation?.orientation, .portraitUpsideDown)

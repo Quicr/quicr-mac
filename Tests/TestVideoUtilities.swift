@@ -23,16 +23,16 @@ final class TestVideoUtilities: XCTestCase {
             0x00, 0x00, 0x00, 0x06,
             1, 8, 9, 10, 11, 12
         ]
-        let data = Data(values)
+        var data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         let callback: (Data) -> Void = { _ in }
         guard let samples = try utilities.depacketize(data,
                                                       format: &format,
-                                                      copy: true,
                                                       seiCallback: callback) else {
             XCTFail()
             return
         }
+        data.resetBytes(in: 0..<data.count)
         XCTAssertEqual(samples.count, 2)
 
         // First 4 bytes should be big endian data length.
@@ -73,16 +73,16 @@ final class TestVideoUtilities: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             1, 8, 9, 10, 11
         ]
-        let data = Data(values)
+        var data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         let callback: (Data) -> Void = { _ in }
         guard let samples = try utilities.depacketize(data,
                                                       format: &format,
-                                                      copy: true,
                                                       seiCallback: callback) else {
             XCTFail()
             return
         }
+        data.resetBytes(in: 0..<data.count)
         XCTAssertEqual(samples.count, 2)
 
         // First 4 bytes should be big endian data length.
@@ -122,7 +122,7 @@ final class TestVideoUtilities: XCTestCase {
             1, 2, 3, 4, 5
         ]
         try values.withUnsafeBytes { packetized in
-            let block = try H264Utilities.buildBlockBuffer(packetized, copy: false)
+            let block = try H264Utilities.buildBlockBuffer(packetized)
 
             // Check the data is in the buffer.
             XCTAssertNotNil(block)
@@ -143,7 +143,6 @@ extension TestVideoUtilities {
         var format: CMFormatDescription?
         let buffers = try XCTUnwrap(H264Utilities().depacketize(fixture.accessUnits[0].payload,
                                                                 format: &format,
-                                                                copy: true,
                                                                 seiCallback: { _ in }))
         let config = try XCTUnwrap(H264Utilities.extractAVCCAtom(from: XCTUnwrap(format)))
 

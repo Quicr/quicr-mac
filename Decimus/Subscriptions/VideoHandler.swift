@@ -1106,10 +1106,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             let parameterSets = try H264Utilities.extractParameterSetsFromAVCC(videoConfig)
             _ = try helpers.utilities.depacketize(parameterSets,
                                                   format: &extractedFormat,
-                                                  copy: false,
                                                   seiCallback: { _ in })
         }
-        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
+        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat) {
             do {
                 let parser = ApplicationSeiParser(helpers.seiData)
                 if let sei = try parser.parse(encoded: $0) {
