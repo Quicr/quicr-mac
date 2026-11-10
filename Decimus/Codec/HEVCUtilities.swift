@@ -26,18 +26,15 @@ class HEVCUtilities: VideoUtilities {
 
     func depacketize(_ data: Data,
                      format: inout CMFormatDescription?,
-                     copy: Bool,
                      seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         if data.starts(with: Self.naluStartCode) {
             return try depacketizeAnnexB(data,
                                          format: &format,
-                                         copy: copy,
                                          seiCallback: seiCallback)
         } else {
             return try data.withUnsafeBytes {
                 try depacketizeLength($0,
                                       format: &format,
-                                      copy: copy,
                                       seiCallback: seiCallback)
             }
         }
@@ -45,14 +42,12 @@ class HEVCUtilities: VideoUtilities {
 
     /// Turns an HEVC Annex B bitstream into CMSampleBuffer per NALU.
     /// - Parameter data The HEVC data.
-    /// This is used in place and will be modified, so much outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
     /// - Parameter format The current format of the stream if known.
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     func depacketizeAnnexB(_ data: Data, // swiftlint:disable:this function_body_length
                            format: inout CMFormatDescription?,
-                           copy: Bool,
                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         guard data.starts(with: Self.naluStartCode) else {
             throw PacketizationError.missingStartCode
@@ -159,8 +154,7 @@ class HEVCUtilities: VideoUtilities {
             var naluDataLength = UInt32(nalu.count - Self.naluStartCode.count).byteSwapped
             nalu.replaceSubrange(0..<Self.naluStartCode.count, with: &naluDataLength, count: Self.naluStartCode.count)
             try nalu.withUnsafeBytes {
-                results.append(try H264Utilities.buildBlockBuffer($0,
-                                                                  copy: copy))
+                results.append(try H264Utilities.buildBlockBuffer($0))
             }
         }
         return results.count > 0 ? results : nil
@@ -168,7 +162,6 @@ class HEVCUtilities: VideoUtilities {
 
     private func depacketizeLength(_ data: UnsafeRawBufferPointer,
                                    format: inout CMFormatDescription?,
-                                   copy: Bool,
                                    seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         var results: [CMBlockBuffer] = []
         var offset = 0
@@ -222,8 +215,7 @@ class HEVCUtilities: VideoUtilities {
                 let ptr = data.baseAddress!.advanced(by: offset)
                 let length = Int(length) + MemoryLayout<UInt32>.size
                 results.append(try H264Utilities.buildBlockBuffer(UnsafeRawBufferPointer(start: ptr,
-                                                                                         count: length),
-                                                                  copy: copy))
+                                                                                         count: length)))
             }
             offset += MemoryLayout<UInt32>.size + Int(length)
         }

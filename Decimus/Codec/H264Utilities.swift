@@ -25,18 +25,15 @@ class H264Utilities: VideoUtilities {
 
     func depacketize(_ data: Data,
                      format: inout CMFormatDescription?,
-                     copy: Bool,
                      seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         if data.starts(with: Self.naluStartCode) {
             return try depacketizeAnnexB(data,
                                          format: &format,
-                                         copy: copy,
                                          seiCallback: seiCallback)
         } else {
             return try data.withUnsafeBytes {
                 try depacketizeLength($0,
                                       format: &format,
-                                      copy: copy,
                                       seiCallback: seiCallback)
             }
         }
@@ -44,7 +41,6 @@ class H264Utilities: VideoUtilities {
 
     private func depacketizeLength(_ data: UnsafeRawBufferPointer,
                                    format: inout CMFormatDescription?,
-                                   copy: Bool,
                                    seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         var results: [CMBlockBuffer] = []
         var offset = 0
@@ -88,8 +84,7 @@ class H264Utilities: VideoUtilities {
                 let ptr = data.baseAddress!.advanced(by: offset)
                 let length = Int(length) + MemoryLayout<UInt32>.size
                 results.append(try Self.buildBlockBuffer(UnsafeRawBufferPointer(start: ptr,
-                                                                                count: length),
-                                                         copy: copy))
+                                                                                count: length)))
             }
             offset += MemoryLayout<UInt32>.size + Int(length)
         }
@@ -97,15 +92,13 @@ class H264Utilities: VideoUtilities {
     }
 
     /// Turns an H264 bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The H264 data. This is used in place and will be modified,
-    /// so must outlive any use of the created samples.
+    /// - Parameter data The H264 data.
     /// - Parameter timeInfo The timing info for this frame.
     /// - Parameter format The current format of the stream if known.
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     private func depacketizeAnnexB(_ data: Data,
                                    format: inout CMFormatDescription?,
-                                   copy: Bool,
                                    seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         // Identify all NALUs by start code.
         assert(data.starts(with: Self.naluStartCode))
@@ -199,29 +192,20 @@ class H264Utilities: VideoUtilities {
                                      with: &naluDataLength,
                                      count: Self.naluStartCode.count)
                 try nalu.withUnsafeBytes {
-                    results.append(try Self.buildBlockBuffer($0,
-                                                             copy: copy))
+                    results.append(try Self.buildBlockBuffer($0))
                 }
             }
         }
         return results.count > 0 ? results : nil
     }
 
-    static func buildBlockBuffer(_ nalu: UnsafeRawBufferPointer,
-                                 copy: Bool) throws -> CMBlockBuffer {
-        let blockBuffer: CMBlockBuffer
-        if copy {
-            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count,
-                                                                  alignment: MemoryLayout<UInt8>.alignment)
-            nalu.copyBytes(to: copied)
-            blockBuffer = try .init(buffer: copied, deallocator: { buffer, _ in
-                buffer.deallocate()
-            })
-        } else {
-            blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: nalu.baseAddress!),
-                                                          count: nalu.count)) { _, _ in }
-        }
-        return blockBuffer
+    static func buildBlockBuffer(_ nalu: UnsafeRawBufferPointer) throws -> CMBlockBuffer {
+        let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count,
+                                                              alignment: MemoryLayout<UInt8>.alignment)
+        nalu.copyBytes(to: copied)
+        return try .init(buffer: copied, deallocator: { buffer, _ in
+            buffer.deallocate()
+        })
     }
 
     /// Attempts to extract the AVCDecoderConfigurationRecord (avcC atom) from a CMFormatDescription.

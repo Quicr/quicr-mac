@@ -32,7 +32,6 @@ enum TopNHarnessPreflight {
                 for accessUnit in fixture.accessUnits {
                     guard let buffers = try utilities.depacketize(accessUnit.payload,
                                                                   format: &format,
-                                                                  copy: true,
                                                                   seiCallback: { _ in }) else {
                         throw TopNH264FixtureError.invalid("frame \(accessUnit.index) has no depacketized samples")
                     }
