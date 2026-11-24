@@ -61,6 +61,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-DDEPLOYMENT_TARGET=15.0",
         "-DQUICR_BUILD_SHARED=ON",
+        "-DQUICR_INSTALL=OFF",
         "-DENABLE_VISIBILITY=ON",
         "-DWITH_DTRACE=OFF",
         "-DHAVE_H_ERRNO_ASSIGNABLE=0",
